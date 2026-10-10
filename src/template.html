@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>和弦进行生成器 · Chord Progression Generator</title>
+<style>
+/*CSS*/
+</style>
+</head>
+<body>
+<header>
+  <h1>🎹 和弦进行生成器<small>符合乐理的随机和弦进行 · 133 种风格 · 播放 / MIDI 导出</small></h1>
+  <div class="tabs" role="tablist">
+    <button id="tabRand" class="on">随机生成</button>
+    <button id="tabSeed">根据给定和弦扩展</button>
+  </div>
+</header>
+<main>
+  <section class="card" id="ctrl">
+    <div id="seedBox" hidden>
+      <h2>种子和弦</h2>
+      <label class="f full">输入一个或多个和弦（空格分隔），如 <code>Am F C G</code> 或 <code>Dm7</code>
+        <input type="text" id="seeds" value="Am F C G" placeholder="Am F C G">
+      </label>
+      <div class="infer" id="inferBox"></div>
+      <div class="err" id="seedErr"></div>
+      <div class="grid" style="margin-top:10px">
+        <label class="f">歌曲长度<select id="songLen"><option>短</option><option selected>标准</option><option>长</option></select></label>
+        <label class="f">&nbsp;<span class="chk"><input type="checkbox" id="modulate" checked> 最后副歌上移全音转调</span></label>
+      </div>
+      <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
+    </div>
+    <h2>参数（每项可设为 🎲 随机）</h2>
+    <div class="grid">
+      <label class="f">风格大类<select id="genre"></select></label>
+      <label class="f">子风格<select id="style"></select></label>
+      <label class="f">情绪<select id="mood"></select></label>
+      <label class="f">拍号<select id="meter"></select></label>
+      <label class="f" id="keyWrap">调性<select id="key"></select></label>
+      <label class="f" id="modeWrap">调式<select id="mode"></select></label>
+      <label class="f full">速度 BPM：<b id="bpmVal">100</b>
+        <div class="row"><input type="range" id="bpm" min="40" max="220" value="100"><button class="dice on" id="bpmRand" type="button">🎲 随机</button></div>
+      </label>
+      <label class="f">速度感<select id="feel"><option value="rand">🎲 随机</option><option>快</option><option>中</option><option>慢</option></select></label>
+      <label class="f"><span id="barsLabel">小节数</span><select id="bars"></select></label>
+      <label class="f">和弦复杂度<select id="complexity"></select></label>
+      <label class="f">和声节奏<select id="hr"></select></label>
+      <label class="f full">伴奏节奏型<select id="pattern"></select></label>
+    </div>
+    <div class="btns">
+      <button class="btn pri" id="gen">✨ 生成</button>
+      <button class="btn" id="allRand">🎲 全部随机</button>
+    </div>
+    <div class="btns">
+      <button class="btn" id="play">▶ 播放</button>
+      <button class="btn" id="stop" disabled>■ 停止</button>
+      <label class="chk"><input type="checkbox" id="loop"> 循环</label>
+      <label class="chk"><input type="checkbox" id="metro"> 节拍器</label>
+    </div>
+    <div class="btns">
+      <button class="btn" id="midi">⬇ 导出 MIDI</button>
+      <button class="btn" id="copy">📋 复制文本</button>
+    </div>
+    <p class="hint">提示：点击单个和弦可试听；空格键 播放/停止；Enter 生成。</p>
+  </section>
+  <section class="card" id="out"><div class="empty">点击「生成」开始</div></section>
+</main>
+<div class="toast" id="toast"></div>
+<script>
+/*ENGINE*/
+</script>
+<script>
+/*UI*/
+</script>
+</body>
+</html>
