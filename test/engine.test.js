@@ -10,27 +10,75 @@ const ok = (c, msg) => { checks++; assert.ok(c, msg); };
 const mod = (x, n) => ((x % n) + n) % n;
 
 function parseMidi(u) {
-  ok(String.fromCharCode(...u.slice(0, 4)) === 'MThd', 'MThd');
-  ok(String.fromCharCode(...u.slice(14, 18)) === 'MTrk', 'MTrk');
-  const len = (u[18] << 24) | (u[19] << 16) | (u[20] << 8) | u[21];
-  ok(len === u.length - 22, 'track length');
-  let p = 22, on = 0, off = 0, ended = false, status = 0;
-  const rd = () => { let v = 0, b; do { b = u[p++]; v = (v << 7) | (b & 0x7f); } while (b & 0x80); return v; };
-  while (p < u.length) {
-    rd();
-    let st = u[p];
-    if (st & 0x80) p++; else st = status;
-    status = st;
-    if (st === 0xff) { const type = u[p++]; const l = rd(); p += l; if (type === 0x2f) ended = true; }
-    else if ((st & 0xf0) === 0x90) { p += 2; on++; }
-    else if ((st & 0xf0) === 0x80) { p += 2; off++; }
-    else if ((st & 0xf0) === 0xc0) p += 1;
-    else throw new Error('unknown status ' + st);
+  ok(String.fromCharCode(...u.slice(0, 4)) === 'MThd' && ((u[4] << 24) | (u[5] << 16) | (u[6] << 8) | u[7]) === 6, 'MThd');
+  const format = (u[8] << 8) | u[9], ntr = (u[10] << 8) | u[11], ppq = (u[12] << 8) | u[13];
+  ok(format <= 1 && ppq === 480 && (format === 1 || ntr === 1), 'header format/ntracks');
+  let p = 14; const tracks = [];
+  const txt = (bytes) => decodeURIComponent(escape(String.fromCharCode(...bytes)));
+  for (let k = 0; k < ntr; k++) {
+    ok(String.fromCharCode(...u.slice(p, p + 4)) === 'MTrk', 'MTrk');
+    const len = (u[p + 4] << 24) | (u[p + 5] << 16) | (u[p + 6] << 8) | u[p + 7];
+    const end = p + 8 + len; p += 8;
+    const tr = { name: null, on: 0, off: 0, markers: [], channels: new Set(), tempo: false, ts: false, ended: false };
+    const rd = () => { let v = 0, b; do { b = u[p++]; v = (v << 7) | (b & 0x7f); } while (b & 0x80); return v; };
+    let status = 0, open = new Map();
+    while (p < end) {
+      rd();
+      let st = u[p]; if (st & 0x80) p++; else st = status; status = st;
+      if (st === 0xff) { const type = u[p++]; const l = rd(); const data = u.slice(p, p + l); p += l; if (type === 0x2f) tr.ended = true; if (type === 0x03) tr.name = txt(data); if (type === 0x06) tr.markers.push(txt(data)); if (type === 0x51) tr.tempo = true; if (type === 0x58) tr.ts = true; }
+      else if ((st & 0xf0) === 0x90) { const key = (st & 15) * 128 + u[p]; open.set(key, (open.get(key) || 0) + 1); p += 2; tr.on++; tr.channels.add(st & 15); }
+      else if ((st & 0xf0) === 0x80) { const key = (st & 15) * 128 + u[p]; ok((open.get(key) || 0) > 0, 'note-off matches note-on'); open.set(key, open.get(key) - 1); p += 2; tr.off++; }
+      else if ((st & 0xf0) === 0xc0) p += 1;
+      else throw new Error('unknown status ' + st);
+    }
+    ok(tr.ended && p === end, 'end of track');
+    ok(tr.on === tr.off, 'balanced notes');
+    tracks.push(tr);
   }
-  ok(ended && p === u.length, 'end of track');
-  ok(on === off && on > 0, 'balanced notes');
+  ok(p === u.length, 'file length');
+  return { format, tracks };
 }
-
+function checkMulti(song, label, opts) {
+  const m = parseMidi(E.toMidi(song, opts));
+  ok(m.format === 1 && m.tracks.length >= 3, label + ' format 1 multitrack');
+  const t0 = m.tracks[0];
+  ok(t0.tempo && t0.ts && t0.on === 0 && t0.markers.length >= 1, label + ' conductor track');
+  const names = m.tracks.slice(1).map((t) => t.name);
+  ok(names.includes('和弦') && names.includes('低音'), label + ' named part tracks ' + names);
+  m.tracks.slice(1).forEach((t) => ok(t.channels.size === 1 && (t.name !== '鼓' || t.channels.has(9)) && t.on > 0, label + ' one channel per track'));
+  if (opts.drums) ok(names.includes('鼓'), label + ' drum track');
+}
+function checkParts(song, label, opts) {
+  const parts = E.midiParts(song, opts);
+  ok(parts.map((x) => x.name).join() === '和弦,低音,旋律,鼓', label + ' 4 parts');
+  for (const x of parts) {
+    const m = parseMidi(x.bytes);
+    ok(m.format === 0 && m.tracks.length === 1, label + ' part format 0');
+    const t = m.tracks[0];
+    ok(t.name === x.name && t.tempo && t.ts && t.on > 0 && t.channels.size === 1, label + ' part meta ' + x.name);
+    ok(t.markers.includes(song.flat.find((c) => opts.section === undefined || c.section === opts.section).name), label + ' chord markers');
+    if (x.part === 'drum') ok(t.channels.has(9), label + ' drums on channel 10');
+  }
+  return parts;
+}
+function unzip(u) {
+  const dv = new DataView(u.buffer, u.byteOffset, u.byteLength);
+  const eo = u.length - 22; ok(dv.getUint32(eo, true) === 0x06054b50, 'EOCD');
+  const n = dv.getUint16(eo + 10, true), cdOff = dv.getUint32(eo + 16, true), out = [];
+  let p = cdOff;
+  for (let i = 0; i < n; i++) {
+    ok(dv.getUint32(p, true) === 0x02014b50, 'central header');
+    const crc = dv.getUint32(p + 16, true), size = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), lo = dv.getUint32(p + 42, true);
+    ok(dv.getUint16(p + 10, true) === 0, 'stored');
+    const name = decodeURIComponent(escape(String.fromCharCode(...u.slice(p + 46, p + 46 + nl))));
+    ok(dv.getUint32(lo, true) === 0x04034b50 && dv.getUint16(lo + 26, true) === nl, 'local header');
+    const data = u.slice(lo + 30 + nl, lo + 30 + nl + size);
+    ok(E.crc32(data) === crc && crc === dv.getUint32(lo + 14, true), 'crc ' + name);
+    out.push({ name, data }); p += 46 + nl;
+  }
+  ok(p === eo, 'central directory size');
+  return out;
+}
 function checkSong(song, label) {
   const s = song.settings;
   ok(E.METERS[s.meter], label + ' meter');
@@ -74,6 +122,12 @@ function checkSong(song, label) {
   const evs = E.buildEvents(song, { section: si });
   ok(evs.bars === song.sections[si].bars.length && evs.timeline.every((x) => x.t < evs.totalUnits), label + ' section events');
   parseMidi(E.toMidi(song, { section: si }));
+  if (R() < 0.1) {
+    checkMulti(song, label, { drums: R() < 0.5, melody: R() < 0.5, metronome: R() < 0.3 });
+    const parts = checkParts(song, label, { section: R() < 0.5 ? si : undefined });
+    const z = unzip(E.makeZip(parts.map((x) => ({ name: x.file + '.mid', data: x.bytes }))));
+    ok(z.length === 4 && z.every((f, k) => f.data.length === parts[k].bytes.length && f.data.every((v, j) => v === parts[k].bytes[j])), label + ' zip roundtrip');
+  }
   const txt = E.toText(song);
   ok(txt.includes(song.flat[0].name) && !/undefined/.test(txt), label + ' text');
   ok(song.explanation.length >= 3, label + ' explanation');
@@ -222,6 +276,11 @@ for (let i = 0; i < 300; i++) {
   for (const c of song.flat.slice(0, 4)) { const g = E.guitarShape(c); if (g) { const got = new Set(g.notes.filter((x) => x !== null).map((x) => mod(x, 12))); const pcs = E.Q[c.q].t.map((x) => mod(c.pc + x[0], 12)); ok([...got].every((x) => pcs.includes(x) || x === c.xbPc), label + ' guitar tones ' + c.name); } }
 }
 let bad = false; try { E.deserialize({ secs: [], st: 9999 }); } catch (e) { bad = true; } ok(bad, 'deserialize rejects junk');
+
+ok(E.crc32(new Uint8Array([...'123456789'].map((c) => c.charCodeAt(0)))) === 0xcbf43926, 'crc32 check value');
+const zz = unzip(E.makeZip([{ name: '和弦.txt', data: 'hello' }, { name: 'b/c.mid', data: new Uint8Array(0) }]));
+ok(zz[0].name === '和弦.txt' && zz[0].data.length === 5 && zz[1].data.length === 0, 'zip utf8 names / empty file');
+fs.writeFileSync('/tmp/cg-test.zip', E.makeZip(E.midiParts(E.expand({ seeds: 'Am F C G', seed: 1 })).map((x) => ({ name: x.file + '.mid', data: x.bytes }))));
 
 let thrown = false; try { E.expand({ seeds: 'xyz' }); } catch (e) { thrown = true; } ok(thrown, 'invalid seeds throw');
 

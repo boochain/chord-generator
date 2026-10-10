@@ -39,6 +39,16 @@ const assert = (c, m) => { if (!c) throw new Error('✘ ' + m); console.log('✔
     const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#' + id)]);
     assert(dl.suggestedFilename().endsWith(ext), '导出 ' + dl.suggestedFilename());
   }
+  for (const part of ['chord', 'bass', 'melody', 'drum']) {
+    await p.click('#expBtn');
+    const [d] = await Promise.all([p.waitForEvent('download'), p.click(`#expPop [data-part=${part}]`)]);
+    assert(/\.mid$/.test(d.suggestedFilename()), '分轨导出 ' + d.suggestedFilename());
+  }
+  await p.click('#expBtn');
+  const [dz] = await Promise.all([p.waitForEvent('download'), p.click('#zipAll')]);
+  const zp = '/tmp/cg-browser.zip'; await dz.saveAs(zp);
+  const zl = require('child_process').execSync(`python3 -c "import zipfile,sys;z=zipfile.ZipFile('${zp}');assert z.testzip() is None;print(len(z.namelist()))"`).toString().trim();
+  assert(dz.suggestedFilename().endsWith('.zip') && +zl === 6, '全部分轨打包 zip 可解析（' + zl + ' 个文件）');
   const [dl2] = await Promise.all([p.waitForEvent('download'), p.click('[data-act=midisec]')]);
   assert(/\.mid$/.test(dl2.suggestedFilename()), '分段 MIDI ' + dl2.suggestedFilename());
   await p.click('#save'); await p.click('#favBtn'); assert((await p.$$('#favList .li')).length >= 1, '收藏'); await p.keyboard.press('Escape');
@@ -59,6 +69,8 @@ const assert = (c, m) => { if (!c) throw new Error('✘ ' + m); console.log('✔
   await p.fill('#seeds', 'Am <img src=x onerror=alert(1)> F'); await p.click('#gen'); await p.waitForTimeout(200);
   assert(!(await p.$('#result img')) && !errs.some((e) => e.startsWith('dialog')), '无 XSS（输入被转义）');
   await p.click('[data-act=regensec] >> nth=2'); assert(true, '分段重新生成');
+  const [dzs] = await Promise.all([p.waitForEvent('download'), p.click('[data-act=zipsec] >> nth=3')]);
+  assert(/副歌.*_分轨\.zip$/.test(dzs.suggestedFilename()), '歌曲模式分段分轨打包 ' + dzs.suggestedFilename());
   await p.click('#theme');
   await p.click('#tabRand'); await p.click('#gen');
   await p.click('.ch:not(.cont) >> nth=1');

@@ -989,38 +989,106 @@ function buildEvents(song, opts = {}) {
   return { events: ev, timeline, totalUnits: bar0 * M.n, unitSec: unitSec(song.meter, song.bpm), bars: bar0, pattern: pat, groove };
 }
 
-/* ---------- MIDI 导出 ---------- */
+/* ---------- MIDI 导出（format 1 多轨 / 单轨分轨） ---------- */
 function vlq(n) { const b = [n & 0x7f]; while ((n >>>= 7)) b.unshift((n & 0x7f) | 0x80); return b; }
-function toMidi(song, opts = {}) {
-  const { events } = buildEvents(song, opts);
+const utf8 = (str) => Array.from(unescape(encodeURIComponent(str))).map((ch) => ch.charCodeAt(0));
+const PARTS = [
+  { part: 'chord', name: '和弦', ch: 0, file: 'chords' },
+  { part: 'bass', name: '低音', ch: 1, file: 'bass' },
+  { part: 'melody', name: '旋律', ch: 2, file: 'melody' },
+  { part: 'drum', name: '鼓', ch: 9, file: 'drums' },
+  { part: 'click', name: '节拍器', ch: 9, file: 'click' },
+];
+const PROGRAMS = { piano: 0, epiano: 4, pad: 89, guitar: 25, organ: 16, synth: 81 };
+function midiTiming(song) {
   const M = METERS[song.meter], ppq = 480, unitTicks = (ppq * 4) / M.d;
   const qpm = M.d === 4 ? song.bpm : M.n % 3 === 0 && M.n > 3 ? song.bpm * 1.5 : song.bpm;
-  const mpq = Math.round(60000000 / qpm);
-  const raw = [];
+  return { M, ppq, unitTicks, mpq: Math.round(60000000 / qpm) };
+}
+function chunk(bytesArr) { const L = bytesArr.length; return [0x4d, 0x54, 0x72, 0x6b, (L >>> 24) & 255, (L >>> 16) & 255, (L >>> 8) & 255, L & 255, ...bytesArr]; }
+function trackData(items) { // items: [tick, order, bytes]
+  items.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const tr = []; let last = 0;
+  for (const [t, , bytes] of items) { for (const x of vlq(t - last)) tr.push(x); for (const x of bytes) tr.push(x); last = t; }
+  for (const x of [0, 0xff, 0x2f, 0x00]) tr.push(x);
+  return tr;
+}
+const metaText = (type, str) => { const b = utf8(str); return [0xff, type, ...vlq(b.length), ...b]; };
+function conductorItems(song, built, tm, title) {
+  const { M, unitTicks, mpq } = tm;
+  const it = [[0, 0, metaText(0x03, title)], [0, 0, [0xff, 0x51, 0x03, (mpq >> 16) & 255, (mpq >> 8) & 255, mpq & 255]], [0, 0, [0xff, 0x58, 0x04, M.n, Math.log2(M.d), M.d === 8 && M.n % 3 === 0 ? 36 : 24, 8]]];
+  let lastSec = -1;
+  for (const x of built.timeline) {
+    if (x.cont) continue;
+    const c = song.flat[x.ci], t = Math.round(x.t * unitTicks);
+    if (c.section !== lastSec && song.sections.length > 1) { it.push([t, 0, metaText(0x06, song.sections[c.section].name)]); lastSec = c.section; }
+    it.push([t, 0, metaText(0x06, c.name)]);
+  }
+  return it;
+}
+function noteItems(events, part, ch, tm) {
+  const it = [];
   for (const e of events) {
-    const ch = e.part === 'bass' ? 1 : e.part === 'melody' ? 2 : e.part === 'click' || e.part === 'drum' ? 9 : 0;
-    const t0 = Math.round(e.t * unitTicks), t1 = Math.max(t0 + 1, Math.round((e.t + e.d) * unitTicks) - 1);
+    if (e.part !== part) continue;
+    const t0 = Math.round(e.t * tm.unitTicks), t1 = Math.max(t0 + 1, Math.round((e.t + e.d) * tm.unitTicks) - 1);
     for (const n of e.notes) {
       const note = clamp(Math.round(n), 0, 127), vel = clamp(Math.round(e.vel * 127), 1, 127);
-      raw.push([t0, 1, [0x90 | ch, note, vel]]); raw.push([t1, 0, [0x80 | ch, note, 0]]);
+      it.push([t0, 2, [0x90 | ch, note, vel]]); it.push([t1, 1, [0x80 | ch, note, 0]]);
     }
   }
-  raw.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-  const tr = [], push = (dt, bytes) => { for (const x of vlq(dt)) tr.push(x); for (const x of bytes) tr.push(x); };
-  push(0, [0xff, 0x51, 0x03, (mpq >> 16) & 255, (mpq >> 8) & 255, mpq & 255]);
-  push(0, [0xff, 0x58, 0x04, M.n, Math.log2(M.d), M.d === 8 && M.n % 3 === 0 ? 36 : 24, 8]);
-  const title = 'Chord Generator'.split('').map((ch) => ch.charCodeAt(0));
-  push(0, [0xff, 0x03, title.length, ...title]);
-  // 和弦标记（Marker）
-  const prog = { piano: 0, epiano: 4, pad: 89, guitar: 25, organ: 16, synth: 81 }[opts.instrument] || 0;
-  push(0, [0xc0, prog]); push(0, [0xc1, 33]); push(0, [0xc2, 73]);
-  let last = 0;
-  for (const [t, , b] of raw) { push(t - last, b); last = t; }
-  push(0, [0xff, 0x2f, 0x00]);
-  const L = tr.length;
-  const out = [0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 0, 0, 1, (ppq >> 8) & 255, ppq & 255, 0x4d, 0x54, 0x72, 0x6b, (L >>> 24) & 255, (L >>> 16) & 255, (L >>> 8) & 255, L & 255];
-  const u = new Uint8Array(out.length + L); u.set(out, 0); u.set(tr, out.length);
-  return u;
+  return it;
+}
+function partHeader(P, opts) {
+  const it = [[0, 0, metaText(0x03, P.name)]];
+  if (P.ch !== 9) it.push([0, 0, [0xc0 | P.ch, P.part === 'chord' ? PROGRAMS[opts.instrument] || 0 : P.part === 'bass' ? 33 : 73]]);
+  return it;
+}
+function midiFile(format, tracks, ppq) {
+  return new Uint8Array([0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, format, 0, tracks.length, (ppq >> 8) & 255, ppq & 255, ...tracks.flatMap(chunk)]);
+}
+// 合并 MIDI：format 1，第 0 轨为指挥轨（速度/拍号/和弦标记），其后每个声部一个命名轨
+function toMidi(song, opts = {}) {
+  const built = buildEvents(song, opts), tm = midiTiming(song);
+  const tracks = [trackData(conductorItems(song, built, tm, opts.title || 'Chord Generator'))];
+  for (const P of PARTS) {
+    const notes = noteItems(built.events, P.part, P.ch, tm);
+    if (notes.length) tracks.push(trackData(partHeader(P, opts).concat(notes)));
+  }
+  return midiFile(1, tracks, tm.ppq);
+}
+// 分轨导出：每个声部一个独立的 .mid（format 0，含速度、拍号、轨名与和弦标记）
+function midiParts(song, opts = {}) {
+  const built = buildEvents(song, Object.assign({}, opts, { drums: true, melody: true, metronome: false })), tm = midiTiming(song);
+  const out = [];
+  for (const P of PARTS.slice(0, 4)) {
+    const notes = noteItems(built.events, P.part, P.ch, tm);
+    if (!notes.length) continue;
+    const it = conductorItems(song, built, tm, P.name).concat(partHeader(P, opts).slice(1), notes);
+    out.push({ part: P.part, name: P.name, file: P.file, channel: P.ch + 1, bytes: midiFile(0, [trackData(it)], tm.ppq) });
+  }
+  return out;
+}
+/* ---------- 极简 ZIP（仅存储，不压缩） ---------- */
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u) { let c = 0xffffffff; for (let i = 0; i < u.length; i++) c = CRC_T[(c ^ u[i]) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+function makeZip(files, date) {
+  const d = date || new Date();
+  const dt = ((d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1)) & 0xffff, dd = (((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate()) & 0xffff;
+  const parts = [], central = []; let off = 0;
+  const u16 = (v) => [v & 255, (v >>> 8) & 255], u32 = (v) => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255];
+  for (const f of files) {
+    const name = utf8(f.name), data = f.data instanceof Uint8Array ? f.data : new Uint8Array(utf8(String(f.data))), crc = crc32(data);
+    const common = [...u16(20), ...u16(0x0800), ...u16(0), ...u16(dt), ...u16(dd), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(name.length), ...u16(0)];
+    const local = new Uint8Array([0x50, 0x4b, 0x03, 0x04, ...common, ...name]);
+    parts.push(local, data);
+    central.push(new Uint8Array([0x50, 0x4b, 0x01, 0x02, ...u16(20), ...common, ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(off), ...name]));
+    off += local.length + data.length;
+  }
+  const cdSize = central.reduce((a, c) => a + c.length, 0);
+  const end = new Uint8Array([0x50, 0x4b, 0x05, 0x06, 0, 0, 0, 0, ...u16(files.length), ...u16(files.length), ...u32(cdSize), ...u32(off), 0, 0]);
+  const all = [...parts, ...central, end], out = new Uint8Array(all.reduce((a, c) => a + c.length, 0));
+  let p = 0; for (const c of all) { out.set(c, p); p += c.length; }
+  return out;
 }
 
 /* ---------- 文本导出 ---------- */
@@ -1160,6 +1228,6 @@ function guitarShape(c) {
   return { frets: best, base: Math.max(...best) > 4 ? lo : 1, notes: best.map((f, j) => (f < 0 ? null : GUITAR[j] + f)) };
 }
 
-const ChordEngine = { LET, MODES, METERS, STYLES, GENRES, MOODS, Q, COMPLEX, KEYS_M, BAR_OPTS, HR_OPTS, FUNC_CN, PATTERNS, SECTION_PLANS, mkRng, generate, expand, parseChord, parseSeeds, inferKey, buildEvents, toMidi, toText, splitBar, unitSec, keyName, spell, diatonicQ, serialize, deserialize, cloneSong, refresh, transpose, setBpm, alternatives, replaceChord, toggleLock, regenerate, guitarShape, locate, ALT_TIPS, DRUM };
+const ChordEngine = { LET, MODES, METERS, STYLES, GENRES, MOODS, Q, COMPLEX, KEYS_M, BAR_OPTS, HR_OPTS, FUNC_CN, PATTERNS, SECTION_PLANS, mkRng, generate, expand, parseChord, parseSeeds, inferKey, buildEvents, toMidi, toText, splitBar, unitSec, keyName, spell, diatonicQ, serialize, deserialize, cloneSong, refresh, transpose, setBpm, alternatives, replaceChord, toggleLock, regenerate, guitarShape, locate, ALT_TIPS, DRUM, midiParts, makeZip, crc32, PARTS };
 if (typeof module !== 'undefined' && module.exports) module.exports = ChordEngine;
 if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;

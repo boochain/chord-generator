@@ -188,7 +188,7 @@
     let barNo = 1;
     song.sections.forEach((sec, si) => {
       h += `<div class="section" style="animation-delay:${si * 40}ms"><div class="sh"><h3>${esc(sec.name)}</h3><span class="k">${esc(sec.keyLabel)}</span>${sec.modulated ? '<span class="mod">⤴ 转调 +全音</span>' : ''}<span class="sp"></span>
-        <button class="ib" data-act="playsec" data-si="${si}" data-tip="只播放本段">▶</button><button class="ib" data-act="regensec" data-si="${si}" data-tip="重新生成本段（保留锁定）">↻</button><button class="ib" data-act="midisec" data-si="${si}" data-tip="导出本段 MIDI">⬇ MIDI</button></div>${sec.note ? `<p class="note">${termify(esc(sec.note))}</p>` : ''}<div class="bars">`;
+        <button class="ib" data-act="playsec" data-si="${si}" data-tip="只播放本段">▶</button><button class="ib" data-act="regensec" data-si="${si}" data-tip="重新生成本段（保留锁定）">↻</button><button class="ib" data-act="midisec" data-si="${si}" data-tip="导出本段多轨 MIDI">⬇ MIDI</button><button class="ib" data-act="zipsec" data-si="${si}" data-tip="本段分轨打包 .zip（和弦/低音/旋律/鼓）">📦</button></div>${sec.note ? `<p class="note">${termify(esc(sec.note))}</p>` : ''}<div class="bars">`;
       for (const bar of sec.bars) {
         h += `<div class="bar"><span class="no">${barNo++}</span>`;
         for (const cell of bar) {
@@ -210,7 +210,7 @@
     const lk = e.target.closest('[data-lock]');
     if (lk) { e.stopPropagation(); toggleLock(+lk.dataset.lock); return; }
     const act = e.target.closest('[data-act]');
-    if (act) { const si = +act.dataset.si; if (act.dataset.act === 'regensec') regen(si); else if (act.dataset.act === 'midisec') exportMidi(si); else play(si); return; }
+    if (act) { const si = +act.dataset.si; if (act.dataset.act === 'regensec') regen(si); else if (act.dataset.act === 'midisec') exportMidi(si); else if (act.dataset.act === 'zipsec') exportZip(si); else play(si); return; }
     const ch = e.target.closest('.ch'); if (!ch) return;
     select(+ch.dataset.ci, true);
   });
@@ -412,10 +412,30 @@
   function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }
   function exportMidi(section) {
     if (!song) return;
-    const bytes = E.toMidi(song, { metronome: toggles.metro, drums: toggles.drums, melody: toggles.melody, pattern: $('pattern').value, instrument: $('inst').value, section });
+    const bytes = E.toMidi(song, midiOpts(section));
     download(new Blob([bytes], { type: 'audio/midi' }), fileBase() + (section !== undefined ? '_' + song.sections[section].name.split(' ')[0] : '') + '.mid');
     toast('MIDI 已导出');
   }
+  const midiOpts = (section) => ({ metronome: toggles.metro, drums: toggles.drums, melody: toggles.melody, pattern: $('pattern').value, instrument: $('inst').value, section, title: song.settings.style + ' · ' + song.settings.key });
+  const secSuffix = (section) => (section !== undefined ? '_' + song.sections[section].name.split(' ')[0] : '');
+  function exportPart(part, section) {
+    if (!song) return;
+    const x = E.midiParts(song, midiOpts(section)).find((p) => p.part === part);
+    if (!x) { toast('该声部没有音符'); return; }
+    download(new Blob([x.bytes], { type: 'audio/midi' }), `${fileBase()}${secSuffix(section)}_${x.file}.mid`);
+    toast(x.name + '轨已导出');
+  }
+  function exportZip(section) {
+    if (!song) return;
+    const parts = E.midiParts(song, midiOpts(section)), base = fileBase() + secSuffix(section);
+    const files = parts.map((x) => ({ name: `${base}_${x.file}.mid`, data: x.bytes }));
+    files.push({ name: base + '_全部.mid', data: E.toMidi(song, Object.assign(midiOpts(section), { drums: true, melody: true, metronome: false })) });
+    files.push({ name: base + '.txt', data: E.toText(song) });
+    download(new Blob([E.makeZip(files)], { type: 'application/zip' }), base + '_分轨.zip');
+    toast(`已打包 ${parts.length} 条分轨`);
+  }
+  document.querySelectorAll('#expPop [data-part]').forEach((b) => (b.onclick = () => exportPart(b.dataset.part)));
+  $('zipAll').onclick = () => exportZip();
   $('expBtn').onclick = (e) => { e.stopPropagation(); $('expPop').classList.toggle('open'); };
   $('expPop').addEventListener('click', () => $('expPop').classList.remove('open'));
   $('midi').onclick = () => exportMidi();

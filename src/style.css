@@ -128,7 +128,7 @@ input[type=range]{width:100%;accent-color:var(--acc)}
 .toast.on{opacity:1;transform:translateX(-50%)}
 .keys{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:13px}
 .menu{position:relative}
-.menu .pop{right:0;left:auto;min-width:200px}
+.menu .pop{right:0;left:auto;min-width:230px;max-height:70vh;overflow:auto}
 .menu .pop button{display:block;width:100%;text-align:left;border:0;background:transparent;padding:8px 10px;border-radius:8px;cursor:pointer;color:var(--text)}
 .menu .pop button:hover{background:var(--panel2)}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
