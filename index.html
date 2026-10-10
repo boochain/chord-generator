@@ -1,132 +1,251 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
 <title>和弦进行生成器 · Chord Progression Generator</title>
 <style>
-:root{--bg:#0f1220;--panel:#171b2e;--panel2:#1e2340;--line:#2b3157;--text:#e8eaf6;--muted:#9aa0c3;--acc:#7c8cff;--acc2:#ff7ab6;--T:#3ecf8e;--S:#5aa9ff;--D:#ff8a4c;--X:#c08cff;--r:14px}
+:root{--bg:#0d1020;--bg2:#121631;--panel:#161a33;--panel2:#1d2244;--line:#2a3060;--text:#eceefb;--muted:#a3a9cf;--faint:#6d74a3;--acc:#8b93ff;--acc2:#ff6fae;--accT:#fff;--T:#34d399;--S:#60a5fa;--D:#fb923c;--X:#c084fc;--shadow:0 12px 32px #0006;--r:16px;--glass:rgba(22,26,51,.82)}
+[data-theme=light]{--bg:#f3f4fb;--bg2:#e9ebf8;--panel:#ffffff;--panel2:#f2f3fb;--line:#dcdff0;--text:#1b1e33;--muted:#545a7d;--faint:#8a90b0;--acc:#5b5ff0;--acc2:#e0457f;--T:#059669;--S:#2563eb;--D:#ea580c;--X:#9333ea;--shadow:0 10px 28px #2a2f6b1f;--glass:rgba(255,255,255,.85)}
 *{box-sizing:border-box}
-html,body{margin:0;background:radial-gradient(1200px 600px at 10% -10%,#2a2f6b55,transparent),radial-gradient(900px 500px at 110% 10%,#6b2a5a44,transparent),var(--bg);color:var(--text);font:14px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;min-height:100vh}
-header{padding:22px 24px 8px;display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between}
-h1{margin:0;font-size:22px;letter-spacing:.5px}
-h1 small{display:block;font-size:12px;color:var(--muted);font-weight:400;margin-top:2px}
-.tabs{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px}
-.tabs button{border:0;background:transparent;color:var(--muted);padding:8px 16px;border-radius:999px;cursor:pointer;font:inherit}
-.tabs button.on{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff}
-main{display:grid;grid-template-columns:360px 1fr;gap:18px;padding:12px 24px 40px;max-width:1500px;margin:0 auto}
-@media(max-width:960px){main{grid-template-columns:1fr;padding:10px 12px 40px}header{padding:16px 12px 4px}}
-.card{background:linear-gradient(180deg,var(--panel),#141831);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:0 10px 30px #0004}
-.card h2{font-size:15px;margin:0 0 12px;color:#c9cdf5}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Segoe UI",sans-serif;min-height:100vh;transition:background .3s,color .3s}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(900px 500px at 0% -10%,color-mix(in srgb,var(--acc) 22%,transparent),transparent 70%),radial-gradient(800px 500px at 100% 0%,color-mix(in srgb,var(--acc2) 16%,transparent),transparent 70%);z-index:-1}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+code{background:var(--panel2);border:1px solid var(--line);padding:0 5px;border-radius:6px;font-size:12px}
+/* header */
+header{position:sticky;top:0;z-index:30;display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;justify-content:space-between;padding:12px 22px;background:var(--glass);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;font-size:19px;box-shadow:0 6px 18px color-mix(in srgb,var(--acc) 45%,transparent)}
+h1{margin:0;font-size:18px;letter-spacing:.3px}
+h1 small{display:block;font-size:11.5px;color:var(--muted);font-weight:400}
+.tabs{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:3px}
+.tabs button{border:0;background:transparent;color:var(--muted);padding:7px 15px;border-radius:999px;cursor:pointer;transition:all .2s}
+.tabs button[aria-selected=true]{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;box-shadow:0 4px 14px color-mix(in srgb,var(--acc) 40%,transparent)}
+.hbtns{display:flex;gap:6px;flex-wrap:wrap}
+.ib{border:1px solid var(--line);background:var(--panel);border-radius:10px;height:34px;min-width:34px;padding:0 10px;display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:all .15s;color:var(--text)}
+.ib:hover:not(:disabled){border-color:var(--acc);transform:translateY(-1px)}
+.ib:disabled{opacity:.4;cursor:default}
+.ib.on{background:color-mix(in srgb,var(--acc) 18%,var(--panel));border-color:var(--acc);color:var(--text)}
+.ib.pri{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;border:0;font-weight:600;box-shadow:0 6px 18px color-mix(in srgb,var(--acc) 35%,transparent)}
+.ib.big{height:40px;padding:0 16px}
+kbd{font:11px ui-monospace,monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 4px;color:var(--muted);background:var(--panel2)}
+/* layout */
+main{display:grid;grid-template-columns:330px minmax(0,1fr) 320px;gap:16px;padding:16px 22px 60px;max-width:1680px;margin:0 auto;align-items:start}
+@media(max-width:1280px){main{grid-template-columns:320px minmax(0,1fr)}#insp{grid-column:1/-1}}
+@media(max-width:880px){main{grid-template-columns:1fr;padding:10px 10px 80px}header{padding:10px 12px}h1 small{display:none}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--shadow)}
+.sticky{position:sticky;top:76px}
+@media(max-width:1280px){.sticky{position:static}}
+.card h2{font-size:13px;letter-spacing:.6px;text-transform:uppercase;margin:0 0 10px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.group{padding:12px 0;border-top:1px dashed var(--line)}
+.group:first-of-type{border-top:0;padding-top:0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .full{grid-column:1/-1}
 label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
-.row{display:flex;gap:6px;align-items:center}
-select,input[type=text],textarea{width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;outline:none}
-select:focus,input:focus,textarea:focus{border-color:var(--acc)}
+select,input[type=text],input[type=search]{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;outline:none;transition:border .15s;color:var(--text)}
+select:focus,input:focus{border-color:var(--acc)}
 input[type=range]{width:100%;accent-color:var(--acc)}
-.dice{flex:none;border:1px solid var(--line);background:var(--panel2);color:var(--muted);border-radius:8px;padding:6px 8px;cursor:pointer;font-size:12px;white-space:nowrap}
-.dice.on{color:#fff;border-color:var(--acc);background:#7c8cff33}
-.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
-.btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:10px;padding:9px 14px;cursor:pointer;font:inherit;display:inline-flex;align-items:center;gap:6px}
-.btn:hover{border-color:var(--acc)}
-.btn.pri{background:linear-gradient(135deg,var(--acc),var(--acc2));border:0;color:#fff;font-weight:600}
-.btn:disabled{opacity:.5;cursor:default}
-.chk{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:13px;cursor:pointer}
-.out-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:12px}
-.tags{display:flex;flex-wrap:wrap;gap:6px}
-.tag{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px;color:#cfd3ff}
-.section{margin:14px 0 6px}
-.section h3{margin:0 0 4px;font-size:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.section h3 .k{font-weight:400;color:var(--muted);font-size:12px}
-.section h3 .mod{color:var(--acc2);font-size:12px}
-.section p.note{margin:0 0 8px;color:var(--muted);font-size:12px}
-.bars{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
-@media(max-width:700px){.bars{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.bar{background:#11152a;border:1px solid var(--line);border-radius:12px;padding:6px;display:flex;gap:6px;min-height:84px;position:relative}
-.bar .no{position:absolute;top:3px;left:8px;font-size:10px;color:#5f668f}
-.ch{flex:1;min-width:0;border-radius:9px;padding:16px 6px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:var(--panel2);border-top:3px solid var(--X);cursor:pointer;transition:transform .08s,box-shadow .15s}
-.ch:hover{transform:translateY(-1px)}
-.ch.T{border-top-color:var(--T)}.ch.S{border-top-color:var(--S)}.ch.D{border-top-color:var(--D)}
-.ch .nm{font-size:17px;font-weight:700;word-break:break-all}
-.ch .rn{font-size:12px;color:#cfd3ff;font-family:"Times New Roman",serif}
-.ch .fn{font-size:10px;color:var(--muted)}
-.ch .tg{font-size:10px;color:var(--acc2)}
-.ch.cont{opacity:.45;cursor:default}
-.ch.now{box-shadow:0 0 0 2px #fff,0 0 22px var(--acc);background:#2c3270}
-.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:6px 0}
+.row{display:flex;gap:6px;align-items:center}
+.chip{border:1px solid var(--line);background:var(--panel2);color:var(--muted);border-radius:999px;padding:4px 10px;font-size:12px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.chip:hover{color:var(--text);border-color:var(--acc)}
+.chip.on{color:var(--text);border-color:var(--acc);background:color-mix(in srgb,var(--acc) 20%,var(--panel2))}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.hint{font-size:12px;color:var(--faint);margin:10px 0 0}
+.err{color:#f87171;font-size:12px;min-height:1em;margin-top:4px}
+/* style picker */
+.picker{position:relative}
+.pickbtn{width:100%;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;cursor:pointer;display:flex;justify-content:space-between;gap:6px}
+.pickbtn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pop{position:absolute;z-index:40;left:0;right:-40px;top:calc(100% + 6px);background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:8px;display:none;animation:pop .14s ease-out}
+.pop.open{display:block}
+@keyframes pop{from{opacity:0;transform:translateY(-4px)}to{opacity:1}}
+.plist{max-height:340px;overflow:auto;margin-top:6px}
+.plist .gh{position:sticky;top:0;background:var(--panel);font-size:11.5px;color:var(--acc);padding:6px 6px 3px;font-weight:600;cursor:pointer;display:flex;justify-content:space-between}
+.plist .it{padding:5px 10px;border-radius:8px;cursor:pointer;font-size:13px}
+.plist .it:hover,.plist .it.sel{background:var(--panel2)}
+.plist .it.sel{color:var(--acc)}
+/* result */
+.transport{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.transport .sep{width:1px;height:24px;background:var(--line);margin:0 2px}
+.transport select{width:auto;padding:6px 8px}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.tag{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:12px;color:var(--muted)}
+.tag b{color:var(--text);font-weight:600}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:4px 0 6px}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
-.ex{margin:14px 0 0;padding-left:18px;color:#cfd3f5}
-.ex li{margin:4px 0}
-.infer{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
-.infer button{font-size:12px}
-.err{color:#ff8080;font-size:12px;margin-top:6px}
-.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#000c;color:#fff;padding:8px 16px;border-radius:999px;opacity:0;transition:opacity .2s;pointer-events:none}
-.toast.on{opacity:1}
-.hint{font-size:12px;color:var(--muted)}
+.section{margin:16px 0 4px;animation:fade .35s ease-out both}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+.sh{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.sh h3{margin:0;font-size:15px}
+.sh .k{font-size:12px;color:var(--muted)}
+.sh .mod{font-size:12px;color:var(--acc2);font-weight:600}
+.sh .sp{flex:1}
+.sh .ib{height:28px;font-size:12px;padding:0 8px}
+.note{margin:0 0 8px;color:var(--muted);font-size:12.5px}
+.bars{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+@media(max-width:640px){.bars{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.bar{background:var(--bg2);border:1px solid var(--line);border-radius:13px;padding:5px;display:flex;gap:5px;min-height:92px;position:relative}
+.bar .no{position:absolute;top:3px;left:8px;font-size:10px;color:var(--faint)}
+.ch{flex:1;min-width:0;border-radius:10px;padding:18px 4px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:var(--panel);border:1px solid transparent;border-top:3px solid var(--X);cursor:pointer;transition:transform .12s,box-shadow .2s,background .2s;position:relative;animation:fade .3s ease-out both}
+.ch:hover{transform:translateY(-2px);box-shadow:0 6px 16px #0003}
+.ch.T{border-top-color:var(--T)}.ch.S{border-top-color:var(--S)}.ch.D{border-top-color:var(--D)}
+.ch .nm{font-size:17px;font-weight:700;word-break:break-word;line-height:1.2}
+.ch .rn{font-size:12.5px;color:var(--muted);font-family:"Times New Roman",Georgia,serif}
+.ch .fn{font-size:10.5px;color:var(--faint)}
+.ch .tg{font-size:10.5px;color:var(--acc2);font-weight:600}
+.ch.cont{opacity:.5}
+.ch.sel{border-color:var(--acc);box-shadow:0 0 0 2px color-mix(in srgb,var(--acc) 45%,transparent)}
+.ch.now{background:color-mix(in srgb,var(--acc) 25%,var(--panel));box-shadow:0 0 0 2px var(--acc),0 0 24px color-mix(in srgb,var(--acc) 50%,transparent);transform:scale(1.03)}
+.ch.locked{background:repeating-linear-gradient(135deg,var(--panel),var(--panel) 8px,color-mix(in srgb,var(--acc) 8%,var(--panel)) 8px,color-mix(in srgb,var(--acc) 8%,var(--panel)) 16px)}
+.lk{position:absolute;top:2px;right:3px;border:0;background:transparent;cursor:pointer;font-size:12px;opacity:.35;padding:2px;border-radius:6px}
+.ch:hover .lk,.lk.on{opacity:1}
+.ex{margin:10px 0 0;padding-left:18px;color:var(--muted)}
+.ex li{margin:5px 0}
+.term{border-bottom:1px dotted var(--acc);cursor:help;color:var(--text)}
 .empty{color:var(--muted);text-align:center;padding:60px 0}
+/* inspector */
+.cbig{font-size:30px;font-weight:800;line-height:1.1}
+.sub{color:var(--muted);font-family:"Times New Roman",Georgia,serif;font-size:16px}
+.badges{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.badge{font-size:11.5px;border-radius:999px;padding:2px 9px;border:1px solid var(--line);background:var(--panel2)}
+.badge.T{color:var(--T)}.badge.S{color:var(--S)}.badge.D{color:var(--D)}.badge.x{color:var(--acc2)}
+.viz{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:8px;margin:8px 0;overflow:hidden}
+.viz svg{display:block;width:100%;height:auto}
+.alts{display:flex;flex-direction:column;gap:6px;margin-top:6px;max-height:420px;overflow:auto}
+.altg{font-size:11.5px;color:var(--muted);margin:6px 0 2px}
+.alt{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:6px 10px;cursor:pointer;transition:all .15s;text-align:left;width:100%}
+.alt:hover{border-color:var(--acc);transform:translateX(2px)}
+.alt b{font-size:14px}
+.alt small{color:var(--muted);font-family:"Times New Roman",serif}
+/* drawers */
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(380px,92vw);background:var(--panel);border-left:1px solid var(--line);box-shadow:var(--shadow);z-index:50;transform:translateX(105%);transition:transform .25s ease;padding:16px;overflow:auto}
+.drawer.open{transform:none}
+.drawer h2{margin:0 0 10px;font-size:16px;display:flex;justify-content:space-between;align-items:center}
+.li{display:flex;gap:8px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:6px 0;background:var(--panel2)}
+.li .t{flex:1;min-width:0;cursor:pointer}
+.li .t div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.li .t small{color:var(--muted)}
+.li.cur{border-color:var(--acc)}
+.scrim{position:fixed;inset:0;background:#0006;z-index:45;display:none}
+.scrim.open{display:block}
+#tip{position:fixed;z-index:60;max-width:280px;background:var(--text);color:var(--bg);font-size:12px;padding:7px 10px;border-radius:9px;pointer-events:none;opacity:0;transition:opacity .12s;box-shadow:var(--shadow)}
+#tip.on{opacity:1}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(10px);background:var(--text);color:var(--bg);padding:9px 18px;border-radius:999px;opacity:0;transition:all .2s;pointer-events:none;z-index:70;font-weight:500}
+.toast.on{opacity:1;transform:translateX(-50%)}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:13px}
+.menu{position:relative}
+.menu .pop{right:0;left:auto;min-width:200px}
+.menu .pop button{display:block;width:100%;text-align:left;border:0;background:transparent;padding:8px 10px;border-radius:8px;cursor:pointer;color:var(--text)}
+.menu .pop button:hover{background:var(--panel2)}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 </style>
 </head>
 <body>
 <header>
-  <h1>🎹 和弦进行生成器<small>符合乐理的随机和弦进行 · 133 种风格 · 播放 / MIDI 导出</small></h1>
-  <div class="tabs" role="tablist">
-    <button id="tabRand" class="on">随机生成</button>
-    <button id="tabSeed">根据给定和弦扩展</button>
+  <div class="brand"><div class="logo" aria-hidden="true">♪</div><h1>和弦进行生成器<small>符合乐理 · 133 种风格 · v2</small></h1></div>
+  <div class="tabs" role="tablist" aria-label="模式">
+    <button role="tab" id="tabRand" aria-selected="true">随机生成</button>
+    <button role="tab" id="tabSeed" aria-selected="false">根据给定和弦扩展</button>
+  </div>
+  <div class="hbtns">
+    <button class="ib" id="undo" data-tip="撤销 (Ctrl+Z)" aria-label="撤销" disabled>↶</button>
+    <button class="ib" id="redo" data-tip="重做 (Ctrl+Shift+Z)" aria-label="重做" disabled>↷</button>
+    <button class="ib" id="histBtn" data-tip="历史记录 (H)">🕘 历史</button>
+    <button class="ib" id="favBtn" data-tip="收藏夹 (F)">★ 收藏</button>
+    <button class="ib" id="theme" data-tip="切换深色/浅色主题" aria-label="切换主题">◐</button>
+    <button class="ib" id="help" data-tip="快捷键 (?)" aria-label="快捷键">⌨</button>
   </div>
 </header>
 <main>
-  <section class="card" id="ctrl">
-    <div id="seedBox" hidden>
+  <section class="card sticky" id="ctrl" aria-label="参数">
+    <div class="group" id="seedBox" hidden>
       <h2>种子和弦</h2>
-      <label class="f full">输入一个或多个和弦（空格分隔），如 <code>Am F C G</code> 或 <code>Dm7</code>
-        <input type="text" id="seeds" value="Am F C G" placeholder="Am F C G">
+      <label class="f">输入一个或多个和弦，支持空格、逗号、｜、- 分隔，如 <code>Am F C G</code>、<code>Dm7</code>、<code>C/E</code>
+        <input type="text" id="seeds" value="Am F C G" placeholder="Am F C G" autocomplete="off" spellcheck="false">
       </label>
-      <div class="infer" id="inferBox"></div>
-      <div class="err" id="seedErr"></div>
-      <div class="grid" style="margin-top:10px">
+      <div class="row" id="inferBox" style="flex-wrap:wrap;margin-top:6px"></div>
+      <div class="err" id="seedErr" role="alert"></div>
+      <div class="grid">
         <label class="f">歌曲长度<select id="songLen"><option>短</option><option selected>标准</option><option>长</option></select></label>
-        <label class="f">&nbsp;<span class="chk"><input type="checkbox" id="modulate" checked> 最后副歌上移全音转调</span></label>
+        <label class="f">转调<select id="modulate"><option value="1">最后副歌 +全音</option><option value="0">不转调</option></select></label>
       </div>
-      <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
     </div>
-    <h2>参数（每项可设为 🎲 随机）</h2>
-    <div class="grid">
-      <label class="f">风格大类<select id="genre"></select></label>
-      <label class="f">子风格<select id="style"></select></label>
-      <label class="f">情绪<select id="mood"></select></label>
-      <label class="f">拍号<select id="meter"></select></label>
-      <label class="f" id="keyWrap">调性<select id="key"></select></label>
-      <label class="f" id="modeWrap">调式<select id="mode"></select></label>
-      <label class="f full">速度 BPM：<b id="bpmVal">100</b>
-        <div class="row"><input type="range" id="bpm" min="40" max="220" value="100"><button class="dice on" id="bpmRand" type="button">🎲 随机</button></div>
-      </label>
-      <label class="f">速度感<select id="feel"><option value="rand">🎲 随机</option><option>快</option><option>中</option><option>慢</option></select></label>
-      <label class="f"><span id="barsLabel">小节数</span><select id="bars"></select></label>
-      <label class="f">和弦复杂度<select id="complexity"></select></label>
-      <label class="f">和声节奏<select id="hr"></select></label>
-      <label class="f full">伴奏节奏型<select id="pattern"></select></label>
+    <div class="group">
+      <h2>风格与情绪</h2>
+      <div class="grid">
+        <div class="f full picker" id="picker"><span style="font-size:12px;color:var(--muted)">风格（可搜索）</span>
+          <button class="pickbtn" id="pickBtn" aria-haspopup="listbox"><span id="pickLabel">🎲 全部随机</span><span>▾</span></button>
+          <div class="pop" id="pickPop"><input type="search" id="pickSearch" placeholder="搜索风格，如 jazz / 国风 / lo-fi"><div class="plist" id="pickList" role="listbox"></div></div>
+        </div>
+        <label class="f full">情绪<select id="mood"></select></label>
+      </div>
     </div>
-    <div class="btns">
-      <button class="btn pri" id="gen">✨ 生成</button>
-      <button class="btn" id="allRand">🎲 全部随机</button>
+    <div class="group">
+      <h2>调性与节拍</h2>
+      <div class="grid">
+        <label class="f">调性<select id="key"></select></label>
+        <label class="f">调式<select id="mode"></select></label>
+        <label class="f">拍号<select id="meter"></select></label>
+        <label class="f">速度感<select id="feel"><option value="rand">🎲 随机</option><option>快</option><option>中</option><option>慢</option></select></label>
+        <label class="f full"><span>速度 BPM <b id="bpmVal"></b></span>
+          <span class="row"><input type="range" id="bpm" min="40" max="220" value="100" aria-label="BPM"><button class="chip on" id="bpmRand" type="button">🎲 随机</button></span>
+        </label>
+      </div>
     </div>
-    <div class="btns">
-      <button class="btn" id="play">▶ 播放</button>
-      <button class="btn" id="stop" disabled>■ 停止</button>
-      <label class="chk"><input type="checkbox" id="loop"> 循环</label>
-      <label class="chk"><input type="checkbox" id="metro"> 节拍器</label>
+    <div class="group">
+      <h2>结构与和声</h2>
+      <div class="grid">
+        <label class="f"><span id="barsLabel">小节数</span><select id="bars"></select></label>
+        <label class="f"><span><span class="term" data-tip="每小节放几个和弦。数字越大和弦变化越快。">和声节奏</span></span><select id="hr"></select></label>
+        <label class="f full"><span><span class="term" data-tip="三和弦最朴素；七和弦更丰富；九/十一/十三增加延伸音；变化和弦在属和弦上加入 ♭9、♯9、♯11、♭13 等张力。">和弦复杂度</span></span><select id="complexity"></select></label>
+      </div>
     </div>
-    <div class="btns">
-      <button class="btn" id="midi">⬇ 导出 MIDI</button>
-      <button class="btn" id="copy">📋 复制文本</button>
+    <div class="actions">
+      <button class="ib pri big" id="gen" data-tip="按当前参数生成新进行 (Enter)">✨ 生成</button>
+      <button class="ib big" id="allRand" data-tip="所有参数设为随机并生成 (A)">🎲 全部随机</button>
     </div>
-    <p class="hint">提示：点击单个和弦可试听；空格键 播放/停止；Enter 生成。</p>
+    <p class="hint">点击和弦可试听并查看替换；🔒 锁定后按 <kbd>R</kbd> 只重新生成未锁定部分。</p>
   </section>
-  <section class="card" id="out"><div class="empty">点击「生成」开始</div></section>
+
+  <section class="card" id="out" aria-live="polite">
+    <div class="transport" id="transport">
+      <button class="ib pri" id="play" aria-label="播放">▶ 播放</button>
+      <button class="ib" id="stop" aria-label="停止" disabled>■</button>
+      <button class="chip" id="loop" aria-pressed="false" data-tip="循环播放">🔁 循环</button>
+      <button class="chip" id="metro" aria-pressed="false" data-tip="节拍器 (M)">🥁 节拍器</button>
+      <button class="chip on" id="drums" aria-pressed="true" data-tip="按风格生成的简易鼓组 (D)">🪘 鼓</button>
+      <button class="chip" id="melody" aria-pressed="false" data-tip="基于和弦音与调内音生成旋律提示">🎵 旋律提示</button>
+      <span class="sep"></span>
+      <select id="inst" aria-label="音色" data-tip="和弦音色"><option value="piano">🎹 钢琴</option><option value="epiano">🎛 电钢琴</option><option value="pad">🌫 合成铺底</option><option value="guitar">🎸 吉他扫弦</option></select>
+      <select id="pattern" aria-label="伴奏节奏型"></select>
+      <span class="sep"></span>
+      <button class="ib" id="tDown" data-tip="降半音移调 ([)">♭</button><span class="tag" id="keyNow">—</span><button class="ib" id="tUp" data-tip="升半音移调 (])">♯</button>
+      <span style="flex:1"></span>
+      <button class="ib" id="regen" data-tip="重新生成未锁定的和弦 (R)">↻ 重生成</button>
+      <button class="ib" id="save" data-tip="收藏当前进行 (S)">☆</button>
+      <div class="menu"><button class="ib" id="expBtn" aria-haspopup="menu">⬇ 导出 ▾</button>
+        <div class="pop" id="expPop" role="menu">
+          <button id="midi">🎼 MIDI（全曲）</button><button id="png">🖼 PNG 和弦谱</button><button id="txt">📄 文本文件</button><button id="copy">📋 复制文本</button><button id="share">🔗 复制分享链接</button>
+        </div>
+      </div>
+    </div>
+    <div id="result"><div class="empty">点击「生成」开始</div></div>
+  </section>
+
+  <aside class="card sticky" id="insp" aria-label="和弦详情"><div class="empty">选择一个和弦查看详情</div></aside>
 </main>
-<div class="toast" id="toast"></div>
+<div class="scrim" id="scrim"></div>
+<div class="drawer" id="favDrawer" aria-label="收藏夹"><h2>★ 收藏夹 <button class="ib" data-close>✕</button></h2><div id="favList"></div></div>
+<div class="drawer" id="histDrawer" aria-label="历史"><h2>🕘 历史记录 <button class="ib" data-close>✕</button></h2><div id="histList"></div></div>
+<div class="drawer" id="helpDrawer" aria-label="快捷键"><h2>⌨ 快捷键 <button class="ib" data-close>✕</button></h2>
+  <div class="keys"><kbd>Space</kbd><span>播放 / 停止</span><kbd>Enter</kbd><span>按参数生成</span><kbd>R</kbd><span>重新生成未锁定和弦</span><kbd>A</kbd><span>全部随机</span><kbd>← →</kbd><span>选择上/下一个和弦</span><kbd>L</kbd><span>锁定/解锁选中和弦</span><kbd>[ ]</kbd><span>移调 −1 / +1 半音</span><kbd>Ctrl+Z</kbd><span>撤销</span><kbd>Ctrl+Shift+Z</kbd><span>重做</span><kbd>M</kbd><span>节拍器</span><kbd>D</kbd><span>鼓组</span><kbd>S</kbd><span>收藏</span><kbd>T</kbd><span>切换主题</span><kbd>Esc</kbd><span>关闭面板</span></div>
+  <p class="hint">术语下方带虚线的文字悬停可看解释。</p>
+</div>
+<div id="tip" role="tooltip"></div>
+<div class="toast" id="toast" role="status"></div>
 <script>
 /* 和弦进行生成引擎 — 纯函数，无 DOM 依赖（浏览器与 Node 通用） */
 'use strict';
@@ -180,6 +299,7 @@ const Q = {
   '7#9': { sym: '7#9', t: [[0, 0], [4, 2], [7, 4], [10, 6], [15, 1]], cls: 'M', r: '7♯9', dom: 1 },
   '7#11': { sym: '7#11', t: [[0, 0], [4, 2], [10, 6], [14, 1], [18, 3]], cls: 'M', r: '7♯11', dom: 1 },
   '7b13': { sym: '7b13', t: [[0, 0], [4, 2], [10, 6], [20, 5]], cls: 'M', r: '7♭13', dom: 1 },
+  '7#5': { sym: '7#5', t: [[0, 0], [4, 2], [8, 4], [10, 6]], cls: 'A', r: '+7', dom: 1 },
   '7alt': { sym: '7alt', t: [[0, 0], [4, 2], [10, 6], [13, 1], [20, 5]], cls: 'M', r: '7alt', dom: 1 },
 };
 function mkRng(seed) {
@@ -580,34 +700,48 @@ function buildProg(ctx, style, n, rng, o = {}) {
     chords = []; for (let i = 0; i < n; i++) chords.push(parseTok(toks[i % toks.length], ctx));
   } else chords = markov(ctx, style, n, rng, o.startFunc);
   const fixedForm = !!(style.fixed && tplUsed);
-  if (!fixedForm) {
-    const bp = clamp(style.borrow + (o.borrowAdd || 0), 0, 0.8);
-    for (let i = 1; i < n - 2; i++) if (chords[i].diat && rng() < bp * 0.5) { const b = borrowOf(ctx, chords[i], rng); if (b) chords[i] = b; }
-    const sp = clamp(style.sec + (o.secAdd || 0), 0, 0.8);
-    for (let i = 1; i < n - 2; i++) {
-      const nx = chords[i + 1];
-      if (nx.diat && nx.step !== 0 && Q[nx.q].cls !== 'd' && Q[nx.q].cls !== 'A' && rng() < sp) chords[i] = secDom(ctx, nx.step);
-    }
-  }
-  let cad = null;
+  let cad = null, k = 0;
   if (fixedForm) {
     if (n >= 2) { chords[n - 2] = parseTok('V7', ctx); chords[n - 1] = parseTok(tplUsed.split(' ')[0], ctx); }
     cad = { type: 'blues', n: '布鲁斯回转 V7→I7' };
   } else if (o.end !== 'none' && n >= 2) {
     cad = cadence(ctx, style, rng, !o.end || o.end === 'cad' ? null : o.end);
-    const k = cad.ch.length;
+    k = cad.ch.length;
     for (let i = 0; i < k; i++) chords[n - k + i] = Object.assign({}, cad.ch[i]);
   }
+  if (!fixedForm) {
+    const bp = clamp(style.borrow + (o.borrowAdd || 0), 0, 0.8);
+    for (let i = 1; i < n - k; i++) if (chords[i].diat && rng() < bp * 0.5) { const b = borrowOf(ctx, chords[i], rng); if (b) chords[i] = b; }
+    const sp = clamp(style.sec + (o.secAdd || 0), 0, 0.8);
+    // 从后往前插入副属，保证每个 V/x 的目标和弦不会再被替换
+    for (let i = n - k - 1; i >= 1; i--) {
+      const nx = chords[i + 1];
+      if (nx && nx.diat && nx.step !== 0 && Q[nx.q].cls !== 'd' && Q[nx.q].cls !== 'A' && rng() < sp) chords[i] = secDom(ctx, nx.step);
+    }
+  }
   if (!fixedForm && style.tri > 0) {
-    for (let i = 1; i < n - 1; i++) {
-      const c = chords[i];
-      if (c.dom && Q[c.q].cls === 'M' && (c.tag === '副属' || c.rel === 7) && rng() < style.tri) {
+    for (let i = n - 2; i >= 1; i--) {
+      const c = chords[i], nx = chords[i + 1];
+      if (c.dom && Q[c.q].cls === 'M' && (c.tag === '副属' || c.rel === 7) && mod(nx.rel - c.rel, 12) === 5 && nx.tag !== '三全音替代' && chords[i - 1].tag !== '副属' && rng() < style.tri) {
         chords[i] = tritoneOf(c);
         if (i === n - 2 && cad) cad.n += '（属和弦用三全音替代）';
       }
     }
   }
+  repairSecondary(chords, ctx);
   return { chords, tplUsed, cad };
+}
+// 保证每个副属/三全音替代确实解决到下一个和弦（模板循环或终止式替换后可能失配）
+function repairSecondary(chords, ctx) {
+  for (let i = chords.length - 2; i >= 0; i--) {
+    const c = chords[i], nx = chords[i + 1], d = mod(nx.rel - c.rel, 12);
+    if ((c.tag === '副属' && d !== 5) || (c.tag === '三全音替代' && d !== 11)) {
+      const t = MODES[ctx.mode].s.indexOf(nx.rel);
+      chords[i] = c.tag === '副属' && nx.diat && t > 0 && Q[nx.q].cls !== 'd' ? Object.assign(secDom(ctx, t), { q: c.q, done: c.done }) : dia(ctx, c.step);
+    }
+  }
+  const last = chords[chords.length - 1];
+  if (last && (last.tag === '副属' || last.tag === '三全音替代')) chords[chords.length - 1] = dia({ tonic: ctx.tonic, mode: ctx.mode }, last.step);
 }
 
 /* ---------- 复杂度 ---------- */
@@ -651,6 +785,7 @@ function realize(c, ctx) {
   const kl = keyLetter(ctx.tonic, ctx.mode);
   c.pc = mod(ctx.tonic + c.rel, 12); c.letter = mod(kl + c.step, 7);
   c.root = spell(c.pc, c.letter);
+  if (c.xb) { c.xbPc = mod(ctx.tonic + c.xb.rel, 12); c.xbName = spell(c.xbPc, kl + c.xb.step); }
   if (c.sub) c.roman = 'subV7/' + c.sec;
   else if (c.sec) c.roman = 'V' + (Q[c.q].dom ? Q[c.q].r : '') + '/' + c.sec;
   else c.roman = romanOf(ctx, c.rel, c.step, c.q);
@@ -658,7 +793,8 @@ function realize(c, ctx) {
 }
 function chordName(c) {
   let n = c.root + Q[c.q].sym;
-  if (c.bass > 0) { const t = Q[c.q].t[c.bass]; n += '/' + spell(c.pc + t[0], c.letter + t[1]); }
+  if (c.xb) n += '/' + c.xbName;
+  else if (c.bass > 0) { const t = Q[c.q].t[c.bass]; n += '/' + spell(c.pc + t[0], c.letter + t[1]); }
   return n;
 }
 function voiceAll(list, style, rng) {
@@ -697,7 +833,9 @@ function voiceAll(list, style, rng) {
       const cost = (prevB === null ? 0 : Math.abs(note - prevB)) + (k ? pen[T[k][1]] : 0) * (1.6 - style.slash) * 1.6 + rng();
       if (cost < bcost) { bcost = cost; bb = k; bnote = note; }
     }
-    if (c.seedBass !== undefined) { bb = c.seedBass; bnote = 38 + mod(c.pc + T[bb][0] - 38, 12); }
+    if (c.seedBass !== undefined && c.seedBass < T.length) { bb = c.seedBass; bnote = 38 + mod(c.pc + T[bb][0] - 38, 12); }
+    if (c.lb !== undefined && c.lb < T.length) { bb = c.lb; bnote = 38 + mod(c.pc + T[bb][0] - 38, 12); }
+    if (c.xb) { bb = 0; bnote = 38 + mod(c.xbPc - 38, 12); }
     c.bass = bb; c.bassNote = bnote; prevB = bnote;
     while (Math.min(...c.upper) <= bnote + 2) c.upper = c.upper.map((x) => x + 12);
     c.name = chordName(c);
@@ -773,6 +911,7 @@ function finalize(song, rng) {
     idx += sec.chords.length;
   });
   song.flat = all;
+  for (const c of all) if (c.tag === '转调属' && song.sections[c.section + 1]) c.roman = 'V7/→' + keyName(song.sections[c.section + 1].tonic, song.sections[c.section + 1].mode);
   return song;
 }
 function settingsOut(r) {
@@ -814,9 +953,9 @@ function generate(o = {}) {
   return song;
 }
 /* ---------- 模式二：根据给定和弦扩展 ---------- */
-const SUF = { '': '', M: '', maj: '', m: 'm', min: 'm', '-': 'm', dim: 'dim', '°': 'dim', o: 'dim', aug: 'aug', '+': 'aug', 7: '7', dom7: '7', maj7: 'maj7', M7: 'maj7', 'Δ': 'maj7', 'Δ7': 'maj7', m7: 'm7', min7: 'm7', '-7': 'm7', m7b5: 'm7b5', 'ø': 'm7b5', 'ø7': 'm7b5', 'm7-5': 'm7b5', dim7: 'dim7', '°7': 'dim7', o7: 'dim7', mMaj7: 'mMaj7', mM7: 'mMaj7', 'm(maj7)': 'mMaj7', sus2: 'sus2', sus4: 'sus4', sus: 'sus4', '7sus4': '7sus4', '7sus': '7sus4', add9: 'add9', add2: 'add9', madd9: 'madd9', 'm(add9)': 'madd9', 6: '6', m6: 'm6', 69: '69', '6/9': '69', 9: '9', maj9: 'maj9', M9: 'maj9', m9: 'm9', 11: '9', m11: 'm11', 13: '13', '7b9': '7b9', '7#9': '7#9', '7#11': '7#11', '7b13': '7b13', '7alt': '7alt', alt: '7alt', 'maj7#11': 'maj7#11', 'maj7#5': 'maj7#5', 5: '' };
+const SUF = { '': '', M: '', maj: '', m: 'm', min: 'm', '-': 'm', dim: 'dim', '°': 'dim', o: 'dim', aug: 'aug', '+': 'aug', 7: '7', dom7: '7', maj7: 'maj7', M7: 'maj7', 'Δ': 'maj7', 'Δ7': 'maj7', m7: 'm7', min7: 'm7', '-7': 'm7', m7b5: 'm7b5', 'ø': 'm7b5', 'ø7': 'm7b5', 'm7-5': 'm7b5', dim7: 'dim7', '°7': 'dim7', o7: 'dim7', mMaj7: 'mMaj7', mM7: 'mMaj7', 'm(maj7)': 'mMaj7', sus2: 'sus2', sus4: 'sus4', sus: 'sus4', '7sus4': '7sus4', '7sus': '7sus4', add9: 'add9', add2: 'add9', madd9: 'madd9', 'm(add9)': 'madd9', 6: '6', m6: 'm6', 69: '69', '6/9': '69', 9: '9', maj9: 'maj9', M9: 'maj9', m9: 'm9', 11: '9', m11: 'm11', 13: '13', '7b9': '7b9', '7#9': '7#9', '7#11': '7#11', '7b13': '7b13', '7alt': '7alt', alt: '7alt', 'maj7#11': 'maj7#11', 'maj7#5': 'maj7#5', 5: '', '7#5': '7#5', '7+5': '7#5', aug7: '7#5', '+7': '7#5', '△': 'maj7', '△7': 'maj7', 'maj7(#11)': 'maj7#11', mi: 'm', mi7: 'm7', min9: 'm9', 'm(b5)': 'dim', mb5: 'dim', 'min(maj7)': 'mMaj7', sus24: 'sus4', '7(b9)': '7b9', '7(#9)': '7#9', dom9: '9', 'add(9)': 'add9', 'madd2': 'madd9', '(add9)': 'add9', 'm(add2)': 'madd9', 'm7-b5': 'm7b5', 'm7(b5)': 'm7b5', 'mi7b5': 'm7b5' };
 function parseChord(sym) {
-  const s = sym.trim().replace(/♯/g, '#').replace(/♭/g, 'b');
+  const s = sym.trim().replace(/♯/g, '#').replace(/♭/g, 'b').replace(/[Ａ-Ｚａ-ｚ０-９＃]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0)).replace(/（/g, '(').replace(/）/g, ')').replace(/／/g, '/');
   const m = s.match(/^([A-Ga-g])([#b]?)(.*)$/);
   if (!m) return null;
   let rest = m[3], bass = null;
@@ -826,11 +965,12 @@ function parseChord(sym) {
   const letter = LET.indexOf(m[1].toUpperCase());
   const pc = mod(LETPC[letter] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0), 12);
   let bassPc = null;
-  if (bass) { const bl = LET.indexOf(bass[0].toUpperCase()); bassPc = mod(LETPC[bl] + (bass[1] === '#' ? 1 : bass[1] === 'b' ? -1 : 0), 12); }
-  return { pc, letter, q: SUF[rest], bassPc, text: s };
+  let bassLetter = null;
+  if (bass) { bassLetter = LET.indexOf(bass[0].toUpperCase()); bassPc = mod(LETPC[bassLetter] + (bass[1] === '#' ? 1 : bass[1] === 'b' ? -1 : 0), 12); }
+  return { pc, letter, q: SUF[rest], bassPc, bassLetter, text: s };
 }
 function parseSeeds(text) {
-  const toks = String(text).replace(/6\/9/g, '69').split(/[\s,，|｜]+/).filter(Boolean);
+  const toks = String(text).replace(/6\/9/g, '69').split(/[\s,，、|｜;；→>·]+|[-–—](?=[A-G]|[a-g](?![0-9]))/).filter(Boolean);
   const out = [], bad = [];
   for (const t of toks) { const c = parseChord(t); if (c) out.push(c); else bad.push(t); }
   return { chords: out, bad };
@@ -866,7 +1006,11 @@ function seedToRel(c, ctx) {
     if (s[t] === mod(rel + 5, 12) && t !== 0) { o.tag = '副属'; o.func = 'D'; o.sec = romanOf(ctx, s[t], t, diatonicQ(s, t, false)); }
   }
   if (rel === 7 && Q[c.q].cls === 'M') { o.func = 'D'; o.dom = true; if (!diat) o.tag = MODES[ctx.mode].ref === 'm' ? '和声小调属' : '借用'; }
-  if (c.bassPc !== null) { const k = Q[c.q].t.findIndex((x) => mod(c.pc + x[0], 12) === c.bassPc); if (k > 0) o.seedBass = k; }
+  if (c.bassPc !== null) {
+    const k = Q[c.q].t.findIndex((x) => mod(c.pc + x[0], 12) === c.bassPc);
+    if (k > 0) o.seedBass = k;
+    else if (k < 0) o.xb = { rel: mod(c.bassPc - ctx.tonic, 12), step: mod(c.bassLetter - keyLetter(ctx.tonic, ctx.mode), 7) };
+  }
   return o;
 }
 const SECTION_PLANS = {
@@ -958,7 +1102,6 @@ function expand(o = {}) {
   });
   const song = { kind: 'expand', seed, style: st, meter: r.meter, bpm: r.bpm, hr, settings: settingsOut(Object.assign(r, { tonic: tonicPc, mode })), sections, inference: inf.slice(0, 6), autoKey: auto, seedsParsed: parsed };
   finalize(song, rng);
-  for (const c of song.flat) if (c.tag === '转调属') c.roman = 'V7/→' + keyName(tonicPc + 2, mode);
   const ex = [];
   ex.push(`输入种子：${parsed.chords.map((c) => c.text).join(' ')}${parsed.bad.length ? '（无法识别，已忽略：' + parsed.bad.join(' ') + '）' : ''}。`);
   ex.push(`调性推断（得分）：${inf.slice(0, 3).map((x) => `${x.name}（${x.score}）`).join('、')}；${auto ? '自动' : '手动指定'}采用 ${keyName(tonicPc, mode)} ${MODES[mode].n}。`);
@@ -1017,12 +1160,65 @@ function chordEvents(c, start, dur, meter, pat, out) {
     }
   }
 }
+const DRUM = { kick: 36, snare: 38, clap: 39, rim: 37, hat: 42, ohat: 46, ride: 51 };
+function grooveOf(pat) {
+  return { pulse: 'four', drive: 'rock', strum: 'rock', block: 'rock', boom: 'boom', swing: 'swing', skank: 'onedrop', latin: 'latin', bossa: 'bossa', funk: 'funk', shuffle: 'shuffle', waltz: 'waltz', pad: 'soft', arp: 'soft', alberti: 'soft' }[pat] || 'rock';
+}
+function drumBar(groove, meter, t0, out) {
+  const M = METERS[meter], n = M.n, hit = (t, note, vel) => { if (t < t0 + n - 1e-6) out.push({ t, d: 0.1, notes: [note], vel, part: 'drum' }); };
+  if (M.d === 8) { // 复合/不规则拍：组首底鼓，第二组军鼓，每个八分音符踩镲
+    let p = 0; M.g.forEach((g, i) => { hit(t0 + p, i % 2 ? DRUM.snare : DRUM.kick, i ? 0.6 : 0.8); p += g; });
+    for (let u = 0; u < n; u++) hit(t0 + u, DRUM.hat, u % 3 ? 0.25 : 0.4);
+    return;
+  }
+  if (groove === 'waltz' || n === 3) { hit(t0, DRUM.kick, 0.8); for (let b = 1; b < n; b++) hit(t0 + b, DRUM.hat, 0.4); return; }
+  for (let b = 0; b < n; b++) {
+    const t = t0 + b, odd = b % 2 === 1;
+    switch (groove) {
+      case 'four': hit(t, DRUM.kick, 0.85); if (odd) hit(t, DRUM.clap, 0.6); hit(t + 0.5, DRUM.ohat, 0.35); break;
+      case 'boom': if (!odd) hit(t, DRUM.kick, 0.85); if (b === 2) hit(t + 0.5, DRUM.kick, 0.6); if (odd) hit(t, DRUM.snare, 0.75); hit(t, DRUM.hat, 0.35); hit(t + 0.6, DRUM.hat, 0.25); break;
+      case 'swing': hit(t, DRUM.ride, 0.45); if (odd) { hit(t + 2 / 3, DRUM.ride, 0.3); hit(t, DRUM.hat, 0.35); } if (b === 0) hit(t, DRUM.kick, 0.4); break;
+      case 'onedrop': hit(t, DRUM.hat, 0.3); hit(t + 0.5, DRUM.hat, 0.25); if (b === 2) { hit(t, DRUM.kick, 0.8); hit(t, DRUM.rim, 0.6); } break;
+      case 'latin': hit(t, DRUM.hat, 0.3); hit(t + 0.5, DRUM.hat, 0.25); if (!odd) hit(t, DRUM.kick, 0.7); if (b === 1 || b === 3) hit(t + 0.5, DRUM.rim, 0.5); break;
+      case 'bossa': if (!odd) { hit(t, DRUM.kick, 0.6); hit(t + 1.5, DRUM.kick, 0.45); } hit(t, DRUM.hat, 0.25); hit(t + 0.5, DRUM.hat, 0.2); if (b === 0 || b === 3) hit(t, DRUM.rim, 0.45); if (b === 1) hit(t + 0.5, DRUM.rim, 0.45); break;
+      case 'funk': for (let k = 0; k < 4; k++) hit(t + k * 0.25, DRUM.hat, k % 2 ? 0.2 : 0.35); if (b === 0) { hit(t, DRUM.kick, 0.85); hit(t + 0.75, DRUM.kick, 0.6); } if (b === 2) hit(t + 0.5, DRUM.kick, 0.7); if (odd) hit(t, DRUM.snare, 0.8); break;
+      case 'shuffle': hit(t, DRUM.hat, 0.35); hit(t + 2 / 3, DRUM.hat, 0.25); if (!odd) hit(t, DRUM.kick, 0.75); else hit(t, DRUM.snare, 0.7); break;
+      case 'soft': if (b === 0) hit(t, DRUM.kick, 0.45); hit(t, DRUM.hat, 0.18); break;
+      default: hit(t, DRUM.hat, 0.35); hit(t + 0.5, DRUM.hat, 0.25); if (!odd) hit(t, DRUM.kick, 0.8); if (b === 2 && n >= 4) hit(t + 0.5, DRUM.kick, 0.5); if (odd) hit(t, DRUM.snare, 0.75);
+    }
+  }
+}
+// 简易旋律提示：强拍取和弦音，弱拍取调内经过音
+function melodyFor(song, seed) {
+  const rng = mkRng((seed || song.seed || 1) ^ 0x5bd1e995), M = METERS[song.meter], step = M.d === 4 ? 0.5 : 1;
+  const out = []; let prev = 72;
+  return {
+    span(c, sec, t0, dur) {
+      const scale = MODES[sec.mode].s.map((x) => mod(sec.tonic + x, 12));
+      const ct = Q[c.q].t.map((x) => mod(c.pc + x[0], 12));
+      const near = (pcs, around) => { let best = around, bd = 99; for (let n = 64; n <= 84; n++) if (pcs.includes(mod(n, 12))) { const d = Math.abs(n - around) + rng() * 2; if (d < bd) { bd = d; best = n; } } return best; };
+      for (let t = t0; t < t0 + dur - 1e-6; t += step) {
+        const strong = Math.abs((t - t0) % (step * 2)) < 1e-6;
+        if (!strong && rng() < 0.3) continue;
+        const target = prev + Math.round((rng() - 0.5) * (strong ? 6 : 4));
+        const n = near(strong ? ct : scale, target);
+        const len = strong && rng() < 0.4 ? step * 2 : step;
+        out.push({ t, d: Math.min(len, t0 + dur - t) * 0.95, notes: [n], vel: strong ? 0.6 : 0.45, part: 'melody' });
+        prev = n; if (len > step) t += step;
+      }
+    },
+    out,
+  };
+}
 function buildEvents(song, opts = {}) {
   const M = METERS[song.meter], ev = [], timeline = [];
   let bar0 = 0;
   let pat = opts.pattern && opts.pattern !== 'style' ? opts.pattern : song.style.pat;
   if (pat === 'block' && M.n === 3 && M.d === 4) pat = 'waltz';
-  for (const sec of song.sections) {
+  const mel = opts.melody ? melodyFor(song, opts.seed) : null;
+  const groove = grooveOf(pat);
+  song.sections.forEach((sec, si) => {
+    if (opts.section !== undefined && opts.section !== null && opts.section !== si) return;
     for (const bar of sec.bars) {
       for (const cell of bar) {
         const t0 = bar0 * M.n + cell.start, c = song.flat[cell.ci];
@@ -1030,13 +1226,16 @@ function buildEvents(song, opts = {}) {
         const dur = song.hr === 0.5 ? cell.dur * 2 : cell.dur;
         timeline.push({ t: t0, d: cell.dur, ci: cell.ci });
         chordEvents(c, t0, dur, song.meter, pat, ev);
+        if (mel) mel.span(c, sec, t0, dur);
       }
       if (opts.metronome) for (const g of beatGroups(song.meter)) ev.push({ t: bar0 * M.n + g, d: 0.1, notes: [g === 0 ? 84 : 77], vel: g === 0 ? 0.8 : 0.5, part: 'click' });
+      if (opts.drums) drumBar(groove, song.meter, bar0 * M.n, ev);
       bar0++;
     }
-  }
+  });
+  if (mel) ev.push(...mel.out);
   ev.sort((a, b) => a.t - b.t);
-  return { events: ev, timeline, totalUnits: bar0 * M.n, unitSec: unitSec(song.meter, song.bpm), bars: bar0, pattern: pat };
+  return { events: ev, timeline, totalUnits: bar0 * M.n, unitSec: unitSec(song.meter, song.bpm), bars: bar0, pattern: pat, groove };
 }
 
 /* ---------- MIDI 导出 ---------- */
@@ -1048,7 +1247,7 @@ function toMidi(song, opts = {}) {
   const mpq = Math.round(60000000 / qpm);
   const raw = [];
   for (const e of events) {
-    const ch = e.part === 'bass' ? 1 : e.part === 'click' ? 9 : 0;
+    const ch = e.part === 'bass' ? 1 : e.part === 'melody' ? 2 : e.part === 'click' || e.part === 'drum' ? 9 : 0;
     const t0 = Math.round(e.t * unitTicks), t1 = Math.max(t0 + 1, Math.round((e.t + e.d) * unitTicks) - 1);
     for (const n of e.notes) {
       const note = clamp(Math.round(n), 0, 127), vel = clamp(Math.round(e.vel * 127), 1, 127);
@@ -1062,7 +1261,8 @@ function toMidi(song, opts = {}) {
   const title = 'Chord Generator'.split('').map((ch) => ch.charCodeAt(0));
   push(0, [0xff, 0x03, title.length, ...title]);
   // 和弦标记（Marker）
-  push(0, [0xc0, 0]); push(0, [0xc1, 33]);
+  const prog = { piano: 0, epiano: 4, pad: 89, guitar: 25, organ: 16, synth: 81 }[opts.instrument] || 0;
+  push(0, [0xc0, prog]); push(0, [0xc1, 33]); push(0, [0xc2, 73]);
   let last = 0;
   for (const [t, , b] of raw) { push(t - last, b); last = t; }
   push(0, [0xff, 0x2f, 0x00]);
@@ -1086,7 +1286,130 @@ function toText(song) {
   return L.join('\n');
 }
 
-const ChordEngine = { LET, MODES, METERS, STYLES, GENRES, MOODS, Q, COMPLEX, KEYS_M, BAR_OPTS, HR_OPTS, FUNC_CN, PATTERNS, SECTION_PLANS, mkRng, generate, expand, parseChord, parseSeeds, inferKey, buildEvents, toMidi, toText, splitBar, unitSec, keyName, spell, diatonicQ };
+
+/* ---------- 编辑：序列化 / 移调 / 替换 / 锁定重生成 / 吉他指法 ---------- */
+const KEEP = ['rel', 'step', 'q', 'func', 'tag', 'sec', 'sub', 'dom', 'diat', 'seed', 'seedBass', 'fixedQ', 'xb', 'lock', 'done', 'lb'];
+function cleanChord(c) { const o = {}; for (const k of KEEP) if (c[k] !== undefined && c[k] !== false && c[k] !== '') o[k] = c[k]; o.q = c.q; if (o.tag === undefined) o.tag = ''; return o; }
+function serialize(song) {
+  return { v: 2, k: song.kind, s: song.seed, st: song.style.id, meter: song.meter, bpm: song.bpm, hr: song.hr, set: song.settings, ex: song.explanation, inf: song.inference, sp: song.seedsParsed,
+    secs: song.sections.map((x) => ({ n: x.name, key: x.key, t: x.tonic, m: x.mode, mod: !!x.modulated, note: x.note || '', c: x.chords.map(cleanChord) })) };
+}
+function deserialize(d) {
+  if (!d || !d.secs || !STYLES[d.st] || !METERS[d.meter]) throw new Error('无效的进行数据');
+  const st = d.k === 'expand' ? Object.assign({}, STYLES[d.st], { fixed: false }) : STYLES[d.st];
+  const song = { kind: d.k, seed: d.s, style: st, meter: d.meter, bpm: clamp(+d.bpm, 40, 220), hr: d.hr, settings: Object.assign({}, d.set, { bpm: clamp(+d.bpm, 40, 220) }), explanation: d.ex || [], inference: d.inf, seedsParsed: d.sp,
+    sections: d.secs.map((x) => {
+      if (!MODES[x.m]) throw new Error('无效调式');
+      return { name: x.n, key: x.key, tonic: mod(+x.t, 12), mode: x.m, modulated: x.mod, note: x.note, chords: x.c.map((c) => { if (!Q[c.q] || !(c.step >= 0 && c.step < 7)) throw new Error('无效和弦'); return Object.assign({ tag: '' }, c); }) };
+    }) };
+  return finalize(song, mkRng((d.s || 1) ^ 0x2545f491));
+}
+const cloneSong = (song) => deserialize(JSON.parse(JSON.stringify(serialize(song))));
+function refresh(song) { song.sections.forEach((sec) => { sec.chords = sec.chords.map(cleanChord); }); return finalize(song, mkRng((song.seed || 1) ^ 0x2545f491)); }
+function setBpm(song, bpm) { song.bpm = clamp(Math.round(+bpm), 40, 220); song.settings.bpm = song.bpm; song.settings.feel = song.bpm < 80 ? '慢' : song.bpm < 125 ? '中' : '快'; return song; }
+function transpose(song, n) {
+  n = mod(Math.round(n), 12); if (!n) return song;
+  song.sections.forEach((sec) => { sec.tonic = mod(sec.tonic + n, 12); });
+  song.settings.tonic = mod(song.settings.tonic + n, 12);
+  song.settings.key = keyName(song.settings.tonic, song.settings.mode);
+  refresh(song);
+  song.explanation = song.explanation.filter((x) => !x.startsWith('已移调')).concat(`已移调至 ${song.settings.key} ${MODES[song.settings.mode].n}（和弦的级数与功能保持不变）。`);
+  return song;
+}
+function locate(song, ci) { let k = ci; for (let si = 0; si < song.sections.length; si++) { const n = song.sections[si].chords.length; if (k < n) return [si, k]; k -= n; } return null; }
+const ALT_TIPS = {
+  同功能: '与原和弦属于同一和声功能（T/S/D），可直接互换而不改变进行走向。',
+  三度代理: '根音相差三度的和弦共享两个音，是最常见的和弦代理。',
+  副属: '把下一个和弦当作临时主和弦，用它的属和弦去解决，增强推动力。',
+  三全音替代: '属七和弦换成根音相距三全音的属七，二者共享 3 音与 7 音，低音半音下行。',
+  借用: '从同主音的平行调式借来的和弦，带来明暗色彩变化。',
+  性质: '保持根音不变，只改变和弦性质或延伸音。',
+};
+function alternatives(song, ci) {
+  const loc = locate(song, ci); if (!loc) return [];
+  const [si, k] = loc, sec = song.sections[si], ctx = { tonic: sec.tonic, mode: sec.mode }, c = sec.chords[k];
+  const next = sec.chords[k + 1], s = MODES[ctx.mode].s, out = [], seen = new Set([c.rel + ':' + c.q + ':' + (c.sec || '')]);
+  const add = (alt, kind, why) => { const key = alt.rel + ':' + alt.q + ':' + (alt.sec || ''); if (seen.has(key)) return; seen.add(key); const r = realize(Object.assign({}, alt), ctx); r.name = chordName(Object.assign({}, r, { bass: 0, xb: null })); out.push({ chord: cleanChord(alt), name: r.name, roman: r.roman, kind, why: why || ALT_TIPS[kind] }); };
+  const lvl = song.settings.complexity || 0;
+  const withLvl = (x) => { if (lvl >= 1 && !x.dom) x.q = diatonicQ(s, x.step, true); else if (lvl >= 1 && x.dom) x.q = '7'; x.done = true; return x; };
+  for (let st = 0; st < 7; st++) if (st !== c.step && funcOfStep(ctx, st) === c.func && Q[diatonicQ(s, st, false)].cls !== 'A') add(withLvl(dia(ctx, st)), '同功能');
+  for (const d of [2, 5]) { const st = (c.step + d) % 7; if (Q[diatonicQ(s, st, false)].cls !== 'A') add(withLvl(dia(ctx, st)), '三度代理'); }
+  if (next && next.rel !== c.rel) {
+    const t = s.indexOf(next.rel);
+    if (t > 0 && t !== undefined) { const sd = secDom(ctx, t); sd.q = '7'; sd.done = true; add(sd, '副属', `V7/${romanOf(ctx, next.rel, t, diatonicQ(s, t, false))}：解决到下一个和弦。`); }
+    if (t >= 0) { const sd = secDom(ctx, t); sd.q = '7'; const tt = tritoneOf(sd); add(tt, '三全音替代', '下一个和弦的三全音替代属七（subV7），低音半音下行进入。'); }
+  }
+  if (c.dom || (Q[c.q].dom)) add(tritoneOf(Object.assign({}, c, { sec: c.sec || 'I' })), '三全音替代');
+  for (const alt of (MODES[ctx.mode].ref === 'M' ? [[3, 5, 'm'], [5, 8, ''], [6, 10, ''], [2, 3, ''], [1, 1, '']] : [[4, 7, ''], [3, 5, ''], [1, 1, ''], [6, 11, 'dim']])) {
+    const [st, rel, q] = alt; if (s[st] === rel && diatonicQ(s, st, false) === q) continue;
+    add({ rel, step: st, q, func: rel === 7 ? 'D' : funcOfStep(ctx, st), tag: rel === 7 ? '和声小调属' : '借用', dom: rel === 7, done: true }, '借用');
+  }
+  const cls = Q[c.q].cls;
+  const qs = cls === 'M' ? (c.dom ? ['', '7', '9', '13', '7sus4', '7b9', '7#9', '7alt'] : ['', 'maj7', '6', 'add9', 'sus2', 'sus4', 'maj9', '69', '7']) : cls === 'm' ? ['m', 'm7', 'm9', 'm11', 'm6', 'madd9', 'mMaj7'] : cls === 'd' ? ['dim', 'm7b5', 'dim7'] : ['aug', '7#5', 'maj7#5'];
+  for (const q of qs) add(Object.assign(cleanChord(c), { q, done: true, fixedQ: true }), '性质', `把 ${Q[c.q].sym || '大三'} 换成 ${Q[q].sym || '大三和弦'}。`);
+  return out;
+}
+function replaceChord(song, ci, chord) {
+  const loc = locate(song, ci); if (!loc) return song;
+  const old = song.sections[loc[0]].chords[loc[1]];
+  const nc = cleanChord(chord); delete nc.lb; nc.lock = old.lock; if (old.lock) nc.lb = 0;
+  song.sections[loc[0]].chords[loc[1]] = nc;
+  return refresh(song);
+}
+function toggleLock(song, ci) { const loc = locate(song, ci); if (loc) { const c = song.sections[loc[0]].chords[loc[1]]; c.lock = !c.lock; song.flat[ci].lock = c.lock; if (c.lock) c.lb = song.flat[ci].bass; else delete c.lb; } return song; }
+function endTypeOf(c) { return c.rel === 0 ? 'cad' : c.func === 'D' || c.tag === '转调属' ? 'half' : 'none'; }
+// 重新生成：只替换未锁定的和弦；section 为空时作用于全部段落
+function regenerate(song, o = {}) {
+  const seed = o.seed !== undefined ? o.seed : Math.floor(Math.random() * 2 ** 31), rng = mkRng(seed);
+  const md = MOODS[song.settings.mood] || MOODS['中性'];
+  song.sections.forEach((sec, si) => {
+    if (o.section !== undefined && o.section !== null && o.section !== si) return;
+    const n = sec.chords.length, ctx = { tonic: sec.tonic, mode: sec.mode };
+    if (sec.chords.every((c) => c.lock)) return;
+    const last = sec.chords[n - 1];
+    const p = buildProg(ctx, song.style, n, rng, { tplOK: song.kind === 'random', end: endTypeOf(last), borrowAdd: md.borrow, secAdd: md.sec, startFunc: sec.chords[0].lock ? undefined : (sec.key === 'Pre-chorus' || sec.key === 'Bridge' ? 'S' : undefined) });
+    applyComplexity(p.chords, ctx, song.style, song.settings.complexity || 0, rng, md.sus);
+    if (last.tag === '转调属' && !last.lock) p.chords[n - 1] = cleanChord(last);
+    sec.chords = sec.chords.map((c, k) => (c.lock ? c : p.chords[k]));
+  });
+  song.seed = seed;
+  return refresh(song);
+}
+const GUITAR = [40, 45, 50, 55, 59, 64];
+function guitarShape(c) {
+  const T = Q[c.q].t, pcs = T.map((x) => mod(c.pc + x[0], 12));
+  const bassPc = c.xb ? c.xbPc : mod(c.pc + T[c.bass || 0][0], 12);
+  const need = new Set([pcs[0], pcs[1], pcs.length > 3 ? pcs[3] : pcs[2]]);
+  let best = null, bs = -1e9;
+  for (let w = 0; w <= 10; w++) {
+    const opts = GUITAR.map((open) => { const o = [-1]; for (let f = 0; f <= 15; f++) if ((f === 0 || (f >= w && f <= w + 3)) && pcs.includes(mod(open + f, 12))) o.push(f); return o; });
+    const cur = [];
+    const dfs = (i) => {
+      if (i === 6) {
+        const sounding = cur.map((f, j) => (f < 0 ? null : GUITAR[j] + f)).filter((x) => x !== null);
+        if (sounding.length < 3) return;
+        const firstIdx = cur.findIndex((f) => f >= 0);
+        if (cur.slice(firstIdx).some((f) => f < 0) && cur.slice(firstIdx).filter((f) => f < 0).length > 1) return;
+        if (mod(GUITAR[firstIdx] + cur[firstIdx], 12) !== bassPc) return;
+        const got = new Set(sounding.map((x) => mod(x, 12)));
+        for (const x of need) if (!got.has(x)) return;
+        const fr = cur.filter((f) => f > 0); const span = fr.length ? Math.max(...fr) - Math.min(...fr) : 0;
+        if (span > 3) return;
+        if (fr.length && Math.max(...fr) > 4 && cur.some((f) => f === 0)) return;
+        const score = sounding.length * 3 + got.size * 2 - span * 1.5 - (fr.length ? Math.min(...fr) : 0) * 0.6 + cur.filter((f) => f === 0).length * 0.8 - cur.slice(firstIdx).filter((f) => f < 0).length * 4;
+        if (score > bs) { bs = score; best = cur.slice(); }
+        return;
+      }
+      for (const f of opts[i]) { cur.push(f); dfs(i + 1); cur.pop(); }
+    };
+    dfs(0);
+  }
+  if (!best) return null;
+  const fr = best.filter((f) => f > 0), lo = fr.length ? Math.min(...fr) : 1;
+  return { frets: best, base: Math.max(...best) > 4 ? lo : 1, notes: best.map((f, j) => (f < 0 ? null : GUITAR[j] + f)) };
+}
+
+const ChordEngine = { LET, MODES, METERS, STYLES, GENRES, MOODS, Q, COMPLEX, KEYS_M, BAR_OPTS, HR_OPTS, FUNC_CN, PATTERNS, SECTION_PLANS, mkRng, generate, expand, parseChord, parseSeeds, inferKey, buildEvents, toMidi, toText, splitBar, unitSec, keyName, spell, diatonicQ, serialize, deserialize, cloneSong, refresh, transpose, setBpm, alternatives, replaceChord, toggleLock, regenerate, guitarShape, locate, ALT_TIPS, DRUM };
 if (typeof module !== 'undefined' && module.exports) module.exports = ChordEngine;
 if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
 
@@ -1096,222 +1419,524 @@ if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
   'use strict';
   const E = window.ChordEngine;
   const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const RAND = '<option value="rand">🎲 随机</option>';
-  let mode = 'rand', song = null;
+  const LS = { get: (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* 存储已满或被禁用 */ } } };
+  let mode = 'rand', song = null, sel = -1;
+  const state = { genre: 'rand', style: 'rand' };
 
-  /* ---------- 控件初始化 ---------- */
-  const genres = [...new Set(E.STYLES.map((s) => s.genre))];
-  $('genre').innerHTML = RAND + genres.map((g) => `<option>${g}</option>`).join('');
-  function fillStyles() {
-    const g = $('genre').value;
-    const list = E.STYLES.filter((s) => g === 'rand' || s.genre === g);
-    $('style').innerHTML = RAND + list.map((s) => `<option value="${s.id}">${s.name}</option>`).join('');
-  }
-  fillStyles();
-  $('mood').innerHTML = RAND + Object.keys(E.MOODS).map((m) => `<option>${m}</option>`).join('');
+  /* ---------- 主题 ---------- */
+  const setTheme = (t) => { document.documentElement.dataset.theme = t; LS.set('cg.theme', t); };
+  setTheme(LS.get('cg.theme', matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'));
+  $('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
+  /* ---------- 浮动提示 ---------- */
+  const tip = $('tip');
+  const GLOSS = {
+    主功能: '主功能 (T)：稳定、有归属感的和弦，如 I、vi、iii。', 下属功能: '下属功能 (S)：离开主和弦、准备属和弦，如 IV、ii。', 属功能: '属功能 (D)：紧张、强烈倾向回到主和弦，如 V、vii°。',
+    借用: '借用和弦：从同主音的平行调式（如 C 大调借 C 小调）借来的和弦，带来明暗变化。', 副属: '副属和弦：调内某和弦的属和弦（V/x），让它临时成为“主”，增强推动力。',
+    三全音替代: '三全音替代：用根音相距三全音的属七代替原属七，二者共享 3、7 音，低音半音下行解决。', 调式特征: '调式特征和弦：包含该调式标志性音的和弦，如多利亚的 IV、混合利底亚的 ♭VII。',
+    和声小调属: '和声小调属：小调中把 v 升高三音成为大三/属七 V，形成导音，强化终止。', 转调属: '转调属：新调的属七和弦，用来自然地引入新调。', 转位: '转位：低音不是根音的和弦（斜线和弦），让低音线更平滑。',
+    正格终止: '正格终止：V → I，最强烈、最完满的结束感。', 变格终止: '变格终止：IV → I，“阿们终止”，柔和。', 半终止: '半终止：停在 V 上，像逗号，等待继续。', 调式终止: '调式终止：用调式特征和弦回到主和弦，不经过 V。',
+    王道进行: '王道进行：IV–V–iii–vi，日本流行最常见的进行。', 卡农进行: '卡农进行：I–V–vi–iii–IV–I–IV–V，源自帕赫贝尔《卡农》。', 安达卢西亚: '安达卢西亚终止：i–♭VII–♭VI–V 下行，弗拉门戈标志。', 五度圈: '五度圈：根音按纯四/纯五度循环运动（如 vi–ii–V–I），最自然的和声推进。',
+    马尔可夫链: '马尔可夫链：按“当前功能 → 下一功能”的概率表逐个选择和弦。', 五声音阶: '五声音阶：宫商角徵羽五个音，中国传统音乐的基础。',
+  };
+  const termify = (html) => html.replace(new RegExp(Object.keys(GLOSS).join('|'), 'g'), (m) => `<span class="term" data-tip="${esc(GLOSS[m])}">${m}</span>`);
+  document.addEventListener('mouseover', (e) => {
+    const t = e.target.closest('[data-tip]');
+    if (!t) { tip.classList.remove('on'); return; }
+    tip.textContent = t.dataset.tip; tip.classList.add('on');
+    const r = t.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+    let x = Math.min(innerWidth - w - 8, Math.max(8, r.left + r.width / 2 - w / 2)), y = r.top - h - 8;
+    if (y < 8) y = r.bottom + 8;
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  });
+  document.addEventListener('scroll', () => tip.classList.remove('on'), true);
+
+  /* ---------- 控件 ---------- */
+  $('mood').innerHTML = RAND + Object.entries(E.MOODS).map(([k, v]) => `<option value="${k}" title="${esc(v.d)}">${k}</option>`).join('');
   $('meter').innerHTML = RAND + Object.keys(E.METERS).map((m) => `<option>${m}</option>`).join('');
+  const SH = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   function fillKeyMode() {
     const first = mode === 'seed' ? '<option value="auto">🔍 自动推断</option>' : RAND;
     const kv = $('key').value, mv = $('mode').value;
-    $('key').innerHTML = first + E.KEYS_M.map((k, i) => `<option value="${i}">${k}${E.KEYS_M[i] !== ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][i] ? ' / ' + ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][i] : ''}</option>`).join('');
+    $('key').innerHTML = first + E.KEYS_M.map((k, i) => `<option value="${i}">${k}${k !== SH[i] ? ' / ' + SH[i] : ''}</option>`).join('');
     $('mode').innerHTML = first + Object.entries(E.MODES).map(([k, v]) => `<option value="${k}">${v.n}</option>`).join('');
-    if ([...$('key').options].some((o) => o.value === kv)) $('key').value = kv;
-    if ([...$('mode').options].some((o) => o.value === mv)) $('mode').value = mv;
+    $('key').value = /^\d+$/.test(kv) ? kv : first.includes('auto') ? 'auto' : 'rand';
+    $('mode').value = E.MODES[mv] ? mv : first.includes('auto') ? 'auto' : 'rand';
   }
   fillKeyMode();
-  $('bars').innerHTML = RAND + E.BAR_OPTS.map((b) => `<option value="${b}"${b === 8 ? '' : ''}>${b}</option>`).join('');
+  $('bars').innerHTML = RAND + E.BAR_OPTS.map((b) => `<option value="${b}">${b}</option>`).join('');
   $('complexity').innerHTML = RAND + E.COMPLEX.map((c, i) => `<option value="${i}">${c}</option>`).join('');
   $('hr').innerHTML = RAND + [['0.5', '每 2 小节 1 个'], ['1', '每小节 1 个'], ['2', '每小节 2 个'], ['4', '每小节 4 个']].map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
-  $('pattern').innerHTML = '<option value="style">随风格</option>' + Object.entries(E.PATTERNS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
-  $('genre').onchange = fillStyles;
+  $('pattern').innerHTML = '<option value="style">节奏型：随风格</option>' + Object.entries(E.PATTERNS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
   let bpmRand = true;
-  const syncBpm = () => { $('bpmVal').textContent = bpmRand ? '🎲 随机' : $('bpm').value; $('bpmRand').classList.toggle('on', bpmRand); };
-  $('bpm').oninput = () => { bpmRand = false; syncBpm(); };
+  const syncBpm = () => { $('bpmVal').textContent = bpmRand ? '（随机）' : $('bpm').value; $('bpmRand').classList.toggle('on', bpmRand); };
+  $('bpm').oninput = () => {
+    bpmRand = false; syncBpm();
+    if (song) { E.setBpm(song, $('bpm').value); renderTags(); if (playing) restartSoon(); }
+  };
+  $('bpm').onchange = () => { if (song) commit('改速度 ' + song.bpm); };
   $('bpmRand').onclick = () => { bpmRand = !bpmRand; syncBpm(); };
   syncBpm();
+  const toggles = {};
+  ['loop', 'metro', 'drums', 'melody'].forEach((id) => {
+    toggles[id] = LS.get('cg.' + id, id === 'drums');
+    const b = $(id); const sync = () => { b.classList.toggle('on', toggles[id]); b.setAttribute('aria-pressed', toggles[id]); };
+    sync(); b.onclick = () => { toggles[id] = !toggles[id]; LS.set('cg.' + id, toggles[id]); sync(); if (playing && id !== 'loop') restartSoon(); };
+  });
+  $('inst').value = LS.get('cg.inst', 'piano');
+  $('inst').onchange = () => { LS.set('cg.inst', $('inst').value); if (playing) restartSoon(); };
+  $('pattern').onchange = () => { if (playing) restartSoon(); };
 
+  /* ---------- 风格选择器 ---------- */
+  const genres = [...new Set(E.STYLES.map((s) => s.genre))];
+  function pickLabel() {
+    if (state.style !== 'rand') { const s = E.STYLES[+state.style]; return s.genre.split(' ')[0] + ' › ' + s.name; }
+    return state.genre === 'rand' ? '🎲 全部随机' : '🎲 ' + state.genre + '（大类内随机）';
+  }
+  function renderPick() {
+    const q = $('pickSearch').value.trim().toLowerCase();
+    let h = `<div class="it${state.genre === 'rand' && state.style === 'rand' ? ' sel' : ''}" data-g="rand" data-s="rand">🎲 全部随机</div>`;
+    for (const g of genres) {
+      const items = E.STYLES.filter((s) => s.genre === g && (!q || (s.name + ' ' + s.genre).toLowerCase().includes(q)));
+      if (!items.length) continue;
+      h += `<div class="gh" data-g="${esc(g)}" data-s="rand" title="此大类内随机"><span>${esc(g)}</span><span>🎲</span></div>`;
+      h += items.map((s) => `<div class="it${String(s.id) === String(state.style) ? ' sel' : ''}" role="option" data-g="${esc(g)}" data-s="${s.id}">${esc(s.name)}</div>`).join('');
+    }
+    $('pickList').innerHTML = h;
+    $('pickLabel').textContent = pickLabel();
+  }
+  $('pickBtn').onclick = (e) => { e.stopPropagation(); $('pickPop').classList.toggle('open'); renderPick(); $('pickSearch').focus(); };
+  $('pickSearch').oninput = renderPick;
+  $('pickSearch').onkeydown = (e) => { if (e.key === 'Enter') { const f = $('pickList').querySelector('.it[data-s]:not([data-s=rand])'); if (f) f.click(); } };
+  $('pickList').onclick = (e) => { const t = e.target.closest('[data-g]'); if (!t) return; state.genre = t.dataset.g; state.style = t.dataset.s; $('pickPop').classList.remove('open'); renderPick(); };
+  document.addEventListener('click', (e) => { if (!e.target.closest('#picker')) $('pickPop').classList.remove('open'); if (!e.target.closest('.menu')) $('expPop').classList.remove('open'); });
+  renderPick();
+
+  /* ---------- 模式 ---------- */
   function setMode(m) {
     mode = m;
-    $('tabRand').classList.toggle('on', m === 'rand');
-    $('tabSeed').classList.toggle('on', m === 'seed');
+    $('tabRand').setAttribute('aria-selected', m === 'rand'); $('tabSeed').setAttribute('aria-selected', m === 'seed');
     $('seedBox').hidden = m !== 'seed';
-    $('barsLabel').textContent = m === 'seed' ? '段落小节数（主歌/副歌）' : '小节数';
-    fillKeyMode();
-    if (m === 'seed') updateInfer();
+    $('barsLabel').textContent = m === 'seed' ? '段落小节数' : '小节数';
+    fillKeyMode(); if (m === 'seed') updateInfer();
   }
   $('tabRand').onclick = () => setMode('rand');
   $('tabSeed').onclick = () => setMode('seed');
-
   function updateInfer() {
     const p = E.parseSeeds($('seeds').value);
     $('seedErr').textContent = p.bad.length ? '无法识别：' + p.bad.join(' ') : !p.chords.length ? '请输入至少一个和弦' : '';
     if (!p.chords.length) { $('inferBox').innerHTML = ''; return; }
     const inf = E.inferKey(p.chords).slice(0, 4);
-    $('inferBox').innerHTML = '<span class="hint">推断调性：</span>' + inf.map((x, i) => `<button class="dice${i === 0 ? ' on' : ''}" data-k="${x.tonic}" data-m="${x.mode}" title="得分 ${x.score}">${x.name}</button>`).join('');
-    $('inferBox').querySelectorAll('button').forEach((b) => (b.onclick = () => { $('key').value = b.dataset.k; $('mode').value = b.dataset.m; toast('已指定调性：' + b.textContent); }));
+    $('inferBox').innerHTML = '<span class="hint" style="margin:0">推断：</span>' + inf.map((x) => `<button class="chip${$('key').value === String(x.tonic) && $('mode').value === x.mode ? ' on' : ''}" data-k="${x.tonic}" data-m="${x.mode}" data-tip="匹配得分 ${x.score}，点击指定此调">${esc(x.name)}</button>`).join('') + `<button class="chip" data-auto="1" data-tip="恢复自动推断">自动</button>`;
+    $('inferBox').querySelectorAll('button').forEach((b) => (b.onclick = () => { if (b.dataset.auto) { $('key').value = 'auto'; $('mode').value = 'auto'; } else { $('key').value = b.dataset.k; $('mode').value = b.dataset.m; } updateInfer(); }));
   }
   $('seeds').oninput = updateInfer;
 
+  /* ---------- 历史 / 撤销 ---------- */
+  let hist = [], hp = -1;
+  function commit(label) {
+    if (!song) return;
+    hist = hist.slice(0, hp + 1);
+    hist.push({ label, time: Date.now(), data: JSON.stringify(E.serialize(song)) });
+    if (hist.length > 60) hist.shift();
+    hp = hist.length - 1; syncHist();
+  }
+  function restore(i) {
+    if (i < 0 || i >= hist.length) return;
+    hp = i; song = E.deserialize(JSON.parse(hist[i].data)); sel = Math.min(sel, song.flat.length - 1);
+    stop(); render(); syncHist();
+  }
+  function syncHist() {
+    $('undo').disabled = hp <= 0; $('redo').disabled = hp >= hist.length - 1;
+    $('histList').innerHTML = hist.map((h, i) => ({ h, i })).reverse().map(({ h, i }) => `<div class="li${i === hp ? ' cur' : ''}"><div class="t" data-i="${i}"><div>${esc(h.label)}</div><small>${new Date(h.time).toLocaleTimeString()}</small></div></div>`).join('') || '<p class="hint">暂无</p>';
+  }
+  $('histList').onclick = (e) => { const t = e.target.closest('[data-i]'); if (t) restore(+t.dataset.i); };
+  $('undo').onclick = () => restore(hp - 1);
+  $('redo').onclick = () => restore(hp + 1);
+
+  /* ---------- 生成 ---------- */
   function opts() {
-    const o = { genre: $('genre').value, style: $('style').value, mood: $('mood').value, meter: $('meter').value, key: $('key').value, mode: $('mode').value, bars: $('bars').value, complexity: $('complexity').value, hr: $('hr').value, feel: $('feel').value, bpm: bpmRand ? 'rand' : $('bpm').value };
-    if (mode === 'seed') Object.assign(o, { seeds: $('seeds').value, length: $('songLen').value, modulate: $('modulate').checked });
+    const o = { genre: state.genre, style: state.style, mood: $('mood').value, meter: $('meter').value, key: $('key').value, mode: $('mode').value, bars: $('bars').value, complexity: $('complexity').value, hr: $('hr').value, feel: $('feel').value, bpm: bpmRand ? 'rand' : $('bpm').value };
+    if (mode === 'seed') Object.assign(o, { seeds: $('seeds').value, length: $('songLen').value, modulate: $('modulate').value === '1' });
     return o;
   }
   function generate() {
     stop();
-    try {
-      song = mode === 'seed' ? E.expand(opts()) : E.generate(opts());
-      $('seedErr').textContent = '';
-    } catch (e) { $('seedErr').textContent = e.message; return; }
+    try { song = mode === 'seed' ? E.expand(opts()) : E.generate(opts()); $('seedErr').textContent = ''; } catch (e) { $('seedErr').textContent = e.message; toast(e.message); return; }
+    sel = -1; afterNew('生成：' + song.settings.style + ' · ' + song.settings.key);
+  }
+  function afterNew(label) {
     if (bpmRand) $('bpm').value = song.bpm;
-    syncBpm();
-    render();
+    syncBpm(); render(); commit(label);
+  }
+  function regen(section) {
+    if (!song) return generate();
+    stop(); E.regenerate(song, { section }); render();
+    commit(section === undefined ? '重新生成（保留锁定）' : '重新生成：' + song.sections[section].name);
+    toast(song.flat.some((c) => c.lock) ? '已重新生成未锁定的和弦' : '已重新生成');
   }
   $('gen').onclick = generate;
+  $('regen').onclick = () => regen();
   $('allRand').onclick = () => {
-    ['genre', 'mood', 'meter', 'bars', 'complexity', 'hr', 'feel'].forEach((id) => ($(id).value = 'rand'));
-    fillStyles(); $('style').value = 'rand';
+    ['mood', 'meter', 'bars', 'complexity', 'hr', 'feel'].forEach((id) => ($(id).value = 'rand'));
+    state.genre = 'rand'; state.style = 'rand'; renderPick();
     $('key').value = mode === 'seed' ? 'auto' : 'rand'; $('mode').value = mode === 'seed' ? 'auto' : 'rand';
     bpmRand = true; syncBpm(); generate();
   };
+  function transpose(n) {
+    if (!song) return; const was = playing; stop();
+    E.transpose(song, n); render(); commit('移调 ' + (n > 0 ? '+' : '') + n + ' → ' + song.settings.key); if (was) play();
+  }
+  $('tUp').onclick = () => transpose(1);
+  $('tDown').onclick = () => transpose(-1);
 
   /* ---------- 渲染 ---------- */
   const FN = { T: '主 T', S: '下属 S', D: '属 D' };
-  function render() {
+  function renderTags() {
     const s = song.settings;
-    let h = `<div class="out-head"><div class="tags">
-      <span class="tag">${s.genre} › ${s.style}</span><span class="tag">情绪 ${s.mood}</span>
-      <span class="tag">${s.key} ${s.modeName}</span><span class="tag">${s.meter}</span><span class="tag">${s.bpm} BPM · ${s.feel}</span>
-      <span class="tag">${s.complexityName}</span><span class="tag">每小节 ${s.hr} 和弦</span><span class="tag">${s.pattern}</span></div></div>
-      <div class="legend"><span><i style="background:var(--T)"></i>主功能 T</span><span><i style="background:var(--S)"></i>下属功能 S</span><span><i style="background:var(--D)"></i>属功能 D</span><span style="color:var(--acc2)">粉色标注 = 借用/副属/替代/转调</span></div>`;
+    $('keyNow').textContent = s.key + ' ' + (E.MODES[s.mode].n.split(' ')[0]);
+    const t = document.getElementById('tagline'); if (!t) return;
+    t.innerHTML = [['风格', s.genre.split(' ')[0] + ' › ' + s.style], ['情绪', s.mood], ['调', s.key + ' ' + s.modeName], ['拍号', s.meter], ['速度', song.bpm + ' BPM'], ['复杂度', s.complexityName], ['和声节奏', s.hr + '/小节']].map(([k, v]) => `<span class="tag">${k} <b>${esc(v)}</b></span>`).join('');
+  }
+  function render() {
+    let h = '<div class="tags" id="tagline"></div><div class="legend"><span><i style="background:var(--T)"></i><span class="term" data-tip="' + esc(GLOSS.主功能) + '">主功能 T</span></span><span><i style="background:var(--S)"></i><span class="term" data-tip="' + esc(GLOSS.下属功能) + '">下属 S</span></span><span><i style="background:var(--D)"></i><span class="term" data-tip="' + esc(GLOSS.属功能) + '">属 D</span></span><span style="color:var(--acc2)">粉字 = 借用 / 副属 / 替代 / 转调</span></div>';
     let barNo = 1;
     song.sections.forEach((sec, si) => {
-      h += `<div class="section"><h3>${sec.name}<span class="k">${sec.keyLabel}</span>${sec.modulated ? '<span class="mod">⤴ 转调 +全音</span>' : ''}</h3>${sec.note ? `<p class="note">${sec.note}</p>` : ''}<div class="bars">`;
+      h += `<div class="section" style="animation-delay:${si * 40}ms"><div class="sh"><h3>${esc(sec.name)}</h3><span class="k">${esc(sec.keyLabel)}</span>${sec.modulated ? '<span class="mod">⤴ 转调 +全音</span>' : ''}<span class="sp"></span>
+        <button class="ib" data-act="playsec" data-si="${si}" data-tip="只播放本段">▶</button><button class="ib" data-act="regensec" data-si="${si}" data-tip="重新生成本段（保留锁定）">↻</button><button class="ib" data-act="midisec" data-si="${si}" data-tip="导出本段 MIDI">⬇ MIDI</button></div>${sec.note ? `<p class="note">${termify(esc(sec.note))}</p>` : ''}<div class="bars">`;
       for (const bar of sec.bars) {
         h += `<div class="bar"><span class="no">${barNo++}</span>`;
         for (const cell of bar) {
           const c = song.flat[cell.ci];
-          if (cell.cont) h += `<div class="ch cont ${c.func}" data-ci="${cell.ci}" data-c="1"><div class="nm">%</div><div class="fn">延续 ${c.name}</div></div>`;
-          else h += `<div class="ch ${c.func}" data-ci="${cell.ci}" style="flex:${cell.dur}" title="${c.name} — 点击试听"><div class="nm">${c.name}</div><div class="rn">${c.roman}</div><div class="fn">${FN[c.func] || c.func}</div>${c.tag ? `<div class="tg">${c.tag}</div>` : ''}</div>`;
+          if (cell.cont) h += `<div class="ch cont ${c.func}" data-ci="${cell.ci}" data-cont="1"><div class="nm">%</div><div class="fn">延续 ${esc(c.name)}</div></div>`;
+          else h += `<div class="ch ${c.func}${c.lock ? ' locked' : ''}${cell.ci === sel ? ' sel' : ''}" data-ci="${cell.ci}" style="flex:${cell.dur};animation-delay:${Math.min(cell.ci * 12, 400)}ms" tabindex="0" role="button" aria-label="${esc(c.name)} ${esc(c.roman)}">
+            <button class="lk${c.lock ? ' on' : ''}" data-lock="${cell.ci}" aria-label="锁定" data-tip="${c.lock ? '已锁定：重新生成时保留' : '锁定此和弦'}">${c.lock ? '🔒' : '🔓'}</button>
+            <div class="nm">${esc(c.name)}</div><div class="rn">${esc(c.roman)}</div><div class="fn">${FN[c.func] || esc(c.func)}</div>${c.tag ? `<div class="tg" data-tip="${esc(GLOSS[c.tag] || c.tag)}">${esc(c.tag)}</div>` : ''}</div>`;
         }
         h += '</div>';
       }
       h += '</div></div>';
     });
-    h += '<h2 style="margin-top:18px">乐理说明</h2><ul class="ex">' + song.explanation.map((x) => `<li>${x}</li>`).join('') + '</ul>';
-    $('out').innerHTML = h;
-    $('out').querySelectorAll('.ch').forEach((el) => { if (!el.dataset.c) el.onclick = () => preview(song.flat[+el.dataset.ci]); });
+    h += '<h2 style="margin-top:20px">乐理说明</h2><ul class="ex">' + song.explanation.map((x) => `<li>${termify(esc(x))}</li>`).join('') + '</ul>';
+    $('result').innerHTML = h;
+    renderTags(); renderInsp();
+  }
+  $('result').addEventListener('click', (e) => {
+    const lk = e.target.closest('[data-lock]');
+    if (lk) { e.stopPropagation(); toggleLock(+lk.dataset.lock); return; }
+    const act = e.target.closest('[data-act]');
+    if (act) { const si = +act.dataset.si; if (act.dataset.act === 'regensec') regen(si); else if (act.dataset.act === 'midisec') exportMidi(si); else play(si); return; }
+    const ch = e.target.closest('.ch'); if (!ch) return;
+    select(+ch.dataset.ci, true);
+  });
+  $('result').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.classList.contains('ch')) { e.stopPropagation(); select(+e.target.dataset.ci, true); } });
+  function toggleLock(ci) { E.toggleLock(song, ci); render(); commit((song.flat[ci].lock ? '锁定 ' : '解锁 ') + song.flat[ci].name); }
+  function select(ci, sound) {
+    if (!song || ci < 0 || ci >= song.flat.length) return;
+    sel = ci;
+    document.querySelectorAll('.ch.sel').forEach((el) => el.classList.remove('sel'));
+    document.querySelectorAll(`.ch[data-ci="${ci}"]:not([data-cont])`).forEach((el) => el.classList.add('sel'));
+    renderInsp(); if (sound) preview(song.flat[ci]);
   }
 
-  /* ---------- Web Audio ---------- */
-  let ac = null, master = null, timer = null, raf = null, playing = false;
+  /* ---------- 可视化：钢琴与吉他 ---------- */
+  function pianoSVG(c) {
+    const lo = 36, hi = 84, white = [], black = [], on = new Set(c.upper), bass = c.bassNote;
+    const isB = (n) => [1, 3, 6, 8, 10].includes(n % 12);
+    let x = 0; const W = 12;
+    for (let n = lo; n <= hi; n++) { if (!isB(n)) { white.push({ n, x }); x += W; } else black.push({ n, x: x - 4 }); }
+    const col = (n) => (n === bass ? 'var(--D)' : on.has(n) ? 'var(--acc)' : null);
+    let s = `<svg viewBox="0 0 ${x} 60" role="img" aria-label="钢琴键盘：${esc(c.name)}">`;
+    for (const k of white) s += `<rect x="${k.x}" y="0" width="${W - 1}" height="58" rx="2" fill="${col(k.n) || '#f4f5fb'}" stroke="#8890b0" stroke-width=".5"/>${k.n % 12 === 0 ? `<text x="${k.x + 2}" y="55" font-size="6" fill="#666">C${k.n / 12 - 1}</text>` : ''}`;
+    for (const k of black) s += `<rect x="${k.x}" y="0" width="8" height="36" rx="1.5" fill="${col(k.n) || '#20243a'}"/>`;
+    return s + '</svg>';
+  }
+  function guitarSVG(c) {
+    const g = E.guitarShape(c); if (!g) return '<p class="hint">无合适的吉他指法</p>';
+    const base = g.base, W = 140, H = 150, x0 = 25, y0 = 28, sw = 18, fh = 22;
+    let s = `<svg viewBox="0 0 ${W + 20} ${H}" role="img" aria-label="吉他指法：${esc(c.name)}" style="max-width:200px;margin:auto">`;
+    s += `<text x="${x0 + 45}" y="12" font-size="11" text-anchor="middle" fill="currentColor" font-weight="700">${esc(c.name)}</text>`;
+    for (let i = 0; i < 6; i++) s += `<line x1="${x0 + i * sw}" y1="${y0}" x2="${x0 + i * sw}" y2="${y0 + fh * 5}" stroke="var(--muted)" stroke-width="1"/>`;
+    for (let f = 0; f <= 5; f++) s += `<line x1="${x0}" y1="${y0 + f * fh}" x2="${x0 + sw * 5}" y2="${y0 + f * fh}" stroke="var(--muted)" stroke-width="${f === 0 && base === 1 ? 4 : 1}"/>`;
+    if (base > 1) s += `<text x="${x0 - 6}" y="${y0 + fh * 0.65}" font-size="10" text-anchor="end" fill="var(--muted)">${base}fr</text>`;
+    g.frets.forEach((f, i) => {
+      const x = x0 + i * sw;
+      if (f < 0) s += `<text x="${x}" y="${y0 - 6}" font-size="11" text-anchor="middle" fill="var(--muted)">×</text>`;
+      else if (f === 0) s += `<circle cx="${x}" cy="${y0 - 10}" r="4" fill="none" stroke="var(--muted)"/>`;
+      else { const rf = f - base + 1; s += `<circle cx="${x}" cy="${y0 + (rf - 0.5) * fh}" r="7" fill="${i === g.frets.findIndex((v) => v >= 0) ? 'var(--D)' : 'var(--acc)'}"/>`; }
+    });
+    return s + '</svg>';
+  }
+  const NN = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+  function noteName(c, n) { // 按和弦音的字母级数拼写（Db13 中写 Cb/Eb 而不是 B/D#）
+    const pc = n % 12; let nm = NN[pc];
+    if (c.xb && pc === c.xbPc) nm = c.xbName;
+    else { const t = E.Q[c.q].t.find((x) => (c.pc + x[0]) % 12 === pc); if (t) nm = E.spell(pc, c.letter + t[1]); }
+    return nm + (Math.floor(n / 12) - 1);
+  }
+  function renderInsp() {
+    if (!song || sel < 0 || sel >= song.flat.length) { $('insp').innerHTML = '<h2>和弦详情</h2><div class="empty" style="padding:30px 0">点击任意和弦查看<br>键盘 / 吉他指法 / 可替换和弦</div>'; return; }
+    const c = song.flat[sel], alts = E.alternatives(song, sel);
+    const groups = {}; alts.forEach((a, i) => { (groups[a.kind] = groups[a.kind] || []).push([a, i]); });
+    let h = `<h2>和弦详情 <span style="flex:1"></span><button class="ib" id="prevC" aria-label="上一个">‹</button><button class="ib" id="nextC" aria-label="下一个">›</button></h2>
+      <div class="cbig">${esc(c.name)}</div><div class="sub">${esc(c.roman)}</div>
+      <div class="badges"><span class="badge ${c.func}" data-tip="${esc(GLOSS[{ T: '主功能', S: '下属功能', D: '属功能' }[c.func]] || '')}">${FN[c.func] || esc(c.func)}</span>${c.tag ? `<span class="badge x" data-tip="${esc(GLOSS[c.tag] || '')}">${esc(c.tag)}</span>` : ''}${c.bass > 0 || c.xb ? '<span class="badge" data-tip="' + esc(GLOSS.转位) + '">转位/斜线</span>' : ''}<button class="badge" id="lockSel" style="cursor:pointer">${c.lock ? '🔒 已锁定' : '🔓 锁定'}</button></div>
+      <div class="hint" style="margin:0">组成音：${[c.bassNote, ...c.upper].map((n) => noteName(c, n)).join(' · ')}</div>
+      <div class="viz">${pianoSVG(c)}</div><div class="viz" style="color:var(--text)">${guitarSVG(c)}</div>
+      <h2 style="margin-top:12px">可替换和弦 <span class="hint" style="margin:0;text-transform:none">点击替换并试听</span></h2><div class="alts">`;
+    for (const [k, list] of Object.entries(groups)) {
+      h += `<div class="altg"><span class="term" data-tip="${esc(E.ALT_TIPS[k] || '')}">${esc(k)}</span></div>`;
+      h += list.map(([a, i]) => `<button class="alt" data-alt="${i}" data-tip="${esc(a.why)}"><b>${esc(a.name)}</b><small>${esc(a.roman)}</small></button>`).join('');
+    }
+    $('insp').innerHTML = h + '</div>';
+    $('insp').querySelectorAll('[data-alt]').forEach((b) => (b.onclick = () => {
+      const a = alts[+b.dataset.alt], old = c.name;
+      E.replaceChord(song, sel, a.chord); render(); preview(song.flat[sel]); commit(`替换 ${old} → ${song.flat[sel].name}`);
+    }));
+    $('lockSel').onclick = () => toggleLock(sel);
+    $('prevC').onclick = () => select(sel - 1, true);
+    $('nextC').onclick = () => select(sel + 1, true);
+  }
+
+  /* ---------- 音频 ---------- */
+  let ac = null, master = null, timer = null, raf = null, playing = false, noiseBuf = null, playSec;
   const hz = (m) => 440 * Math.pow(2, (m - 69) / 12);
   function ensureAC() {
-    if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
-    if (ac.state === 'suspended') ac.resume();
+    if (!ac) {
+      const AC = window.AudioContext || window.webkitAudioContext; if (!AC) { toast('此浏览器不支持 Web Audio'); return false; }
+      ac = new AC({ latencyHint: 'interactive' });
+      noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    if (ac.state !== 'running') ac.resume();
+    // iOS 解锁：在用户手势中播放一个静音缓冲
+    const b = ac.createBufferSource(); b.buffer = ac.createBuffer(1, 1, 22050); b.connect(ac.destination); b.start(0);
+    return true;
   }
+  ['pointerdown', 'touchend', 'keydown'].forEach((ev) => document.addEventListener(ev, function unlock() { if (ensureAC()) document.removeEventListener(ev, unlock); }, { once: true }));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && ac && ac.state === 'suspended' && playing) ac.resume(); });
   function newMaster() {
-    if (master) { try { master.gain.setTargetAtTime(0, ac.currentTime, 0.02); const m = master; setTimeout(() => m.disconnect(), 300); } catch (e) { /* ignore */ } }
-    master = ac.createGain(); master.gain.value = 0.6;
-    const comp = ac.createDynamicsCompressor(); master.connect(comp); comp.connect(ac.destination);
+    if (master) { const m = master; try { m.gain.cancelScheduledValues(ac.currentTime); m.gain.setValueAtTime(m.gain.value, ac.currentTime); m.gain.linearRampToValueAtTime(0, ac.currentTime + 0.04); } catch (e) { /* ignore */ } setTimeout(() => m.disconnect(), 120); }
+    master = ac.createGain(); master.gain.value = 0.7;
+    const comp = ac.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4;
+    master.connect(comp); comp.connect(ac.destination);
   }
-  function voice(midi, t, d, vel, part) {
-    const g = ac.createGain(), f = ac.createBiquadFilter();
-    f.type = 'lowpass'; f.frequency.value = part === 'bass' ? 900 : part === 'click' ? 8000 : 2600;
-    g.connect(f); f.connect(master);
-    const types = part === 'bass' ? ['triangle', 'sine'] : part === 'click' ? ['square'] : ['triangle', 'sawtooth'];
-    const amp = (part === 'chord' ? 0.07 : part === 'bass' ? 0.22 : 0.12) * vel;
-    const rel = part === 'click' ? 0.03 : 0.12, dd = Math.max(0.04, d);
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(amp, t + (part === 'click' ? 0.002 : 0.012));
-    g.gain.setTargetAtTime(amp * (part === 'chord' ? 0.55 : 0.7), t + 0.03, 0.25);
-    g.gain.setTargetAtTime(0, t + dd, rel / 3);
-    types.forEach((ty, i) => {
-      const o = ac.createOscillator(); o.type = ty; o.frequency.value = hz(midi);
-      if (i === 1) { o.detune.value = part === 'bass' ? 0 : 6; }
-      const og = ac.createGain(); og.gain.value = i === 1 && ty === 'sawtooth' ? 0.25 : 1;
-      o.connect(og); og.connect(g); o.start(t); o.stop(t + dd + rel * 2 + 0.05);
-    });
+  function env(g, t, a, peak, d, sus, end, rel) {
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + a);
+    g.gain.setTargetAtTime(peak * sus, t + a, d); g.gain.setTargetAtTime(0.0001, end, rel);
+  }
+  function osc(type, f, t, stopAt, dest, detune) { const o = ac.createOscillator(); o.type = type; o.frequency.value = f; if (detune) o.detune.value = detune; o.connect(dest); o.start(t); o.stop(stopAt); return o; }
+  function tone(midi, t, d, vel, inst) {
+    const f = hz(midi), g = ac.createGain(), end = t + Math.max(0.05, d);
+    if (inst === 'pad') {
+      const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1400; lp.Q.value = 0.7; g.connect(lp); lp.connect(master);
+      env(g, t, 0.25, 0.05 * vel, 0.6, 0.8, end, 0.35); osc('sawtooth', f, t, end + 1.5, g, -7); osc('sawtooth', f, t, end + 1.5, g, 7);
+    } else if (inst === 'epiano') {
+      g.connect(master); env(g, t, 0.005, 0.14 * vel, 0.5, 0.25, end, 0.15);
+      const mod = ac.createOscillator(), mg = ac.createGain(); mod.frequency.value = f; mg.gain.setValueAtTime(f * 1.4, t); mg.gain.exponentialRampToValueAtTime(f * 0.05, t + 0.6);
+      const car = ac.createOscillator(); car.frequency.value = f; mod.connect(mg); mg.connect(car.frequency); car.connect(g); mod.start(t); car.start(t); mod.stop(end + 0.8); car.stop(end + 0.8);
+    } else if (inst === 'guitar') {
+      const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(4500, t); lp.frequency.exponentialRampToValueAtTime(700, t + 0.4); g.connect(lp); lp.connect(master);
+      env(g, t, 0.003, 0.09 * vel, 0.35, 0.15, end, 0.08); osc('sawtooth', f, t, end + 0.5, g); osc('triangle', f * 2, t, end + 0.5, g, 3);
+    } else if (inst === 'bass') {
+      const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 700; g.connect(lp); lp.connect(master);
+      env(g, t, 0.008, 0.3 * vel, 0.3, 0.6, end, 0.06); osc('triangle', f, t, end + 0.4, g); osc('sine', f, t, end + 0.4, g);
+    } else if (inst === 'lead') {
+      const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2600; g.connect(lp); lp.connect(master);
+      env(g, t, 0.02, 0.09 * vel, 0.2, 0.7, end, 0.06); osc('square', f, t, end + 0.4, g); const v = ac.createOscillator(), vg = ac.createGain(); v.frequency.value = 5.5; vg.gain.value = 5; v.connect(vg); v.start(t); v.stop(end + 0.4);
+    } else if (inst === 'click') {
+      g.connect(master); env(g, t, 0.001, 0.25 * vel, 0.02, 0.01, t + 0.03, 0.01); osc('square', f, t, t + 0.08, g);
+    } else { // piano
+      const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(5000, t); lp.frequency.exponentialRampToValueAtTime(1500, t + 1); g.connect(lp); lp.connect(master);
+      env(g, t, 0.004, 0.12 * vel, 0.7, 0.2, end, 0.12); osc('triangle', f, t, end + 0.8, g); const g2 = ac.createGain(); g2.gain.value = 0.25; g2.connect(g); osc('sine', f * 2, t, end + 0.8, g2, 2);
+    }
+  }
+  function drum(note, t, vel) {
+    const g = ac.createGain(); g.connect(master);
+    const noise = (filterType, freq, dur, amp) => { const s = ac.createBufferSource(); s.buffer = noiseBuf; const fl = ac.createBiquadFilter(); fl.type = filterType; fl.frequency.value = freq; s.connect(fl); fl.connect(g); g.gain.setValueAtTime(amp * vel, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); s.start(t); s.stop(t + dur + 0.02); };
+    if (note === 36) { const o = ac.createOscillator(); o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.18); g.gain.setValueAtTime(0.9 * vel, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35); o.connect(g); o.start(t); o.stop(t + 0.4); }
+    else if (note === 38) { noise('bandpass', 1800, 0.18, 0.5); const o = ac.createOscillator(), og = ac.createGain(); o.frequency.value = 190; og.gain.setValueAtTime(0.3 * vel, t); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.1); o.connect(og); og.connect(master); o.start(t); o.stop(t + 0.12); }
+    else if (note === 39) noise('bandpass', 1200, 0.15, 0.55);
+    else if (note === 37) { const o = ac.createOscillator(); o.type = 'square'; o.frequency.value = 1700; g.gain.setValueAtTime(0.12 * vel, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.04); o.connect(g); o.start(t); o.stop(t + 0.05); }
+    else if (note === 46) noise('highpass', 7000, 0.3, 0.18);
+    else if (note === 51) noise('highpass', 5000, 0.4, 0.1);
+    else noise('highpass', 8000, 0.05, 0.2);
   }
   function preview(c) {
-    ensureAC(); if (!playing) newMaster();
-    const t = ac.currentTime + 0.02;
-    voice(c.bassNote, t, 1.2, 0.7, 'bass');
-    c.upper.forEach((n, i) => voice(n, t + i * 0.03, 1.2, 0.6, 'chord'));
+    if (!ensureAC()) return; if (!playing) newMaster();
+    const t = ac.currentTime + 0.03, inst = $('inst').value;
+    tone(c.bassNote, t, 1.3, 0.8, 'bass');
+    c.upper.forEach((n, i) => tone(n, t + (inst === 'guitar' ? i * 0.022 : i * 0.012), 1.3, 0.75, inst));
   }
-  function play() {
-    if (!song) generate();
-    if (!song) return;
-    ensureAC(); stop(); newMaster(); playing = true;
+  let restartTimer = null;
+  function restartSoon() { clearTimeout(restartTimer); restartTimer = setTimeout(() => { if (playing) play(playSec); }, 120); }
+  function play(section) {
+    if (!song) generate(); if (!song || !ensureAC()) return;
+    stopAudio(); newMaster(); playing = true; playSec = typeof section === 'number' ? section : undefined;
     $('play').disabled = true; $('stop').disabled = false;
-    const pat = $('pattern').value;
-    const ev = E.buildEvents(song, { metronome: $('metro').checked, pattern: pat });
+    const inst = $('inst').value;
+    const ev = E.buildEvents(song, { metronome: toggles.metro, drums: toggles.drums, melody: toggles.melody, pattern: $('pattern').value, section: playSec });
     const us = ev.unitSec, total = ev.totalUnits * us;
-    let base = ac.currentTime + 0.12, idx = 0;
-    const cells = $('out').querySelectorAll('.ch');
-    const cellAt = (k) => cells[k];
-    timer = setInterval(() => {
-      const horizon = ac.currentTime + 0.35;
-      while (true) {
-        if (idx >= ev.events.length) {
-          if ($('loop').checked) { base += total; idx = 0; continue; }
-          break;
-        }
+    const cells = [...$('result').querySelectorAll('.ch')].filter((el) => playSec === undefined || +el.closest('.section') === 0 || true);
+    const cellFor = new Map(); cells.forEach((el) => { const k = el.dataset.ci + (el.dataset.cont ? 'c' : ''); if (!cellFor.has(k)) cellFor.set(k, []); cellFor.get(k).push(el); });
+    let base = ac.currentTime + 0.1, idx = 0, loopN = 0, strum = 0;
+    const startAt = base;
+    const schedule = () => {
+      const horizon = ac.currentTime + (document.hidden ? 1.5 : 0.4);
+      for (;;) {
+        if (idx >= ev.events.length) { if (toggles.loop) { base += total; idx = 0; loopN++; continue; } break; }
         const e = ev.events[idx], t = base + e.t * us;
         if (t > horizon) break;
-        for (const n of e.notes) voice(n, t, e.d * us, e.vel, e.part);
+        if (t >= ac.currentTime - 0.02) {
+          if (e.part === 'drum') drum(e.notes[0], t, e.vel);
+          else if (e.part === 'chord') { strum++; const dn = strum % 2 === 0 && inst === 'guitar'; const ns = dn ? e.notes.slice().reverse() : e.notes; ns.forEach((n, i) => tone(n, t + (inst === 'guitar' ? i * 0.018 : 0), e.d * us, e.vel, inst)); }
+          else for (const n of e.notes) tone(n, t, e.d * us, e.vel, e.part === 'bass' ? 'bass' : e.part === 'melody' ? 'lead' : 'click');
+        }
         idx++;
       }
-      if (!$('loop').checked && idx >= ev.events.length && ac.currentTime > base + total + 0.3) stop();
-    }, 60);
+      if (!toggles.loop && idx >= ev.events.length && ac.currentTime > base + total + 0.4) stop();
+    };
+    schedule(); timer = setInterval(schedule, 50);
+    let lastCur = -2;
     const tick = () => {
       if (!playing) return;
-      const pos = (ac.currentTime - base) / us;
+      let pos = (ac.currentTime - startAt) / us;
+      if (pos >= 0) pos = pos % ev.totalUnits;
       let cur = -1;
-      const p = pos < 0 && $('loop').checked ? pos + ev.totalUnits : pos;
-      for (let k = 0; k < ev.timeline.length; k++) { const x = ev.timeline[k]; if (p >= x.t && p < x.t + x.d) { cur = k; break; } }
-      cells.forEach((el, k) => el.classList.toggle('now', k === cur));
+      for (let k = 0; k < ev.timeline.length; k++) { const x = ev.timeline[k]; if (pos >= x.t && pos < x.t + x.d) { cur = k; break; } }
+      if (cur !== lastCur) {
+        document.querySelectorAll('.ch.now').forEach((el) => el.classList.remove('now'));
+        if (cur >= 0) { const x = ev.timeline[cur]; (cellFor.get(x.ci + (x.cont ? 'c' : '')) || []).forEach((el) => el.classList.add('now')); if (!x.cont) { sel = x.ci; renderInsp(); document.querySelectorAll('.ch.sel').forEach((el) => el.classList.remove('sel')); } }
+        lastCur = cur;
+      }
       raf = requestAnimationFrame(tick);
     };
     tick();
   }
+  function stopAudio() { playing = false; clearInterval(timer); cancelAnimationFrame(raf); if (ac && master) newMaster(); }
   function stop() {
-    playing = false;
-    clearInterval(timer); cancelAnimationFrame(raf);
-    if (ac && master) newMaster();
+    stopAudio();
     document.querySelectorAll('.ch.now').forEach((el) => el.classList.remove('now'));
     $('play').disabled = false; $('stop').disabled = true;
   }
-  $('play').onclick = play;
+  $('play').onclick = () => play();
   $('stop').onclick = stop;
 
-  /* ---------- 导出 ---------- */
-  function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 1800); }
-  $('midi').onclick = () => {
-    if (!song) generate();
+  /* ---------- 导出 / 分享 / 收藏 ---------- */
+  function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 2000); }
+  const fileBase = () => { const s = song.settings; return `chords_${s.key}_${s.mode}_${song.bpm}bpm`.replace(/#/g, 's'); };
+  function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }
+  function exportMidi(section) {
     if (!song) return;
-    const bytes = E.toMidi(song, { metronome: $('metro').checked, pattern: $('pattern').value });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([bytes], { type: 'audio/midi' }));
-    const s = song.settings;
-    a.download = `chords_${s.key}_${s.mode}_${s.bpm}bpm.mid`.replace(/#/g, 's');
-    document.body.appendChild(a); a.click(); a.remove();
+    const bytes = E.toMidi(song, { metronome: toggles.metro, drums: toggles.drums, melody: toggles.melody, pattern: $('pattern').value, instrument: $('inst').value, section });
+    download(new Blob([bytes], { type: 'audio/midi' }), fileBase() + (section !== undefined ? '_' + song.sections[section].name.split(' ')[0] : '') + '.mid');
     toast('MIDI 已导出');
-  };
-  $('copy').onclick = async () => {
-    if (!song) return;
-    const txt = E.toText(song);
-    try { await navigator.clipboard.writeText(txt); } catch (e) {
-      const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+  }
+  $('expBtn').onclick = (e) => { e.stopPropagation(); $('expPop').classList.toggle('open'); };
+  $('expPop').addEventListener('click', () => $('expPop').classList.remove('open'));
+  $('midi').onclick = () => exportMidi();
+  $('txt').onclick = () => { if (song) download(new Blob([E.toText(song)], { type: 'text/plain;charset=utf-8' }), fileBase() + '.txt'); };
+  async function copyText(txt) {
+    try { await navigator.clipboard.writeText(txt); return true; } catch (e) {
+      const ta = document.createElement('textarea'); ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (er) { /* ignore */ } ta.remove(); return ok;
     }
-    toast('已复制到剪贴板');
+  }
+  $('copy').onclick = async () => { if (song) toast((await copyText(E.toText(song))) ? '已复制到剪贴板' : '复制失败，请手动选择'); };
+  const b64 = { enc: (s) => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''), dec: (s) => decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))) };
+  function shareURL() { const d = E.serialize(song); delete d.ex; delete d.inf; delete d.sp; return location.href.split('#')[0] + '#p=' + b64.enc(JSON.stringify(d)); }
+  $('share').onclick = async () => { if (!song) return; const u = shareURL(); history.replaceState(null, '', u); toast((await copyText(u)) ? '分享链接已复制' : '已写入地址栏'); };
+  function loadHash() {
+    const m = location.hash.match(/#p=([\w-]+)/); if (!m) return false;
+    try { const d = JSON.parse(b64.dec(m[1])); d.ex = d.ex || ['（来自分享链接）']; song = E.deserialize(d); sel = -1; afterNew('打开分享链接'); toast('已载入分享的进行'); return true; } catch (e) { toast('分享链接无效：' + e.message); return false; }
+  }
+  window.addEventListener('hashchange', loadHash);
+  function pngExport() {
+    if (!song) return;
+    const W = 1200, P = 36, cols = 4, bh = 74, gap = 10, cw = (W - P * 2 - gap * (cols - 1)) / cols;
+    let H = P + 70; song.sections.forEach((s) => { H += 34 + Math.ceil(s.bars.length / cols) * (bh + gap); }); H += 30;
+    const cv = document.createElement('canvas'), dpr = 2; cv.width = W * dpr; cv.height = H * dpr; const g = cv.getContext('2d'); g.scale(dpr, dpr);
+    const dark = document.documentElement.dataset.theme === 'dark', cs = getComputedStyle(document.documentElement), v = (n) => cs.getPropertyValue(n).trim();
+    g.fillStyle = v('--bg'); g.fillRect(0, 0, W, H);
+    const font = (w, s) => `${w} ${s}px -apple-system,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif`;
+    const st = song.settings;
+    g.fillStyle = v('--text'); g.font = font(800, 24); g.fillText('和弦进行 · ' + st.genre.split(' ')[0] + ' › ' + st.style, P, P + 18);
+    g.fillStyle = v('--muted'); g.font = font(400, 14); g.fillText(`${st.key} ${st.modeName}   ${st.meter}   ${song.bpm} BPM   情绪 ${st.mood}   ${st.complexityName}`, P, P + 44);
+    let y = P + 70, no = 1;
+    const fc = { T: v('--T'), S: v('--S'), D: v('--D') };
+    for (const sec of song.sections) {
+      g.fillStyle = v('--text'); g.font = font(700, 16); g.fillText(sec.name + '   ' + sec.keyLabel + (sec.modulated ? '  ⤴ +全音' : ''), P, y + 18); y += 30;
+      sec.bars.forEach((bar, bi) => {
+        const x = P + (bi % cols) * (cw + gap), yy = y + Math.floor(bi / cols) * (bh + gap);
+        g.fillStyle = v('--panel'); g.strokeStyle = v('--line'); g.beginPath(); g.roundRect(x, yy, cw, bh, 10); g.fill(); g.stroke();
+        g.fillStyle = v('--faint'); g.font = font(400, 10); g.fillText(String(no++), x + 7, yy + 13);
+        const tot = bar.reduce((a, b) => a + b.dur, 0); let cx = x + 4;
+        for (const cell of bar) {
+          const w = (cw - 8) * cell.dur / tot, c = song.flat[cell.ci];
+          g.fillStyle = cell.cont ? v('--line') : fc[c.func] || v('--X'); g.fillRect(cx + 2, yy + 18, w - 4, 3);
+          g.textAlign = 'center'; g.fillStyle = v('--text'); g.font = font(700, w < 90 ? 14 : 18); g.fillText(cell.cont ? '%' : c.name, cx + w / 2, yy + 45, w - 6);
+          g.fillStyle = v('--muted'); g.font = font(400, 12); if (!cell.cont) g.fillText(c.roman, cx + w / 2, yy + 63, w - 6); g.textAlign = 'left'; cx += w;
+        }
+      });
+      y += Math.ceil(sec.bars.length / cols) * (bh + gap) + 4;
+    }
+    g.fillStyle = v('--faint'); g.font = font(400, 11); g.fillText('由「和弦进行生成器」生成' + (dark ? '' : ''), P, H - 14);
+    cv.toBlob((b) => { download(b, fileBase() + '.png'); toast('PNG 已导出'); });
+  }
+  $('png').onclick = pngExport;
+  let favs = LS.get('cg.favs', []);
+  function renderFavs() {
+    $('favList').innerHTML = favs.length ? favs.map((f, i) => `<div class="li"><div class="t" data-load="${i}"><div>${esc(f.name)}</div><small>${new Date(f.time).toLocaleString()} · ${esc(f.preview)}</small></div><button class="ib" data-del="${i}" aria-label="删除">🗑</button></div>`).join('') : '<p class="hint">还没有收藏。生成后按 ☆ 或 <kbd>S</kbd> 收藏。</p>';
+  }
+  function saveFav() {
+    if (!song) return; const s = song.settings;
+    favs.unshift({ name: `${s.style} · ${s.key} ${s.modeName.split(' ')[0]} · ${s.mood}`, time: Date.now(), preview: song.flat.slice(0, 6).map((c) => c.name).join(' '), data: E.serialize(song) });
+    favs = favs.slice(0, 100); LS.set('cg.favs', favs); renderFavs(); toast('已收藏 ★');
+  }
+  $('save').onclick = saveFav;
+  $('favList').onclick = (e) => {
+    const d = e.target.closest('[data-del]'), l = e.target.closest('[data-load]');
+    if (d) { favs.splice(+d.dataset.del, 1); LS.set('cg.favs', favs); renderFavs(); }
+    else if (l) { try { stop(); song = E.deserialize(favs[+l.dataset.load].data); sel = -1; afterNew('打开收藏'); closeDrawers(); } catch (er) { toast('收藏数据损坏'); } }
   };
+  renderFavs();
+  const drawers = { favBtn: 'favDrawer', histBtn: 'histDrawer', help: 'helpDrawer' };
+  function closeDrawers() { document.querySelectorAll('.drawer.open').forEach((d) => d.classList.remove('open')); $('scrim').classList.remove('open'); }
+  function openDrawer(id) { closeDrawers(); $(id).classList.add('open'); $('scrim').classList.add('open'); }
+  Object.entries(drawers).forEach(([b, d]) => ($(b).onclick = () => openDrawer(d)));
+  $('scrim').onclick = closeDrawers;
+  document.querySelectorAll('[data-close]').forEach((b) => (b.onclick = closeDrawers));
+
+  /* ---------- 快捷键 ---------- */
   document.addEventListener('keydown', (e) => {
-    if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) && e.target.type !== 'range') { if (e.key === 'Enter' && e.target.id === 'seeds') generate(); return; }
-    if (e.code === 'Space') { e.preventDefault(); playing ? stop() : play(); }
-    if (e.key === 'Enter') generate();
+    const tg = e.target, typing = /INPUT|SELECT|TEXTAREA/.test(tg.tagName) && tg.type !== 'range';
+    if (e.key === 'Escape') { closeDrawers(); $('pickPop').classList.remove('open'); $('expPop').classList.remove('open'); return; }
+    if (typing) { if (e.key === 'Enter' && tg.id === 'seeds') generate(); return; }
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? restore(hp + 1) : restore(hp - 1); return; }
+    if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); restore(hp + 1); return; }
+    if (mod || e.altKey) return;
+    const k = e.key;
+    if (k === ' ' || e.code === 'Space') { e.preventDefault(); playing ? stop() : play(); }
+    else if (k === 'Enter' && !tg.closest('.ch')) { if (tg.tagName !== 'BUTTON') generate(); }
+    else if (k === 'r' || k === 'R') regen();
+    else if (k === 'a' || k === 'A') $('allRand').click();
+    else if (k === 'ArrowRight') { e.preventDefault(); select(sel + 1, true); }
+    else if (k === 'ArrowLeft') { e.preventDefault(); select(Math.max(0, sel - 1), true); }
+    else if ((k === 'l' || k === 'L') && sel >= 0) toggleLock(sel);
+    else if (k === ']') transpose(1);
+    else if (k === '[') transpose(-1);
+    else if (k === 'm' || k === 'M') $('metro').click();
+    else if (k === 'd' || k === 'D') $('drums').click();
+    else if (k === 's' || k === 'S') saveFav();
+    else if (k === 't' || k === 'T') $('theme').click();
+    else if (k === 'h' || k === 'H') openDrawer('histDrawer');
+    else if (k === 'f' || k === 'F') openDrawer('favDrawer');
+    else if (k === '?') openDrawer('helpDrawer');
   });
-  generate();
+
+  if (!loadHash()) generate();
+  window.__cg = { get song() { return song; }, E };
 })();
 
 </script>

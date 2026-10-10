@@ -49,8 +49,9 @@ function checkSong(song, label) {
     ok(c.upper.every((n) => n > c.bassNote), label + ' upper above bass');
     const pcs = E.Q[c.q].t.map((t) => mod(c.pc + t[0], 12));
     ok(c.upper.every((n) => pcs.includes(mod(n, 12))), label + ' voicing tones belong to chord ' + c.name);
-    ok(pcs.includes(mod(c.bassNote, 12)), label + ' bass is a chord tone');
+    ok(c.xb ? mod(c.bassNote, 12) === c.xbPc : pcs.includes(mod(c.bassNote, 12)), label + ' bass is a chord tone (or explicit slash bass)');
     ok(c.bass === 0 || c.name.includes('/'), label + ' slash name for inversion');
+    ok(!c.xb || c.name.endsWith('/' + c.xbName), label + ' explicit slash bass kept');
   }
   // 小节布局
   for (const sec of song.sections) {
@@ -65,7 +66,14 @@ function checkSong(song, label) {
   const ev = E.buildEvents(song, { metronome: true });
   ok(ev.events.length > 0 && ev.events.every((e) => isFinite(e.t) && e.d > 0 && e.t < ev.totalUnits + 1e-6), label + ' events');
   ok(ev.timeline.length === song.sections.reduce((a, s) => a + s.bars.flat().length, 0), label + ' timeline');
-  parseMidi(E.toMidi(song, { metronome: Math.random() < 0.5 }));
+  parseMidi(E.toMidi(song, { metronome: Math.random() < 0.5, drums: R() < 0.5, melody: R() < 0.5, instrument: pick(['piano', 'epiano', 'pad', 'guitar']) }));
+  const evd = E.buildEvents(song, { drums: true, melody: true });
+  ok(evd.events.some((e) => e.part === 'drum') && evd.events.some((e) => e.part === 'melody'), label + ' drums+melody');
+  ok(evd.events.filter((e) => e.part === 'melody').every((e) => e.notes[0] >= 60 && e.notes[0] <= 90 && e.d > 0), label + ' melody range');
+  const si = Math.floor(R() * song.sections.length);
+  const evs = E.buildEvents(song, { section: si });
+  ok(evs.bars === song.sections[si].bars.length && evs.timeline.every((x) => x.t < evs.totalUnits), label + ' section events');
+  parseMidi(E.toMidi(song, { section: si }));
   const txt = E.toText(song);
   ok(txt.includes(song.flat[0].name) && !/undefined/.test(txt), label + ' text');
   ok(song.explanation.length >= 3, label + ' explanation');
@@ -106,6 +114,11 @@ for (let i = 0; i < N; i++) {
   ok(song.sections[0].bars.length === Math.max(s.bars, song.hr === 0.5 ? 2 : 1) || song.flat.length === 2, label + ' bar count');
   const last = song.flat[song.flat.length - 1];
   ok(last.rel === 0, label + ' 结尾回到主和弦');
+  song.flat.forEach((c, k) => {
+    const nx = song.flat[k + 1]; if (!nx) return;
+    if (c.tag === '副属') ok(mod(nx.pc - c.pc, 12) === 5, label + ` 副属 ${c.name}(${c.roman}) 必须解决到下方五度 ${nx.name}`);
+    if (c.tag === '三全音替代') ok(mod(nx.pc - c.pc, 12) === 11, label + ` 三全音替代 ${c.name} 必须半音下行 ${nx.name}`);
+  });
   if (o.mode !== 'rand') ok(s.mode === o.mode, label + ' mode override');
   if (o.key !== 'rand') ok(s.tonic === o.key, label + ' key override');
   if (o.meter !== 'rand') ok(s.meter === o.meter, label + ' meter override');
@@ -166,6 +179,50 @@ for (let i = 0; i < 1500; i++) {
   const pre = song.sections.find((s) => s.key === 'Pre-chorus');
   if (pre && !pre.chords[pre.chords.length - 1].tag.includes('转调')) ok(pre.chords[pre.chords.length - 1].func === 'D', label + ' pre-chorus half cadence');
 }
+// 6) v2 回归：解析边界、编辑功能
+const P = (t) => E.parseSeeds(t).chords;
+ok(P('Am，F|C-G').length === 4 && P('Am、F；C→G').length === 4 && P('Am - F - C - G').length === 4, 'Chinese / dash separators');
+ok(P('Cm7-5')[0].q === 'm7b5' && P('Cm7-b5')[0].q === 'm7b5' && P('Cm7(b5)')[0].q === 'm7b5', 'half-diminished spellings');
+ok(P('Csus')[0].q === 'sus4' && P('Csus2')[0].q === 'sus2' && P('Cadd9')[0].q === 'add9' && P('Bdim7')[0].q === 'dim7' && P('Caug')[0].q === 'aug' && P('C+')[0].q === 'aug', 'sus/add9/dim7/aug');
+ok(P('C♯m')[0].pc === 1 && P('D♭')[0].pc === 1 && P('Ｇ7')[0].q === '7' && P('C△7')[0].q === 'maj7' && P('Caug7')[0].q === '7#5' && P('C6/9')[0].q === '69', 'unicode / fullwidth / extra suffixes');
+ok(P('cm')[0].q === 'm' && P('am f c g').length === 4, 'lowercase roots');
+const sd = E.expand({ seeds: 'C/D G/B Am7/G', seed: 3, length: '短', key: 7, mode: 'major' });
+const v0 = sd.sections[1].chords;
+ok(v0[0].name === 'C/D' && v0[1].name === 'G/B' && v0[2].name === 'Am7/G', 'slash chords preserved incl. non-chord-tone bass: ' + v0.map((c) => c.name).join(' '));
+ok(mod(v0[0].bassNote, 12) === 2 && mod(v0[1].bassNote, 12) === 11, 'slash bass voiced');
+for (let i = 0; i < 300; i++) {
+  const song = i % 2 ? E.generate({ seed: 5000 + i }) : E.expand({ seed: 5000 + i, seeds: pick(SEEDS) });
+  const label = 'edit#' + i;
+  const n = song.flat.length;
+  const locks = [0, Math.floor(n / 2)].filter((k) => k < n);
+  locks.forEach((k) => E.toggleLock(song, k));
+  const before = locks.map((k) => song.flat[k].name);
+  E.regenerate(song, { seed: 9000 + i });
+  ok(song.flat.length === n, label + ' regen keeps length');
+  ok(locks.every((k, j) => song.flat[k].name === before[j] && song.flat[k].lock), label + ' locked chords kept');
+  checkSong(song, label + ' regen');
+  const si = Math.floor(R() * song.sections.length);
+  E.regenerate(song, { section: si, seed: i });
+  checkSong(song, label + ' regen section');
+  const ci = Math.floor(R() * n);
+  const alts = E.alternatives(song, ci);
+  ok(alts.length >= 3 && alts.every((a) => E.parseChord(a.name) && a.roman && a.why), label + ' alternatives');
+  const a = pick(alts);
+  E.replaceChord(song, ci, a.chord);
+  ok(song.flat[ci].name.split('/')[0] === a.name.split('/')[0], label + ' replace applied ' + a.name + ' vs ' + song.flat[ci].name);
+  checkSong(song, label + ' replaced');
+  const key0 = song.settings.tonic, names0 = song.flat.map((c) => c.pc);
+  const t = 1 + Math.floor(R() * 11);
+  E.transpose(song, t);
+  ok(song.settings.tonic === mod(key0 + t, 12) && song.flat.every((c, k) => c.pc === mod(names0[k] + t, 12)), label + ' transpose');
+  checkSong(song, label + ' transposed');
+  const back = E.deserialize(JSON.parse(JSON.stringify(E.serialize(song))));
+  ok(back.flat.map((c) => c.name).join() === song.flat.map((c) => c.name).join() && back.flat.every((c, k) => c.roman === song.flat[k].roman), label + ' serialize round-trip');
+  checkSong(back, label + ' deserialized');
+  for (const c of song.flat.slice(0, 4)) { const g = E.guitarShape(c); if (g) { const got = new Set(g.notes.filter((x) => x !== null).map((x) => mod(x, 12))); const pcs = E.Q[c.q].t.map((x) => mod(c.pc + x[0], 12)); ok([...got].every((x) => pcs.includes(x) || x === c.xbPc), label + ' guitar tones ' + c.name); } }
+}
+let bad = false; try { E.deserialize({ secs: [], st: 9999 }); } catch (e) { bad = true; } ok(bad, 'deserialize rejects junk');
+
 let thrown = false; try { E.expand({ seeds: 'xyz' }); } catch (e) { thrown = true; } ok(thrown, 'invalid seeds throw');
 
 // 5) 构建产物：单文件、无外部依赖、引擎内联

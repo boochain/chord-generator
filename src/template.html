@@ -1,8 +1,9 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
 <title>和弦进行生成器 · Chord Progression Generator</title>
 <style>
 /*CSS*/
@@ -10,63 +11,107 @@
 </head>
 <body>
 <header>
-  <h1>🎹 和弦进行生成器<small>符合乐理的随机和弦进行 · 133 种风格 · 播放 / MIDI 导出</small></h1>
-  <div class="tabs" role="tablist">
-    <button id="tabRand" class="on">随机生成</button>
-    <button id="tabSeed">根据给定和弦扩展</button>
+  <div class="brand"><div class="logo" aria-hidden="true">♪</div><h1>和弦进行生成器<small>符合乐理 · 133 种风格 · v2</small></h1></div>
+  <div class="tabs" role="tablist" aria-label="模式">
+    <button role="tab" id="tabRand" aria-selected="true">随机生成</button>
+    <button role="tab" id="tabSeed" aria-selected="false">根据给定和弦扩展</button>
+  </div>
+  <div class="hbtns">
+    <button class="ib" id="undo" data-tip="撤销 (Ctrl+Z)" aria-label="撤销" disabled>↶</button>
+    <button class="ib" id="redo" data-tip="重做 (Ctrl+Shift+Z)" aria-label="重做" disabled>↷</button>
+    <button class="ib" id="histBtn" data-tip="历史记录 (H)">🕘 历史</button>
+    <button class="ib" id="favBtn" data-tip="收藏夹 (F)">★ 收藏</button>
+    <button class="ib" id="theme" data-tip="切换深色/浅色主题" aria-label="切换主题">◐</button>
+    <button class="ib" id="help" data-tip="快捷键 (?)" aria-label="快捷键">⌨</button>
   </div>
 </header>
 <main>
-  <section class="card" id="ctrl">
-    <div id="seedBox" hidden>
+  <section class="card sticky" id="ctrl" aria-label="参数">
+    <div class="group" id="seedBox" hidden>
       <h2>种子和弦</h2>
-      <label class="f full">输入一个或多个和弦（空格分隔），如 <code>Am F C G</code> 或 <code>Dm7</code>
-        <input type="text" id="seeds" value="Am F C G" placeholder="Am F C G">
+      <label class="f">输入一个或多个和弦，支持空格、逗号、｜、- 分隔，如 <code>Am F C G</code>、<code>Dm7</code>、<code>C/E</code>
+        <input type="text" id="seeds" value="Am F C G" placeholder="Am F C G" autocomplete="off" spellcheck="false">
       </label>
-      <div class="infer" id="inferBox"></div>
-      <div class="err" id="seedErr"></div>
-      <div class="grid" style="margin-top:10px">
+      <div class="row" id="inferBox" style="flex-wrap:wrap;margin-top:6px"></div>
+      <div class="err" id="seedErr" role="alert"></div>
+      <div class="grid">
         <label class="f">歌曲长度<select id="songLen"><option>短</option><option selected>标准</option><option>长</option></select></label>
-        <label class="f">&nbsp;<span class="chk"><input type="checkbox" id="modulate" checked> 最后副歌上移全音转调</span></label>
+        <label class="f">转调<select id="modulate"><option value="1">最后副歌 +全音</option><option value="0">不转调</option></select></label>
       </div>
-      <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
     </div>
-    <h2>参数（每项可设为 🎲 随机）</h2>
-    <div class="grid">
-      <label class="f">风格大类<select id="genre"></select></label>
-      <label class="f">子风格<select id="style"></select></label>
-      <label class="f">情绪<select id="mood"></select></label>
-      <label class="f">拍号<select id="meter"></select></label>
-      <label class="f" id="keyWrap">调性<select id="key"></select></label>
-      <label class="f" id="modeWrap">调式<select id="mode"></select></label>
-      <label class="f full">速度 BPM：<b id="bpmVal">100</b>
-        <div class="row"><input type="range" id="bpm" min="40" max="220" value="100"><button class="dice on" id="bpmRand" type="button">🎲 随机</button></div>
-      </label>
-      <label class="f">速度感<select id="feel"><option value="rand">🎲 随机</option><option>快</option><option>中</option><option>慢</option></select></label>
-      <label class="f"><span id="barsLabel">小节数</span><select id="bars"></select></label>
-      <label class="f">和弦复杂度<select id="complexity"></select></label>
-      <label class="f">和声节奏<select id="hr"></select></label>
-      <label class="f full">伴奏节奏型<select id="pattern"></select></label>
+    <div class="group">
+      <h2>风格与情绪</h2>
+      <div class="grid">
+        <div class="f full picker" id="picker"><span style="font-size:12px;color:var(--muted)">风格（可搜索）</span>
+          <button class="pickbtn" id="pickBtn" aria-haspopup="listbox"><span id="pickLabel">🎲 全部随机</span><span>▾</span></button>
+          <div class="pop" id="pickPop"><input type="search" id="pickSearch" placeholder="搜索风格，如 jazz / 国风 / lo-fi"><div class="plist" id="pickList" role="listbox"></div></div>
+        </div>
+        <label class="f full">情绪<select id="mood"></select></label>
+      </div>
     </div>
-    <div class="btns">
-      <button class="btn pri" id="gen">✨ 生成</button>
-      <button class="btn" id="allRand">🎲 全部随机</button>
+    <div class="group">
+      <h2>调性与节拍</h2>
+      <div class="grid">
+        <label class="f">调性<select id="key"></select></label>
+        <label class="f">调式<select id="mode"></select></label>
+        <label class="f">拍号<select id="meter"></select></label>
+        <label class="f">速度感<select id="feel"><option value="rand">🎲 随机</option><option>快</option><option>中</option><option>慢</option></select></label>
+        <label class="f full"><span>速度 BPM <b id="bpmVal"></b></span>
+          <span class="row"><input type="range" id="bpm" min="40" max="220" value="100" aria-label="BPM"><button class="chip on" id="bpmRand" type="button">🎲 随机</button></span>
+        </label>
+      </div>
     </div>
-    <div class="btns">
-      <button class="btn" id="play">▶ 播放</button>
-      <button class="btn" id="stop" disabled>■ 停止</button>
-      <label class="chk"><input type="checkbox" id="loop"> 循环</label>
-      <label class="chk"><input type="checkbox" id="metro"> 节拍器</label>
+    <div class="group">
+      <h2>结构与和声</h2>
+      <div class="grid">
+        <label class="f"><span id="barsLabel">小节数</span><select id="bars"></select></label>
+        <label class="f"><span><span class="term" data-tip="每小节放几个和弦。数字越大和弦变化越快。">和声节奏</span></span><select id="hr"></select></label>
+        <label class="f full"><span><span class="term" data-tip="三和弦最朴素；七和弦更丰富；九/十一/十三增加延伸音；变化和弦在属和弦上加入 ♭9、♯9、♯11、♭13 等张力。">和弦复杂度</span></span><select id="complexity"></select></label>
+      </div>
     </div>
-    <div class="btns">
-      <button class="btn" id="midi">⬇ 导出 MIDI</button>
-      <button class="btn" id="copy">📋 复制文本</button>
+    <div class="actions">
+      <button class="ib pri big" id="gen" data-tip="按当前参数生成新进行 (Enter)">✨ 生成</button>
+      <button class="ib big" id="allRand" data-tip="所有参数设为随机并生成 (A)">🎲 全部随机</button>
     </div>
-    <p class="hint">提示：点击单个和弦可试听；空格键 播放/停止；Enter 生成。</p>
+    <p class="hint">点击和弦可试听并查看替换；🔒 锁定后按 <kbd>R</kbd> 只重新生成未锁定部分。</p>
   </section>
-  <section class="card" id="out"><div class="empty">点击「生成」开始</div></section>
+
+  <section class="card" id="out" aria-live="polite">
+    <div class="transport" id="transport">
+      <button class="ib pri" id="play" aria-label="播放">▶ 播放</button>
+      <button class="ib" id="stop" aria-label="停止" disabled>■</button>
+      <button class="chip" id="loop" aria-pressed="false" data-tip="循环播放">🔁 循环</button>
+      <button class="chip" id="metro" aria-pressed="false" data-tip="节拍器 (M)">🥁 节拍器</button>
+      <button class="chip on" id="drums" aria-pressed="true" data-tip="按风格生成的简易鼓组 (D)">🪘 鼓</button>
+      <button class="chip" id="melody" aria-pressed="false" data-tip="基于和弦音与调内音生成旋律提示">🎵 旋律提示</button>
+      <span class="sep"></span>
+      <select id="inst" aria-label="音色" data-tip="和弦音色"><option value="piano">🎹 钢琴</option><option value="epiano">🎛 电钢琴</option><option value="pad">🌫 合成铺底</option><option value="guitar">🎸 吉他扫弦</option></select>
+      <select id="pattern" aria-label="伴奏节奏型"></select>
+      <span class="sep"></span>
+      <button class="ib" id="tDown" data-tip="降半音移调 ([)">♭</button><span class="tag" id="keyNow">—</span><button class="ib" id="tUp" data-tip="升半音移调 (])">♯</button>
+      <span style="flex:1"></span>
+      <button class="ib" id="regen" data-tip="重新生成未锁定的和弦 (R)">↻ 重生成</button>
+      <button class="ib" id="save" data-tip="收藏当前进行 (S)">☆</button>
+      <div class="menu"><button class="ib" id="expBtn" aria-haspopup="menu">⬇ 导出 ▾</button>
+        <div class="pop" id="expPop" role="menu">
+          <button id="midi">🎼 MIDI（全曲）</button><button id="png">🖼 PNG 和弦谱</button><button id="txt">📄 文本文件</button><button id="copy">📋 复制文本</button><button id="share">🔗 复制分享链接</button>
+        </div>
+      </div>
+    </div>
+    <div id="result"><div class="empty">点击「生成」开始</div></div>
+  </section>
+
+  <aside class="card sticky" id="insp" aria-label="和弦详情"><div class="empty">选择一个和弦查看详情</div></aside>
 </main>
-<div class="toast" id="toast"></div>
+<div class="scrim" id="scrim"></div>
+<div class="drawer" id="favDrawer" aria-label="收藏夹"><h2>★ 收藏夹 <button class="ib" data-close>✕</button></h2><div id="favList"></div></div>
+<div class="drawer" id="histDrawer" aria-label="历史"><h2>🕘 历史记录 <button class="ib" data-close>✕</button></h2><div id="histList"></div></div>
+<div class="drawer" id="helpDrawer" aria-label="快捷键"><h2>⌨ 快捷键 <button class="ib" data-close>✕</button></h2>
+  <div class="keys"><kbd>Space</kbd><span>播放 / 停止</span><kbd>Enter</kbd><span>按参数生成</span><kbd>R</kbd><span>重新生成未锁定和弦</span><kbd>A</kbd><span>全部随机</span><kbd>← →</kbd><span>选择上/下一个和弦</span><kbd>L</kbd><span>锁定/解锁选中和弦</span><kbd>[ ]</kbd><span>移调 −1 / +1 半音</span><kbd>Ctrl+Z</kbd><span>撤销</span><kbd>Ctrl+Shift+Z</kbd><span>重做</span><kbd>M</kbd><span>节拍器</span><kbd>D</kbd><span>鼓组</span><kbd>S</kbd><span>收藏</span><kbd>T</kbd><span>切换主题</span><kbd>Esc</kbd><span>关闭面板</span></div>
+  <p class="hint">术语下方带虚线的文字悬停可看解释。</p>
+</div>
+<div id="tip" role="tooltip"></div>
+<div class="toast" id="toast" role="status"></div>
 <script>
 /*ENGINE*/
 </script>

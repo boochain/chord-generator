@@ -1,0 +1,80 @@
+// 无头 Chrome 端到端检查：node test/browser.test.cjs（需要 playwright 与 Chrome）
+const path = require('path');
+let pw; try { pw = require('playwright'); } catch (e) { pw = require('/workspace/mcs/node_modules/playwright'); }
+const exe = process.env.CHROME || '/usr/bin/google-chrome';
+const file = 'file://' + path.resolve(__dirname, '..', 'index.html');
+const assert = (c, m) => { if (!c) throw new Error('✘ ' + m); console.log('✔ ' + m); };
+(async () => {
+  const b = await pw.chromium.launch({ executablePath: exe, args: ['--autoplay-policy=no-user-gesture-required'] });
+  const ctx = await b.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true });
+  const p = await ctx.newPage();
+  const errs = [];
+  p.on('pageerror', (e) => errs.push(e.message));
+  p.on('console', (m) => m.type() === 'error' && errs.push(m.text()));
+  p.on('dialog', (d) => { errs.push('dialog ' + d.message()); d.dismiss(); });
+  await p.goto(file); await p.waitForSelector('.ch');
+  const names = () => p.$$eval('.ch:not(.cont) .nm', (x) => x.map((e) => e.textContent));
+  for (let i = 0; i < 15; i++) await p.click('#allRand');
+  assert((await names()).length >= 2, '全部随机生成');
+  await p.click('.ch:not(.cont)'); await p.waitForSelector('.alt');
+  assert(await p.$('#insp svg'), '和弦详情：钢琴/吉他图');
+  const before = (await names())[0];
+  await p.click('.alt >> nth=0');
+  const after = (await names())[0];
+  assert(before !== after, `替换和弦 ${before} → ${after}`);
+  await p.keyboard.press('Control+z'); assert((await names())[0] === before, '撤销');
+  await p.keyboard.press('Control+Shift+Z'); assert((await names())[0] === after, '重做');
+  await p.click('[data-lock="0"]');
+  const locked = (await names())[0];
+  for (let i = 0; i < 5; i++) await p.keyboard.press('r');
+  assert((await names())[0] === locked && (await p.$('.ch.locked')), '锁定后 R 重新生成保留锁定和弦');
+  const k0 = await p.textContent('#keyNow'); await p.click('#tUp'); assert((await p.textContent('#keyNow')) !== k0, '移调');
+  await p.click('#drums'); await p.click('#drums'); await p.click('#melody');
+  await p.click('#play'); await p.waitForTimeout(1600);
+  assert(await p.$('.ch.now'), '播放高亮当前和弦');
+  await p.click('#stop'); assert(!(await p.$('.ch.now')), '停止');
+  await p.click('#loop'); await p.click('[data-act=playsec]'); await p.waitForTimeout(600); await p.keyboard.press('Space'); await p.click('#loop');
+  for (const [id, ext] of [['midi', '.mid'], ['png', '.png'], ['txt', '.txt']]) {
+    await p.click('#expBtn');
+    const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#' + id)]);
+    assert(dl.suggestedFilename().endsWith(ext), '导出 ' + dl.suggestedFilename());
+  }
+  const [dl2] = await Promise.all([p.waitForEvent('download'), p.click('[data-act=midisec]')]);
+  assert(/\.mid$/.test(dl2.suggestedFilename()), '分段 MIDI ' + dl2.suggestedFilename());
+  await p.click('#save'); await p.click('#favBtn'); assert((await p.$$('#favList .li')).length >= 1, '收藏'); await p.keyboard.press('Escape');
+  await p.click('#expBtn'); await p.click('#share');
+  const url = p.url(); assert(url.includes('#p='), '分享链接');
+  const cur = await names();
+  const p2 = await ctx.newPage(); p2.on('pageerror', (e) => errs.push(e.message)); await p2.goto(url); await p2.waitForSelector('.ch');
+  assert(JSON.stringify(await p2.$$eval('.ch:not(.cont) .nm', (x) => x.map((e) => e.textContent))) === JSON.stringify(cur), '分享链接还原相同进行');
+  await p2.close();
+  // 种子模式 + 中文分隔符 + XSS
+  await p.click('#tabSeed');
+  await p.selectOption('#bars', '8'); await p.selectOption('#hr', '1');
+  await p.fill('#seeds', 'Am，F|C-G/B');
+  await p.click('#gen'); await p.waitForTimeout(200);
+  const secs = await p.$$eval('.sh h3', (x) => x.map((e) => e.textContent));
+  assert(secs.length >= 4 && secs.some((s) => s.includes('副歌')), '种子扩展结构 ' + secs.join(','));
+  assert((await names()).includes('G/B'), '斜线种子和弦保留');
+  await p.fill('#seeds', 'Am <img src=x onerror=alert(1)> F'); await p.click('#gen'); await p.waitForTimeout(200);
+  assert(!(await p.$('#result img')) && !errs.some((e) => e.startsWith('dialog')), '无 XSS（输入被转义）');
+  await p.click('[data-act=regensec] >> nth=2'); assert(true, '分段重新生成');
+  await p.click('#theme');
+  await p.click('#tabRand'); await p.click('#gen');
+  await p.click('.ch:not(.cont) >> nth=1');
+  await p.evaluate(() => { document.documentElement.dataset.theme = 'dark'; }); await p.mouse.move(600, 900);
+  await p.waitForTimeout(600);
+  await p.screenshot({ path: path.resolve(__dirname, '..', 'screenshot.png') });
+  await p.click('#theme'); await p.mouse.move(600, 900); await p.waitForTimeout(400); await p.screenshot({ path: '/tmp/cg-light.png' }); await p.click('#theme');
+  // 风格搜索
+  await p.click('#pickBtn'); await p.fill('#pickSearch', 'bossa'); const items = await p.$$('#pickList .it[data-s]:not([data-s=rand])');
+  assert(items.length === 1, '风格搜索 bossa'); await items[0].click(); assert((await p.textContent('#pickLabel')).includes('Bossa'), '选择风格');
+  // 移动端
+  await p.setViewportSize({ width: 375, height: 812 }); await p.waitForTimeout(300);
+  const ov = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+  assert(ov <= 1, '移动端无横向溢出 (' + ov + ')');
+  await p.screenshot({ path: '/tmp/cg-mobile.png', fullPage: false });
+  assert(errs.length === 0, '无控制台错误 ' + JSON.stringify(errs));
+  await b.close();
+  console.log('浏览器检查全部通过');
+})().catch((e) => { console.error(e.message); process.exit(1); });
