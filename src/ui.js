@@ -94,7 +94,7 @@
   $('pickSearch').oninput = renderPick;
   $('pickSearch').onkeydown = (e) => { if (e.key === 'Enter') { const f = $('pickList').querySelector('.it[data-s]:not([data-s=rand])'); if (f) f.click(); } };
   $('pickList').onclick = (e) => { const t = e.target.closest('[data-g]'); if (!t) return; state.genre = t.dataset.g; state.style = t.dataset.s; $('pickPop').classList.remove('open'); renderPick(); };
-  document.addEventListener('click', (e) => { if (!e.target.closest('#picker')) $('pickPop').classList.remove('open'); if (!e.target.closest('.menu')) $('expPop').classList.remove('open'); });
+  document.addEventListener('click', (e) => { if (!e.target.closest('#picker')) $('pickPop').classList.remove('open'); document.querySelectorAll('.menu').forEach((m) => { if (!m.contains(e.target)) { const pp = m.querySelector('.pop'); pp.classList.remove('open'); m.querySelector('button').setAttribute('aria-expanded', 'false'); } }); });
   renderPick();
 
   /* ---------- 模式 ---------- */
@@ -146,8 +146,9 @@
     return o;
   }
   function generate() {
+    $('gen').classList.add('busy'); requestAnimationFrame(() => requestAnimationFrame(() => $('gen').classList.remove('busy')));
     stop();
-    try { song = mode === 'seed' ? E.expand(opts()) : E.generate(opts()); $('seedErr').textContent = ''; } catch (e) { $('seedErr').textContent = e.message; toast(e.message); return; }
+    try { song = mode === 'seed' ? E.expand(opts()) : E.generate(opts()); $('seedErr').textContent = ''; } catch (e) { $('seedErr').textContent = e.message; toast(e.message, true); if (isMobile()) openSheetEl('ctrl'); return; }
     sel = -1; afterNew('生成：' + song.settings.style + ' · ' + song.settings.key);
   }
   function afterNew(label) {
@@ -172,14 +173,30 @@
     if (!song) return; const was = playing; stop();
     E.transpose(song, n); render(); commit('移调 ' + (n > 0 ? '+' : '') + n + ' → ' + song.settings.key); if (was) play();
   }
+  function stepBpm(d) {
+    if (!song) return; const v = Math.max(40, Math.min(220, song.bpm + d));
+    $('bpm').value = v; bpmRand = false; syncBpm(); E.setBpm(song, v); renderTags(); if (playing) restartSoon();
+    clearTimeout(stepBpm.t); stepBpm.t = setTimeout(() => commit('改速度 ' + song.bpm), 600);
+  }
+  $('bpmDown').onclick = (e) => stepBpm(e.shiftKey ? -10 : -2);
+  $('bpmUp').onclick = (e) => stepBpm(e.shiftKey ? 10 : 2);
+  function renderOnboard() {
+    if (LS.get('cg.onboarded', false)) { $('onboard').innerHTML = ''; return; }
+    $('onboard').innerHTML = `<div class="onboard" role="note"><div style="font-size:22px">👋</div><div><b>三步上手</b><ol><li>在左侧选好<b>风格</b>和情绪（不选就全部随机）</li><li>点 <b>✨ 生成</b>，再点 <b>▶</b> 或按 <kbd>空格</kbd> 试听</li><li>点任意和弦查看指法与<b>可替换和弦</b>；🔒 锁定喜欢的，按 <kbd>R</kbd> 重生成其余</li></ol></div><button class="ib sm x" id="obClose" aria-label="关闭引导">✕</button></div>`;
+    $('obClose').onclick = () => { LS.set('cg.onboarded', true); renderOnboard(); };
+  }
+  renderOnboard();
   $('tUp').onclick = () => transpose(1);
   $('tDown').onclick = () => transpose(-1);
 
   /* ---------- 渲染 ---------- */
   const FN = { T: '主 T', S: '下属 S', D: '属 D' };
+  const fmtT = (sec) => Math.floor(sec / 60) + ':' + String(Math.floor(sec % 60)).padStart(2, '0');
   function renderTags() {
     const s = song.settings;
     $('keyNow').textContent = s.key + ' ' + (E.MODES[s.mode].n.split(' ')[0]);
+    $('bpmNow').innerHTML = song.bpm + '<small class="u"> BPM</small>';
+    if (!playing) { const b0 = E.buildEvents(song, {}), tot = b0.totalUnits * b0.unitSec; $('progT').textContent = '0:00 / ' + fmtT(tot); $('progFill').style.width = '0'; }
     const t = document.getElementById('tagline'); if (!t) return;
     t.innerHTML = [['风格', s.genre.split(' ')[0] + ' › ' + s.style], ['情绪', s.mood], ['调', s.key + ' ' + s.modeName], ['拍号', s.meter], ['速度', song.bpm + ' BPM'], ['复杂度', s.complexityName], ['和声节奏', s.hr + '/小节']].map(([k, v]) => `<span class="tag">${k} <b>${esc(v)}</b></span>`).join('');
   }
@@ -195,18 +212,20 @@
           const c = song.flat[cell.ci];
           if (cell.cont) h += `<div class="ch cont ${c.func}" data-ci="${cell.ci}" data-cont="1"><div class="nm">%</div><div class="fn">延续 ${esc(c.name)}</div></div>`;
           else h += `<div class="ch ${c.func}${c.lock ? ' locked' : ''}${cell.ci === sel ? ' sel' : ''}" data-ci="${cell.ci}" style="flex:${cell.dur};animation-delay:${Math.min(cell.ci * 12, 400)}ms" tabindex="0" role="button" aria-label="${esc(c.name)} ${esc(c.roman)}">
-            <button class="lk${c.lock ? ' on' : ''}" data-lock="${cell.ci}" aria-label="锁定" data-tip="${c.lock ? '已锁定：重新生成时保留' : '锁定此和弦'}">${c.lock ? '🔒' : '🔓'}</button>
+            <span class="ch-tools"><button class="lk${c.lock ? ' on' : ''}" data-lock="${cell.ci}" aria-label="${c.lock ? '解锁' : '锁定'} ${esc(c.name)}" aria-pressed="${!!c.lock}" data-tip="${c.lock ? '已锁定：重新生成时保留 (L)' : '锁定此和弦 (L)'}">${c.lock ? '🔒' : '🔓'}</button><button class="sw" data-swap="${cell.ci}" aria-label="替换 ${esc(c.name)}" data-tip="查看可替换和弦">⇄</button></span>
             <div class="nm">${esc(c.name)}</div><div class="rn">${esc(c.roman)}</div><div class="fn">${FN[c.func] || esc(c.func)}</div>${c.tag ? `<div class="tg" data-tip="${esc(GLOSS[c.tag] || c.tag)}">${esc(c.tag)}</div>` : ''}</div>`;
         }
         h += '</div>';
       }
       h += '</div></div>';
     });
-    h += '<h2 style="margin-top:20px">乐理说明</h2><ul class="ex">' + song.explanation.map((x) => `<li>${termify(esc(x))}</li>`).join('') + '</ul>';
+    h += '<details class="explain" open><summary>乐理说明</summary><ul class="ex">' + song.explanation.map((x) => `<li>${termify(esc(x))}</li>`).join('') + '</ul></details>';
     $('result').innerHTML = h;
     renderTags(); renderInsp();
   }
   $('result').addEventListener('click', (e) => {
+    const sw = e.target.closest('[data-swap]');
+    if (sw) { e.stopPropagation(); select(+sw.dataset.swap, false, true); setTimeout(() => { const a = $('insp').querySelector('.alts'); if (a) a.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 50); return; }
     const lk = e.target.closest('[data-lock]');
     if (lk) { e.stopPropagation(); toggleLock(+lk.dataset.lock); return; }
     const act = e.target.closest('[data-act]');
@@ -216,9 +235,11 @@
   });
   $('result').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.classList.contains('ch')) { e.stopPropagation(); select(+e.target.dataset.ci, true); } });
   function toggleLock(ci) { E.toggleLock(song, ci); render(); commit((song.flat[ci].lock ? '锁定 ' : '解锁 ') + song.flat[ci].name); }
-  function select(ci, sound) {
+  const isMobile = () => matchMedia('(max-width: 880px)').matches;
+  function select(ci, sound, openSheet) {
     if (!song || ci < 0 || ci >= song.flat.length) return;
     sel = ci;
+    if (isMobile() && (openSheet || sound) && !playing) openSheetEl('insp');
     document.querySelectorAll('.ch.sel').forEach((el) => el.classList.remove('sel'));
     document.querySelectorAll(`.ch[data-ci="${ci}"]:not([data-cont])`).forEach((el) => el.classList.add('sel'));
     renderInsp(); if (sound) preview(song.flat[ci]);
@@ -260,10 +281,11 @@
     return nm + (Math.floor(n / 12) - 1);
   }
   function renderInsp() {
-    if (!song || sel < 0 || sel >= song.flat.length) { $('insp').innerHTML = '<h2>和弦详情</h2><div class="empty" style="padding:30px 0">点击任意和弦查看<br>键盘 / 吉他指法 / 可替换和弦</div>'; return; }
+    document.body.classList.toggle('has-insp', !!song && sel >= 0 && sel < song.flat.length);
+    if (!song || sel < 0 || sel >= song.flat.length) { $('insp').innerHTML = ''; $('insp').classList.remove('open'); return; }
     const c = song.flat[sel], alts = E.alternatives(song, sel);
     const groups = {}; alts.forEach((a, i) => { (groups[a.kind] = groups[a.kind] || []).push([a, i]); });
-    let h = `<h2>和弦详情 <span style="flex:1"></span><button class="ib" id="prevC" aria-label="上一个">‹</button><button class="ib" id="nextC" aria-label="下一个">›</button></h2>
+    let h = `<h2>和弦详情 <span style="flex:1"></span><button class="ib" id="prevC" aria-label="上一个">‹</button><button class="ib" id="nextC" aria-label="下一个">›</button><button class="ib" id="closeInsp" aria-label="关闭详情">✕</button></h2>
       <div class="cbig">${esc(c.name)}</div><div class="sub">${esc(c.roman)}</div>
       <div class="badges"><span class="badge ${c.func}" data-tip="${esc(GLOSS[{ T: '主功能', S: '下属功能', D: '属功能' }[c.func]] || '')}">${FN[c.func] || esc(c.func)}</span>${c.tag ? `<span class="badge x" data-tip="${esc(GLOSS[c.tag] || '')}">${esc(c.tag)}</span>` : ''}${c.bass > 0 || c.xb ? '<span class="badge" data-tip="' + esc(GLOSS.转位) + '">转位/斜线</span>' : ''}<button class="badge" id="lockSel" style="cursor:pointer">${c.lock ? '🔒 已锁定' : '🔓 锁定'}</button></div>
       <div class="hint" style="margin:0">组成音：${[c.bassNote, ...c.upper].map((n) => noteName(c, n)).join(' · ')}</div>
@@ -279,6 +301,7 @@
       E.replaceChord(song, sel, a.chord); render(); preview(song.flat[sel]); commit(`替换 ${old} → ${song.flat[sel].name}`);
     }));
     $('lockSel').onclick = () => toggleLock(sel);
+    $('closeInsp').onclick = () => { sel = -1; closeSheets(); document.querySelectorAll('.ch.sel').forEach((el) => el.classList.remove('sel')); renderInsp(); };
     $('prevC').onclick = () => select(sel - 1, true);
     $('nextC').onclick = () => select(sel + 1, true);
   }
@@ -357,7 +380,7 @@
   function play(section) {
     if (!song) generate(); if (!song || !ensureAC()) return;
     stopAudio(); newMaster(); playing = true; playSec = typeof section === 'number' ? section : undefined;
-    $('play').disabled = true; $('stop').disabled = false;
+    $('play').classList.add('playing'); $('playIcon').textContent = '❚❚'; $('play').setAttribute('aria-label', '停止 (空格)'); $('stop').disabled = false;
     const inst = $('inst').value;
     const ev = E.buildEvents(song, { metronome: toggles.metro, drums: toggles.drums, melody: toggles.melody, pattern: $('pattern').value, section: playSec });
     const us = ev.unitSec, total = ev.totalUnits * us;
@@ -386,6 +409,8 @@
       if (!playing) return;
       let pos = (ac.currentTime - startAt) / us;
       if (pos >= 0) pos = pos % ev.totalUnits;
+      $('progFill').style.width = (Math.max(0, pos) / ev.totalUnits * 100).toFixed(2) + '%';
+      $('progT').textContent = fmtT(Math.max(0, pos) * us) + ' / ' + fmtT(total);
       let cur = -1;
       for (let k = 0; k < ev.timeline.length; k++) { const x = ev.timeline[k]; if (pos >= x.t && pos < x.t + x.d) { cur = k; break; } }
       if (cur !== lastCur) {
@@ -401,13 +426,14 @@
   function stop() {
     stopAudio();
     document.querySelectorAll('.ch.now').forEach((el) => el.classList.remove('now'));
-    $('play').disabled = false; $('stop').disabled = true;
+    $('play').classList.remove('playing'); $('playIcon').textContent = '▶'; $('play').setAttribute('aria-label', '播放 (空格)'); $('stop').disabled = true;
+    $('progFill').style.width = '0';
   }
-  $('play').onclick = () => play();
+  $('play').onclick = () => (playing ? stop() : play());
   $('stop').onclick = stop;
 
   /* ---------- 导出 / 分享 / 收藏 ---------- */
-  function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 2000); }
+  function toast(t, err) { const el = $('toast'); el.textContent = (err ? '⚠ ' : '✓ ') + t; el.classList.toggle('err', !!err); el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 2000); }
   const fileBase = () => { const s = song.settings; return `chords_${s.key}_${s.mode}_${song.bpm}bpm`.replace(/#/g, 's'); };
   function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }
   function exportMidi(section) {
@@ -436,7 +462,8 @@
   }
   document.querySelectorAll('#expPop [data-part]').forEach((b) => (b.onclick = () => exportPart(b.dataset.part)));
   $('zipAll').onclick = () => exportZip();
-  $('expBtn').onclick = (e) => { e.stopPropagation(); $('expPop').classList.toggle('open'); };
+  const menuBtn = (btn, pop) => ($(btn).onclick = (e) => { e.stopPropagation(); document.querySelectorAll('.menu .pop.open').forEach((x) => x !== $(pop) && x.classList.remove('open')); const o = $(pop).classList.toggle('open'); $(btn).setAttribute('aria-expanded', o); });
+  menuBtn('expBtn', 'expPop'); menuBtn('soundBtn', 'soundPop');
   $('expPop').addEventListener('click', () => $('expPop').classList.remove('open'));
   $('midi').onclick = () => exportMidi();
   $('txt').onclick = () => { if (song) download(new Blob([E.toText(song)], { type: 'text/plain;charset=utf-8' }), fileBase() + '.txt'); };
@@ -504,7 +531,12 @@
   };
   renderFavs();
   const drawers = { favBtn: 'favDrawer', histBtn: 'histDrawer', help: 'helpDrawer' };
-  function closeDrawers() { document.querySelectorAll('.drawer.open').forEach((d) => d.classList.remove('open')); $('scrim').classList.remove('open'); }
+  function closeDrawers() { document.querySelectorAll('.drawer.open,.panel.open').forEach((d) => d.classList.remove('open')); $('scrim').classList.remove('open'); }
+  function closeSheets() { closeDrawers(); }
+  function openSheetEl(id) { closeDrawers(); $(id).classList.add('open'); $('scrim').classList.add('open'); }
+  $('openCtrl').onclick = () => openSheetEl('ctrl');
+  document.querySelectorAll('[data-close-ctrl]').forEach((b) => (b.onclick = closeDrawers));
+  $('genM').onclick = () => { closeDrawers(); generate(); };
   function openDrawer(id) { closeDrawers(); $(id).classList.add('open'); $('scrim').classList.add('open'); }
   Object.entries(drawers).forEach(([b, d]) => ($(b).onclick = () => openDrawer(d)));
   $('scrim').onclick = closeDrawers;
@@ -513,7 +545,7 @@
   /* ---------- 快捷键 ---------- */
   document.addEventListener('keydown', (e) => {
     const tg = e.target, typing = /INPUT|SELECT|TEXTAREA/.test(tg.tagName) && tg.type !== 'range';
-    if (e.key === 'Escape') { closeDrawers(); $('pickPop').classList.remove('open'); $('expPop').classList.remove('open'); return; }
+    if (e.key === 'Escape') { closeDrawers(); $('pickPop').classList.remove('open'); document.querySelectorAll('.menu .pop.open').forEach((x) => x.classList.remove('open')); return; }
     if (typing) { if (e.key === 'Enter' && tg.id === 'seeds') generate(); return; }
     const mod = e.ctrlKey || e.metaKey;
     if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? restore(hp + 1) : restore(hp - 1); return; }
@@ -527,6 +559,8 @@
     else if (k === 'ArrowRight') { e.preventDefault(); select(sel + 1, true); }
     else if (k === 'ArrowLeft') { e.preventDefault(); select(Math.max(0, sel - 1), true); }
     else if ((k === 'l' || k === 'L') && sel >= 0) toggleLock(sel);
+    else if (k === '+' || k === '=') stepBpm(2);
+    else if (k === '-') stepBpm(-2);
     else if (k === ']') transpose(1);
     else if (k === '[') transpose(-1);
     else if (k === 'm' || k === 'M') $('metro').click();
