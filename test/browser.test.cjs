@@ -104,6 +104,34 @@ const assert = (c, m) => { if (!c) throw new Error('✘ ' + m); console.log('✔
   await p.waitForTimeout(600);
   await p.screenshot({ path: path.resolve(__dirname, '..', 'screenshot.png') });
   await p.click('#theme'); await p.mouse.move(600, 900); await p.waitForTimeout(400); await p.screenshot({ path: '/tmp/cg-light.png' }); await p.click('#theme');
+  // 分析该和弦
+  await p.click('.ch:not(.cont) >> nth=1'); await p.click('#anaBtn'); await p.waitForSelector('#anaDrawer.open .nc');
+  const cats = await p.$$eval('#anaBody .ngh', (x) => x.map((e) => e.firstChild.textContent.trim()));
+  assert(cats.length >= 6 && cats.some((c) => c.includes('副属')) && cats.some((c) => c.includes('借用')), '分析：候选按类别分组 ' + cats.join('|'));
+  assert(await p.$$eval('#anaBody .anaT td', (x) => x.length >= 3), '分析：音名/级数/音程表');
+  assert((await p.$$('#anaBody .interp .ip')).length >= 2, '分析：其他调中的解释');
+  await p.click('#anaBody .nc >> nth=0 >> [data-play]');
+  await p.waitForTimeout(500); await p.evaluate(() => { document.getElementById('anaDrawer').scrollTop = 0; }); await p.waitForTimeout(100); await p.screenshot({ path: path.resolve(__dirname, '..', 'shot-analysis.png') });
+  const n0 = (await names()).length, nm1 = await p.$eval('#anaBody .nc >> nth=0', (e) => e.querySelector('.nm b').textContent);
+  await p.click('#anaBody .nc >> nth=0 >> [data-use]');
+  assert((await names())[2] === nm1 && (await names()).length === n0, '分析：替换下一个和弦为 ' + nm1);
+  await p.click('#anaBody [data-am=insert]'); await p.click('#anaBody .nc >> nth=1 >> [data-use]');
+  assert((await names()).length === n0 + 1, '分析：插入和弦');
+  await p.keyboard.press('Escape');
+  // 和弦图鉴
+  await p.click('#dictBtn'); await p.waitForSelector('#dictPage.open .dItem');
+  assert(/^456 /.test(await p.textContent('#dCount')), '图鉴：12 根音 × 38 种性质 = 456 ' + (await p.textContent('#dCount')));
+  await p.fill('#dQ', 'Bb'); await p.selectOption('#dFam', '三和弦'); await p.click('.dItem >> nth=0');
+  const bbFr = await p.textContent('#dEntry .gv small');
+  assert(bbFr.includes('x13331'), 'Bb 标准指法 x13331：' + bbFr);
+  await p.selectOption('#dFam', ''); await p.fill('#dQ', 'F#m7b5'); await p.click('.dItem >> nth=0');
+  assert((await p.textContent('#dEntry .cbig')) === 'F#m7b5' && (await p.textContent('#dEntry .anaT')).includes('C'), '图鉴：搜索与拼写 F#m7b5');
+  await p.click('#dEntry [data-inv="1"]'); assert((await p.textContent('#dEntry .cbig')).includes('/A'), '图鉴：转位/斜线');
+  await p.fill('#dQ', ''); for (const pc of [0, 4, 7, 11]) await p.click(`#dNotes [data-pc="${pc}"]`);
+  assert((await p.textContent('.dItem >> nth=0')).startsWith('Cmaj7'), '图鉴：按音反查 C E G B → Cmaj7');
+  await p.click('.dItem >> nth=0'); await p.waitForTimeout(2300);
+  await p.screenshot({ path: path.resolve(__dirname, '..', 'shot-dict.png') });
+  await p.click('#dClear'); await p.click('#dictClose'); assert(!(await p.isVisible('#dictPage')), '关闭图鉴');
   // 风格搜索
   await p.click('#pickBtn'); await p.fill('#pickSearch', 'bossa'); const items = await p.$$('#pickList .it[data-s]:not([data-s=rand])');
   assert(items.length === 1, '风格搜索 bossa'); await items[0].click(); assert((await p.textContent('#pickLabel')).includes('Bossa'), '选择风格');
@@ -125,6 +153,9 @@ const assert = (c, m) => { if (!c) throw new Error('✘ ' + m); console.log('✔
   await p.keyboard.press('Escape'); await p.waitForTimeout(350);
   const ov2 = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   assert(ov2 <= 1, '移动端无横向溢出 (抽屉后 ' + ov2 + ')');
+  await p.click('#dictBtn'); await p.waitForSelector('#dictPage.open .dItem'); await p.click('.dItem >> nth=3'); await p.waitForTimeout(300);
+  assert(await p.isVisible('#dEntry') && (await p.evaluate(() => document.documentElement.scrollWidth - innerWidth)) <= 1, '移动端图鉴：底部详情无溢出');
+  await p.screenshot({ path: '/tmp/cg-dict-mobile.png' }); await p.click('#dBack'); await p.click('#dictClose');
   await p.screenshot({ path: path.resolve(__dirname, '..', 'screenshot-mobile.png'), fullPage: false });
   // GM 采样：离线回退
   {

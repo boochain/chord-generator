@@ -299,6 +299,10 @@
   }
   function guitarSVG(c) {
     const g = E.guitarShape(c); if (!g) return '<p class="hint">无合适的吉他指法</p>';
+    return fretSVG(g, c.name);
+  }
+  function fretSVG(g, title) {
+    const c = { name: title };
     const base = g.base, W = 140, H = 150, x0 = 25, y0 = 28, sw = 18, fh = 22;
     let s = `<svg viewBox="0 0 ${W + 20} ${H}" role="img" aria-label="吉他指法：${esc(c.name)}" style="max-width:200px;margin:auto">`;
     s += `<text x="${x0 + 45}" y="12" font-size="11" text-anchor="middle" fill="currentColor" font-weight="700">${esc(c.name)}</text>`;
@@ -329,6 +333,7 @@
       <div class="cbig">${esc(c.name)}</div><div class="sub">${esc(c.roman)}</div>
       <div class="badges"><span class="badge ${c.func}" data-tip="${esc(GLOSS[{ T: '主功能', S: '下属功能', D: '属功能' }[c.func]] || '')}">${FN[c.func] || esc(c.func)}</span>${c.tag ? `<span class="badge x" data-tip="${esc(GLOSS[c.tag] || '')}">${esc(c.tag)}</span>` : ''}${c.bass > 0 || c.xb ? '<span class="badge" data-tip="' + esc(GLOSS.转位) + '">转位/斜线</span>' : ''}<button class="badge" id="lockSel" style="cursor:pointer">${c.lock ? '🔒 已锁定' : '🔓 锁定'}</button></div>
       <div class="hint" style="margin:0">组成音：${[c.bassNote, ...c.upper].map((n) => noteName(c, n)).join(' · ')}</div>
+      <button class="btn anaBtn" id="anaBtn">🔍 分析该和弦</button>
       <div class="viz">${pianoSVG(c)}</div><div class="viz" style="color:var(--text)">${guitarSVG(c)}</div>
       <h2 style="margin-top:12px">可替换和弦 <span class="hint" style="margin:0;text-transform:none">点击替换并试听</span></h2><div class="alts">`;
     for (const [k, list] of Object.entries(groups)) {
@@ -341,6 +346,7 @@
       E.replaceChord(song, sel, a.chord); render(); preview(song.flat[sel]); commit(`替换 ${old} → ${song.flat[sel].name}`);
     }));
     $('lockSel').onclick = () => toggleLock(sel);
+    $('anaBtn').onclick = () => openAnalysis(sel);
     $('closeInsp').onclick = () => { sel = -1; closeSheets(); document.querySelectorAll('.ch.sel').forEach((el) => el.classList.remove('sel')); renderInsp(); };
     $('prevC').onclick = () => select(sel - 1, true);
     $('nextC').onclick = () => select(sel + 1, true);
@@ -664,10 +670,88 @@
   $('scrim').onclick = closeDrawers;
   document.querySelectorAll('[data-close]').forEach((b) => (b.onclick = closeDrawers));
 
+
+  /* ---------- 分析该和弦 ---------- */
+  let anaCi = -1, anaMode = 'replace';
+  const pct = (p) => (p >= 0.1 ? (p * 100).toFixed(0) : (p * 100).toFixed(1)) + '%';
+  function openAnalysis(ci) { anaCi = ci; renderAnalysis(); openDrawer('anaDrawer'); }
+  function renderAnalysis() {
+    if (!song || anaCi < 0 || anaCi >= song.flat.length) return;
+    const a = E.analyzeChord(song, anaCi), nx = a.next, nextName = song.flat[anaCi + 1] ? song.flat[anaCi + 1].name : '';
+    const max = Math.max(...nx.all.map((x) => x.p));
+    let h = `<div class="anaHead"><div class="cbig">${esc(a.name)}</div><div><div class="sub">${esc(a.roman)} · ${esc(nx.key)}</div><span class="badge ${a.func}">${esc(a.funcCn)}</span>${a.tag ? `<span class="badge x">${esc(a.tag)}</span>` : ''}<span class="badge">${esc(a.quality)}</span></div></div>
+      <table class="anaT"><tr><th>音名</th>${a.notes.map((n) => `<td><b>${esc(n.name)}</b></td>`).join('')}</tr><tr><th>级数</th>${a.notes.map((n) => `<td>${esc(n.deg)}</td>`).join('')}</tr><tr><th>音程</th>${a.notes.map((n) => `<td>${esc(n.ivName)}</td>`).join('')}</tr></table>
+      <div class="hint" style="margin:6px 0">公式：${esc(a.formula)}</div>
+      <h3>在其他调中的解释</h3><div class="interp">${a.interp.map((x) => `<span class="ip${x.same ? ' cur' : ''}"><b>${esc(x.key)}</b> ${esc(x.roman)} <small>${esc(x.func)}</small></span>`).join('') || '<span class="hint">—</span>'}</div>
+      <h3>下一个和弦 <span class="hint" style="margin:0">全部通过乐理校验 · 概率按语料统计</span></h3>
+      <div class="seg" role="radiogroup" aria-label="操作"><button data-am="replace" aria-pressed="${anaMode === 'replace'}">${nextName ? '替换下一个（' + esc(nextName) + '）' : '追加'}</button><button data-am="insert" aria-pressed="${anaMode === 'insert'}">插入到后面</button></div>`;
+    nx.groups.forEach((g, gi) => {
+      h += `<div class="ng"><div class="ngh">${esc(g.cat)} <small>${g.items.length}</small></div>`;
+      h += g.items.map((x, i) => `<div class="nc" data-g="${gi}" data-i="${i}"><button class="ib np" data-play aria-label="试听 ${esc(a.name)} → ${esc(x.name)}">▶</button><div class="nm"><b>${esc(x.name)}</b> <small>${esc(x.roman)}</small><div class="why">${esc(x.why)}${x.need ? ' <em>' + esc(x.need) + '</em>' : ''}</div></div><div class="pb" title="语料概率"><i style="width:${Math.max(4, (x.p / max) * 100).toFixed(0)}%"></i><span>${pct(x.p)}</span></div><button class="btn sm" data-use>${anaMode === 'insert' ? '插入' : '使用'}</button></div>`).join('');
+      h += '</div>';
+    });
+    $('anaBody').innerHTML = h;
+    $('anaBody').querySelectorAll('[data-am]').forEach((b) => (b.onclick = () => { anaMode = b.dataset.am; renderAnalysis(); }));
+    $('anaBody').querySelectorAll('.nc').forEach((row) => {
+      const x = nx.groups[+row.dataset.g].items[+row.dataset.i];
+      row.querySelector('[data-play]').onclick = () => { const [p, q] = E.previewPair(song, anaCi, x.chord); preview(p); setTimeout(() => preview(q), 750); };
+      row.querySelector('[data-use]').onclick = () => {
+        const old = nextName; E.setNext(song, anaCi, x.chord, anaMode); render(); commit((anaMode === 'insert' || !old ? '插入 ' : `替换 ${old} → `) + song.flat[anaCi + 1].name);
+        preview(song.flat[anaCi + 1]); renderAnalysis(); toast('已' + (anaMode === 'insert' ? '插入 ' : '设为下一个：') + song.flat[anaCi + 1].name);
+      };
+    });
+  }
+
+  /* ---------- 和弦图鉴 ---------- */
+  const dictState = { root: '', family: '', q: '', notes: new Set(), cur: null, inv: 0 };
+  function openDict() { $('dictPage').classList.remove('show-entry'); $('dictPage').classList.add('open'); document.body.classList.add('dict-open'); renderDictFilters(); renderDict(); }
+  function closeDict() { $('dictPage').classList.remove('open', 'show-entry'); document.body.classList.remove('dict-open'); }
+  function renderDictFilters() {
+    if ($('dRoot').options.length) return;
+    $('dRoot').innerHTML = '<option value="">全部根音</option>' + E.ROOTS.map((r, i) => `<option value="${i}">${r[0]}</option>`).join('');
+    $('dFam').innerHTML = '<option value="">全部类型</option>' + E.DICT_FAMILIES.map((f) => `<option>${f}</option>`).join('');
+    $('dNotes').innerHTML = E.ROOTS.map((r, i) => `<button class="nk${[1, 3, 6, 8, 10].includes(i) ? ' blk' : ''}" data-pc="${i}" aria-pressed="false">${r[0]}</button>`).join('');
+    $('dRoot').onchange = () => { dictState.root = $('dRoot').value; renderDict(); };
+    $('dFam').onchange = () => { dictState.family = $('dFam').value; renderDict(); };
+    $('dQ').oninput = () => { dictState.q = $('dQ').value; renderDict(); };
+    $('dNotes').onclick = (e) => { const b = e.target.closest('[data-pc]'); if (!b) return; const pc = +b.dataset.pc; dictState.notes.has(pc) ? dictState.notes.delete(pc) : dictState.notes.add(pc); b.setAttribute('aria-pressed', dictState.notes.has(pc)); renderDict(); };
+    $('dClear').onclick = () => { dictState.notes.clear(); $('dNotes').querySelectorAll('[data-pc]').forEach((b) => b.setAttribute('aria-pressed', 'false')); renderDict(); };
+  }
+  function renderDict() {
+    let list;
+    if (dictState.notes.size) {
+      list = E.identifyChord([...dictState.notes]).map((x) => Object.assign(x, { family: x.exact ? '完全匹配' : '包含所选音' }));
+      $('dCount').textContent = `反查：${list.filter((x) => x.exact).length} 个完全匹配`;
+    } else {
+      list = E.chordDict({ root: dictState.root, family: dictState.family, query: dictState.q });
+      $('dCount').textContent = `${list.length} 个和弦`;
+    }
+    $('dList').innerHTML = list.length ? list.slice(0, 300).map((x, i) => `<button class="dItem${dictState.cur && dictState.cur.rootIdx === x.rootIdx && dictState.cur.id === x.id ? ' sel' : ''}" data-di="${i}"><b>${esc(x.name)}</b><small>${esc(x.cn)}</small></button>`).join('') : '<div class="empty">没有匹配的和弦</div>';
+    $('dList').querySelectorAll('[data-di]').forEach((b) => (b.onclick = () => { const x = list[+b.dataset.di]; dictState.cur = x; dictState.inv = x.inv || 0; renderDictEntry(true); $('dList').querySelectorAll('.sel').forEach((e) => e.classList.remove('sel')); b.classList.add('sel'); }));
+    if (!dictState.cur && list.length) { dictState.cur = list[0]; dictState.inv = 0; }
+    renderDictEntry(false);
+  }
+  function renderDictEntry(play) {
+    const x = dictState.cur; if (!x) { $('dEntry').innerHTML = ''; return; }
+    const e = E.dictEntry(x.rootIdx, x.id, dictState.inv);
+    $('dEntry').innerHTML = `<div class="anaHead"><div class="cbig">${esc(e.name)}</div><div><div class="sub">${esc(e.cn)}</div><span class="badge">${esc(e.family)}</span></div><button class="btn" id="dPlay">▶ 试听</button><button class="ib only-m" id="dBack" aria-label="返回列表">✕</button></div>
+      <table class="anaT"><tr><th>拼写</th>${e.notes.map((n) => `<td><b>${esc(n.name)}</b></td>`).join('')}</tr><tr><th>公式</th>${e.notes.map((n) => `<td>${esc(n.deg)}</td>`).join('')}</tr><tr><th>音程</th>${e.notes.map((n) => `<td>${esc(n.ivName)}</td>`).join('')}</tr></table>
+      <div class="hint">公式：${esc(e.formula)}　常见风格：${e.styles.map((s) => `<span class="badge">${esc(s)}</span>`).join('')}</div>
+      <div class="interp">转位 / 斜线：<button class="ip${dictState.inv ? '' : ' cur'}" data-inv="0">${esc(e.root + e.sym)}</button>${e.inversions.map((v) => `<button class="ip${dictState.inv === v.inv ? ' cur' : ''}" data-inv="${v.inv}">${esc(v.name)}</button>`).join('')}</div>
+      <div class="viz">${pianoSVG(e)}</div>
+      <div class="gvs">${e.guitar.length ? e.guitar.map((g) => `<div class="gv">${fretSVG(g, e.name)}<small>${esc(g.label)} · ${g.frets.map((f) => (f < 0 ? 'x' : f)).join(f10(g) ? '-' : '')}</small></div>`).join('') : '<p class="hint">无合适的吉他指法</p>'}</div>`;
+    $('dPlay').onclick = () => preview(e);
+    $('dBack').onclick = () => $('dictPage').classList.remove('show-entry');
+    $('dEntry').querySelectorAll('[data-inv]').forEach((b) => (b.onclick = () => { dictState.inv = +b.dataset.inv; renderDictEntry(true); }));
+    if (play) { $('dictPage').classList.add('show-entry'); preview(e); }
+  }
+  const f10 = (g) => g.frets.some((f) => f >= 10);
+  $('dictBtn').onclick = openDict;
+  $('dictClose').onclick = closeDict;
   /* ---------- 快捷键 ---------- */
   document.addEventListener('keydown', (e) => {
     const tg = e.target, typing = /INPUT|SELECT|TEXTAREA/.test(tg.tagName) && tg.type !== 'range';
-    if (e.key === 'Escape') { closeDrawers(); $('pickPop').classList.remove('open'); document.querySelectorAll('.menu .pop.open').forEach((x) => x.classList.remove('open')); return; }
+    if (e.key === 'Escape') { closeDict(); closeDrawers(); $('pickPop').classList.remove('open'); document.querySelectorAll('.menu .pop.open').forEach((x) => x.classList.remove('open')); return; }
     if (typing) { if (e.key === 'Enter' && tg.id === 'seeds') generate(); return; }
     const mod = e.ctrlKey || e.metaKey;
     if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? restore(hp + 1) : restore(hp - 1); return; }

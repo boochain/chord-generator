@@ -391,4 +391,53 @@ function Q_TONES(c) { return E.Q[c.q].t.map((x) => (c.pc + x[0]) % 12); }
   ok(E.progFor('bass', { programs: { bass: 38 } }) === 38 && E.progFor('melody', { programs: { melody: 200 } }) === 127, 'progFor 读取并钳制音色号');
   ok(E.GM.length === 128 && E.GM_FAMILIES.length === 16, 'GM 128 音色 / 16 族');
 }
+
+// ---------- 和弦分析：所有候选都通过同一套乐理规则 ----------
+{
+  const RA = E.mkRng(4242); let nCand = 0, nSongs = 0;
+  for (let i = 0; i < 400; i++) {
+    const s = E.generate({ style: Math.floor(RA() * E.STYLES.length), seed: 9000 + i, complexity: Math.floor(RA() * 3) });
+    const ci = Math.floor(RA() * (s.flat.length - 1));
+    const a = E.analyzeChord(s, ci);
+    ok(a.notes.length >= 2 && a.formula && a.roman, `分析#${i} 基本信息`);
+    ok(a.next.groups.length >= (s.flat[ci].diat && !['d', 'A'].includes(E.Q[s.flat[ci].q].cls) ? 3 : 1), `分析#${i} 候选类别`);
+    const sum = a.next.all.reduce((t, x) => t + x.p, 0); ok(Math.abs(sum - 1) < 1e-6, `分析#${i} 概率归一 ${sum}`);
+    for (const g of a.next.groups) ok(E.NEXT_CATS.includes(g.cat), '类别有效 ' + g.cat);
+    const sec = s.sections[s.flat[ci].section], ctx = { tonic: sec.tonic, mode: sec.mode };
+    for (const x of a.next.all) {
+      const t = E.cloneSong(s); E.setNext(t, ci, x.chord, 'replace');
+      const cur = t.flat[ci], nx = t.flat[ci + 1];
+      const iss = E.chordIssues(cur, nx, ctx, t.style, false).concat(E.chordIssues(nx, null, ctx, t.style, ci + 1 === t.flat.length - 1));
+      ok(!iss.length && nx.name === x.name, `分析#${i} ${cur.name}→${x.name}（${x.cat}）合规 ${iss.join(';')}`);
+      nCand++;
+    }
+    const t2 = E.cloneSong(s), n0 = t2.flat.length; E.setNext(t2, ci, a.next.all[0].chord, 'insert'); ok(t2.flat.length === n0 + 1, '插入和弦');
+    nSongs++;
+  }
+  console.log(`  和弦分析：${nSongs} 首 / ${nCand} 个候选全部合规`);
+}
+// ---------- 和弦图鉴 ----------
+{
+  ok(E.chordDict().length === 12 * E.DICT.length, '图鉴 12 根音 × 全部性质');
+  for (let r = 0; r < 12; r++) for (const d of E.DICT) {
+    const e = E.dictEntry(r, d[0]);
+    ok(e.notes.length === d[4].length && e.cn && e.formula, `图鉴 ${e.name} 拼写/公式`);
+    ok(new Set(e.notes.map((n) => n.name[0])).size === e.notes.length || d[0] === '7alt', `图鉴 ${e.name} 字母不重复 ${e.notes.map((n) => n.name)}`);
+    ok(e.guitar.length >= 1, `图鉴 ${e.name} 至少一种吉他指法`);
+    for (const g of e.guitar) {
+      const snd = g.notes.filter((n) => n !== null);
+      ok(snd.every((n) => e.pcs.includes(n % 12)) && snd[0] % 12 === e.pcs[0], `图鉴 ${e.name} 指法 ${g.frets} 音正确`);
+      const pf = g.frets.filter((f) => f > 0); ok(!pf.length || Math.max(...pf) - Math.min(...pf) <= 4, `图鉴 ${e.name} 指法跨度`);
+    }
+    ok(e.upper.every((n) => n >= 48 && n <= 84), '图鉴试听音域');
+  }
+  const fr = (r, q) => E.dictEntry(r, q).guitar[0].frets.map((f) => (f < 0 ? 'x' : f)).join('');
+  for (const [r, q, want] of [[10, '', 'x13331'], [0, '', 'x32010'], [5, '', '133211'], [7, '', '320003'], [2, '', 'xx0232'], [9, 'm', 'x02210'], [4, 'm', '022000'], [11, '7', 'x21202'], [10, 'm', 'x13321'], [3, '', 'x68886']]) ok(fr(r, q) === want, `标准指法 ${E.ROOTS[r][0]}${q} = ${want}（实际 ${fr(r, q)}）`);
+  const Bb = E.generate({ style: 0, seed: 1 }); void Bb;
+  ok(E.identifyChord([0, 4, 7, 11])[0].name === 'Cmaj7', '反查 Cmaj7');
+  ok(E.identifyChord([9, 0, 4])[0].name === 'Am', '反查 Am');
+  ok(E.identifyChord([0, 4, 7], 4)[0].name === 'C/E', '反查转位 C/E');
+  ok(E.chordDict({ query: 'F#m7b5' }).length === 1 && E.chordDict({ query: '属七' }).length >= 12, '图鉴搜索');
+  ok(E.chordDict({ root: 3, family: '七和弦' }).every((x) => x.rootIdx === 3 && x.family === '七和弦'), '图鉴筛选');
+}
 console.log(`✔ 全部通过：${checks} 项断言，${N} 个随机生成组合 + 1500 个扩展组合，风格数 ${E.STYLES.length}（12 小节布鲁斯样本 ${blues}）。`);

@@ -1101,7 +1101,7 @@ function expandRaw(o = {}) {
   return song;
 }
 /* ---------- 乐理校验器：所有生成 / 随机 / 扩展结果必须通过（规则见 docs/theory-rules.md） ---------- */
-const LICENSED = ['借用', '和声小调属', '副属', '三全音替代', '调式特征', '转调属'];
+const LICENSED = ['借用', '和声小调属', '副属', '三全音替代', '调式特征', '转调属', '半音中音'];
 // 允许的平行调借用（以大调为参照的根音半音数 + 性质）：iv、♭VI、♭VII、♭III、ii°、v（大调中）；小调中：IV、V、♭II（那不勒斯）
 const BORROW_OK = { M: ['5m', '8', '10', '3', '2dim', '7m', '5m7', '8maj7', '10 7', '107', '3maj7', '2m7b5'], m: ['5', '7', '1', '57', '77', '1maj7'] };
 function chordIssues(c, nx, ctx, style, isLastOfSong) {
@@ -1109,6 +1109,7 @@ function chordIssues(c, nx, ctx, style, isLastOfSong) {
   const cls = Q[c.q].cls, ref = MODES[ctx.mode].ref;
   if (!c.diat && !c.seed && !style.fixed) {
     if (!LICENSED.includes(c.tag)) out.push(`非调内和弦未经许可：${c.name || c.rel}`);
+    if (c.tag === '半音中音' && (cls !== 'M' || ![3, 4, 8, 9].includes(c.rel) )) out.push(`半音中音须为大三和弦、与主音相距三度：${c.name}`);
     if (c.tag === '借用') {
       const s = MODES[ctx.mode].s, natQ = s.includes(c.rel) ? null : null; void natQ;
       const key = c.rel + (cls === 'm' ? 'm' : cls === 'd' ? 'dim' : '');
@@ -1564,8 +1565,12 @@ function regenerate(song, o = {}) {
 }
 const GUITAR = [40, 45, 50, 55, 59, 64];
 function guitarShape(c) {
-  const T = Q[c.q].t, pcs = T.map((x) => mod(c.pc + x[0], 12));
-  const bassPc = c.xb ? c.xbPc : mod(c.pc + T[c.bass || 0][0], 12);
+  if (c.q !== '__dict' && !c.xb && !(c.bass > 0) && typeof guitarVoicings === 'function') { // 优先使用标准指法（如 Bb = x13331）
+    const v = guitarVoicings(c.pc, Q[c.q].t.map((x) => x[0]), c.pc, c.q, KEYS_M[c.pc] === 'Gb' ? 'F#' : KEYS_M[c.pc]);
+    if (v.length && v[0].label !== '自动') return v[0];
+  }
+  const pcs = c.q === '__dict' ? c.__pcs : Q[c.q].t.map((x) => mod(c.pc + x[0], 12));
+  const bassPc = c.q === '__dict' ? c.__bass : c.xb ? c.xbPc : mod(c.pc + Q[c.q].t[c.bass || 0][0], 12);
   const need = new Set([pcs[0], pcs[1], pcs.length > 3 ? pcs[3] : pcs[2]]);
   let best = null, bs = -1e9;
   for (let w = 0; w <= 10; w++) {
@@ -1596,6 +1601,212 @@ function guitarShape(c) {
   return { frets: best, base: Math.max(...best) > 4 ? lo : 1, notes: best.map((f, j) => (f < 0 ? null : GUITAR[j] + f)) };
 }
 
-const ChordEngine = { LET, MODES, METERS, STYLES, GENRES, MOODS, Q, COMPLEX, KEYS_M, BAR_OPTS, HR_OPTS, FUNC_CN, PATTERNS, SECTION_PLANS, mkRng, generate, expand, parseChord, parseSeeds, inferKey, buildEvents, toMidi, toText, splitBar, unitSec, keyName, spell, diatonicQ, serialize, deserialize, cloneSong, refresh, transpose, setBpm, alternatives, replaceChord, toggleLock, regenerate, guitarShape, locate, ALT_TIPS, DRUM, midiParts, makeZip, crc32, PARTS, GM, GM_FAMILIES, defaultPrograms, progFor, PROG_LIB, vlIssues, validate, MARKOV };
+function dspell(pc, letter) { pc = mod(pc, 12); letter = mod(letter, 7); let d = mod(pc - LETPC[letter], 12); if (d > 6) d -= 12; if (Math.abs(d) > 2) return KEYS_M[pc]; return LET[letter] + (d === 2 ? '##' : d === 1 ? '#' : d === -1 ? 'b' : d === -2 ? 'bb' : ''); }
+/* ---------- 和弦分析：下一和弦候选（与 validate 使用同一套 chordIssues 规则） ---------- */
+const IV_NAME = { 0: '根音', 1: '♭9', 2: '大二/9', 3: '小三度', 4: '大三度', 5: '纯四/11', 6: '减五/♯11', 7: '纯五度', 8: '增五/♭13', 9: '大六/13', 10: '小七度', 11: '大七度' };
+const IV_SHORT = { 0: '1', 1: '♭9', 2: '9', 3: '♭3', 4: '3', 5: '4/11', 6: '♭5/♯11', 7: '5', 8: '♯5/♭13', 9: '6/13', 10: '♭7', 11: '7' };
+const NEXT_CATS = ['调内 · 主功能 T', '调内 · 下属功能 S', '调内 · 属功能 D', '终止式', '副属和弦', '三全音替代', '借用 / 调式交替', '阻碍进行', '半音中音', '风格惯用'];
+// 非调内类别的先验概率（来自 docs/theory-rules.md：副属/借用在流行语料中合计约 5–10%，三全音替代仅见于爵士）
+const CAT_PRIOR = { '副属和弦': 0.05, '三全音替代': 0.03, '借用 / 调式交替': 0.04, '阻碍进行': 0.06, '半音中音': 0.015, '风格惯用': 0.08 };
+function chordFacts(c, ctx) {
+  const T = Q[c.q].t;
+  const notes = T.map(([iv, l]) => ({ pc: mod(c.pc + iv, 12), name: dspell(c.pc + iv, c.letter + l), iv: mod(iv, 12), ivName: IV_NAME[mod(iv, 12)], deg: IV_SHORT[mod(iv, 12)] }));
+  const interp = [];
+  const pcs = notes.map((n) => n.pc), root = c.pc, q = c.q;
+  for (const mode of ['major', 'minor']) for (let t = 0; t < 12; t++) {
+    const s = MODES[mode].s, rel = mod(root - t, 12), st = s.indexOf(rel), k = { tonic: t, mode };
+    const kn = keyName(t, mode) + (mode === 'major' ? ' 大调' : ' 小调');
+    if (st >= 0) {
+      const d3 = diatonicQ(s, st, false), d7 = diatonicQ(s, st, true);
+      if (Q[q].cls === Q[d3].cls && pcs.every((p) => s.includes(mod(p - t, 12)))) interp.push({ key: kn, roman: romanOf(k, rel, st, q), func: FUNC_CN[funcOfStep(k, st)], kind: '调内', same: t === ctx.tonic && mode === ctx.mode });
+      else if (Q[q].dom && d7 !== '7') { const tgt = s.indexOf(mod(rel + 5, 12)); if (tgt > 0 && ['', 'm'].includes(diatonicQ(s, tgt, false))) interp.push({ key: kn, roman: 'V7/' + romanOf(k, s[tgt], tgt, diatonicQ(s, tgt, false)), func: '副属（属功能）', kind: '副属' }); }
+    }
+    if (mode === 'minor' && rel === 7 && Q[q].cls === 'M' && (Q[q].dom || q === '')) interp.push({ key: kn, roman: 'V' + (Q[q].dom ? '7' : ''), func: '属功能（和声小调）', kind: '和声小调属' });
+  }
+  return { notes, interp: interp.slice(0, 14) };
+}
+function candChord(base, ctx) { const r = realize(Object.assign({ bass: 0 }, base), ctx); r.name = chordName(r); return r; }
+function nextCandidates(song, ci) {
+  const loc = locate(song, ci); if (!loc) return null;
+  const [si, k] = loc, sec = song.sections[si], ctx = { tonic: sec.tonic, mode: sec.mode }, cur = sec.chords[k], st = song.style;
+  const s = MODES[ctx.mode].s, ref = MODES[ctx.mode].ref, M = MARKOV[ref], lvl = song.settings.complexity || 0;
+  const after = sec.chords[k + 2] || null, out = [], seen = new Set();
+  const curStep = s.indexOf(cur.rel) >= 0 && cur.diat ? s.indexOf(cur.rel) : -1;
+  const isLast = ci + 1 === song.flat.length - 1;
+  const q7 = (x) => { if (lvl >= 1 && !x.fixedQ) { if (x.dom) x.q = '7'; else if (x.diat) x.q = diatonicQ(s, x.step, true); } return x; };
+  const add = (base, cat, p, why) => {
+    const c = candChord(q7(Object.assign({}, base, { done: true })), ctx);
+    const key = cat + c.rel + ':' + c.q + ':' + (c.tag || '');
+    if (seen.has(key)) return;
+    // 同一套规则：当前和弦 → 候选（例如副属/减和弦/三全音替代的解决、古典 V→IV 禁止），以及候选自身的许可（借用白名单等）
+    const res = c.tag === '副属' || c.tag === '三全音替代' ? null : null; void res;
+    const curR = Object.assign({}, cur, { name: song.flat[ci].name });
+    const issues = chordIssues(curR, c, ctx, st, false).concat(chordIssues(c, null, ctx, st, isLast));
+    if (issues.length) return;
+    seen.add(key);
+    let need = '';
+    if (c.tag === '副属') need = `需继续解决到 ${c.sec}`;
+    if (c.tag === '三全音替代') need = '需半音下行解决';
+    if (Q[c.q].cls === 'd') need = '需上行半音解决';
+    out.push({ chord: cleanChord(c), name: c.name, roman: c.roman, cat, p, why, need });
+  };
+  // 2) 终止式
+  if (cur.func === 'D') add(dia(ctx, 0), NEXT_CATS[3], 0.45, '正格终止 V→I：最强的收束。');
+  if (cur.func === 'S') { add(Object.assign(dia(ctx, 4), ref === 'm' ? { q: '', diat: false, tag: '和声小调属', dom: true, func: 'D' } : { dom: true }), NEXT_CATS[3], 0.3, '下属→属：为终止做准备（半终止）。'); add(dia(ctx, 0), NEXT_CATS[3], 0.25, '变格终止 IV→I（"阿门"终止）。'); }
+  if (cur.func === 'T' && cur.rel === 0) add(Object.assign(dia(ctx, 4), ref === 'm' ? { q: '', diat: false, tag: '和声小调属', dom: true, func: 'D' } : { dom: true }), NEXT_CATS[3], 0.2, '停在属和弦：半终止。');
+  // 1) 调内：Hooktheory 加权的转移矩阵
+  for (let t = 0; t < 7; t++) {
+    const d = dia(ctx, t), p = curStep >= 0 ? M[curStep][t] : [0.2, 0.08, 0.04, 0.2, 0.2, 0.15, 0.02][t];
+    if (t === curStep) continue;
+    const f = funcOfStep(ctx, t), cat = f === 'T' ? NEXT_CATS[0] : f === 'S' ? NEXT_CATS[1] : NEXT_CATS[2];
+    add(d, cat, Math.max(p, 0.01), `${romanOf(ctx, d.rel, t, d.q)}：${FUNC_CN[f]}。` + (p >= 0.25 ? '语料中最常见的走向之一。' : p >= 0.1 ? '常见走向。' : '较少见但合规。'));
+  }
+  // 3) 副属：V7/x 指向调内大/小三和弦（下一步须解决）
+  for (let t = 1; t < 7; t++) { const tq = diatonicQ(s, t, false); if (!['', 'm'].includes(tq)) continue; const sd = secDom(ctx, t); sd.q = '7'; sd.fixedQ = true; add(sd, NEXT_CATS[4], CAT_PRIOR['副属和弦'] * (t === 1 || t === 5 ? 1.5 : 1), `V7/${sd.sec}：临时把 ${sd.sec} 当作主和弦，增强推进。`); }
+  // 4) 三全音替代
+  for (let t = 0; t < 7; t++) { const tq = diatonicQ(s, t, false); if (!['', 'm'].includes(tq)) continue; const sd = secDom(ctx, t); sd.q = '7'; const tt = tritoneOf(t === 0 ? Object.assign(sd, { sec: 'I' }) : sd); tt.fixedQ = true; add(tt, NEXT_CATS[5], CAT_PRIOR['三全音替代'] * (/爵士|Jazz|Bossa|R&B|灵魂|Soul|福音/.test(st.genre + st.name) ? 2 : 0.5), `subV7/${tt.sec}：与 V7 共享三音与七音，低音半音下行进入 ${tt.sec}。`); }
+  // 5) 借用 / 调式交替（BORROW_OK 白名单）
+  const brw = ref === 'M' ? [[3, 5, 'm', 'iv'], [5, 8, '', '♭VI'], [6, 10, '', '♭VII'], [2, 3, '', '♭III'], [1, 2, 'dim', 'ii°']] : [[3, 5, '', 'IV'], [4, 7, '', 'V'], [1, 1, '', '♭II']];
+  for (const [stp, rel, q, nm] of brw) { if (s[stp] === rel && diatonicQ(s, stp, false) === q) continue; add({ rel, step: stp, q, func: rel === 7 ? 'D' : funcOfStep(ctx, stp), tag: rel === 7 ? '和声小调属' : '借用', dom: rel === 7 }, NEXT_CATS[6], CAT_PRIOR['借用 / 调式交替'] * (nm === '♭VII' || nm === 'iv' || nm === 'V' ? 1.5 : 1), `${nm}：从平行${ref === 'M' ? '小' : '大'}调借来，${ref === 'M' ? '带来暗色' : '带来明亮或强属'}色彩。`); }
+  // 6) 阻碍进行
+  if (cur.func === 'D') { add(dia(ctx, 5), NEXT_CATS[7], 0.25, '阻碍终止 V→vi：期待主和弦却落在 vi。'); if (ref === 'M') add({ rel: 8, step: 5, q: '', func: 'S', tag: '借用' }, NEXT_CATS[7], 0.05, '阻碍终止 V→♭VI：更戏剧化的落点。'); }
+  // 7) 半音中音：根音相距大/小三度、同为大三和弦，共享一个音
+  for (const rel of [3, 4, 8, 9]) { if (rel === cur.rel || (s.includes(rel) && diatonicQ(s, s.indexOf(rel), false) === '')) continue; const d = mod(rel - cur.rel, 12); add({ rel, step: rel <= 4 ? 2 : 5, q: '', func: 'T', tag: '半音中音', fixedQ: true }, NEXT_CATS[8], CAT_PRIOR['半音中音'] * ([3, 4, 8, 9].includes(d) ? 1.5 : 1) * (/配乐|Film|Cinematic|Epic|史诗/.test(st.genre + st.name) ? 3 : 1), `主音的半音中音（与主音根音相距三度的大三和弦）：电影配乐式的色彩转换。`); }
+  // 8) 风格惯用：在本风格模板库中紧跟当前和弦的和弦
+  const L = libFor(st, ref), tpls = L.main.concat(L.extra), hits = {};
+  for (const t of tpls) { let cs; try { cs = tplChords(t, ctx); } catch (e) { continue; } for (let i = 0; i + 1 < cs.length; i++) if (cs[i].rel === cur.rel && Q[cs[i].q].cls === Q[cur.q].cls) { const n = cs[i + 1], key = n.rel + ':' + n.q; hits[key] = hits[key] || { c: n, n: 0, t }; hits[key].n++; } }
+  const tot = Object.values(hits).reduce((a, h) => a + h.n, 0);
+  for (const h of Object.values(hits)) add(Object.assign({}, h.c), NEXT_CATS[9], CAT_PRIOR['风格惯用'] + 0.3 * h.n / tot, `本风格常用进行「${h.t}」中的下一步。`);
+  // 概率归一化
+  const sum = out.reduce((a, x) => a + x.p, 0) || 1;
+  out.forEach((x) => (x.p = x.p / sum));
+  const groups = NEXT_CATS.map((cat) => ({ cat, items: out.filter((x) => x.cat === cat).sort((a, b) => b.p - a.p) })).filter((g) => g.items.length);
+  return { ctx, key: keyName(ctx.tonic, ctx.mode) + ' ' + MODES[ctx.mode].n, groups, all: out, hasNext: !!sec.chords[k + 1], after };
+}
+function analyzeChord(song, ci) {
+  const c = song.flat[ci]; if (!c) return null;
+  const sec = song.sections[c.section], ctx = { tonic: sec.tonic, mode: sec.mode };
+  const f = chordFacts(c, ctx);
+  return Object.assign({ name: c.name, roman: c.roman, func: c.func, funcCn: FUNC_CN[c.func] || c.func, tag: c.tag, quality: DICT_CN[c.q] || c.q, formula: Q[c.q].t.map(([iv]) => IV_SHORT[mod(iv, 12)]).join('-') }, f, { next: nextCandidates(song, ci) });
+}
+// 预览：当前和弦 → 候选和弦的声部配置（与正式配置算法相同）
+function previewPair(song, ci, chord) {
+  const c = song.flat[ci], sec = song.sections[c.section], ctx = { tonic: sec.tonic, mode: sec.mode };
+  const a = Object.assign({}, cleanChord(c)); realize(a, ctx); a.name = chordName(a); a.bass = c.bass || 0;
+  const b = realize(Object.assign({ bass: 0 }, cleanChord(chord)), ctx); b.name = chordName(b);
+  voiceAll([a, b], song.style, mkRng(7)); return [a, b];
+}
+function setNext(song, ci, chord, mode) {
+  const loc = locate(song, ci); if (!loc) return song;
+  const [si, k] = loc, chs = song.sections[si].chords, nc = cleanChord(chord);
+  if (mode === 'insert' || k + 1 >= chs.length) chs.splice(k + 1, 0, nc); else chs[k + 1] = nc;
+  return refresh(song);
+}
+
+/* ---------- 和弦图鉴 ---------- */
+// [id, 符号, 中文名, 族, 音程（半音）, 字母级数]
+const DICT = [
+  ['', '', '大三和弦', '三和弦', [0, 4, 7], [0, 2, 4]], ['m', 'm', '小三和弦', '三和弦', [0, 3, 7], [0, 2, 4]], ['dim', 'dim', '减三和弦', '三和弦', [0, 3, 6], [0, 2, 4]], ['aug', 'aug', '增三和弦', '三和弦', [0, 4, 8], [0, 2, 4]],
+  ['sus2', 'sus2', '挂二和弦', '挂留', [0, 2, 7], [0, 1, 4]], ['sus4', 'sus4', '挂四和弦', '挂留', [0, 5, 7], [0, 3, 4]], ['7sus4', '7sus4', '属七挂四', '挂留', [0, 5, 7, 10], [0, 3, 4, 6]], ['9sus4', '9sus4', '属九挂四', '挂留', [0, 5, 7, 10, 14], [0, 3, 4, 6, 1]],
+  ['6', '6', '大六和弦', '六和弦', [0, 4, 7, 9], [0, 2, 4, 5]], ['m6', 'm6', '小六和弦', '六和弦', [0, 3, 7, 9], [0, 2, 4, 5]], ['69', '6/9', '六九和弦', '六和弦', [0, 4, 7, 9, 14], [0, 2, 4, 5, 1]],
+  ['maj7', 'maj7', '大七和弦', '七和弦', [0, 4, 7, 11], [0, 2, 4, 6]], ['7', '7', '属七和弦', '七和弦', [0, 4, 7, 10], [0, 2, 4, 6]], ['m7', 'm7', '小七和弦', '七和弦', [0, 3, 7, 10], [0, 2, 4, 6]], ['m7b5', 'm7b5', '半减七和弦', '七和弦', [0, 3, 6, 10], [0, 2, 4, 6]], ['dim7', 'dim7', '减七和弦', '七和弦', [0, 3, 6, 9], [0, 2, 4, 6]], ['mMaj7', 'mMaj7', '小大七和弦', '七和弦', [0, 3, 7, 11], [0, 2, 4, 6]], ['maj7#5', 'maj7#5', '增大七和弦', '七和弦', [0, 4, 8, 11], [0, 2, 4, 6]], ['7#5', '7#5', '增属七和弦', '七和弦', [0, 4, 8, 10], [0, 2, 4, 6]],
+  ['maj9', 'maj9', '大九和弦', '延伸', [0, 4, 7, 11, 14], [0, 2, 4, 6, 1]], ['9', '9', '属九和弦', '延伸', [0, 4, 7, 10, 14], [0, 2, 4, 6, 1]], ['m9', 'm9', '小九和弦', '延伸', [0, 3, 7, 10, 14], [0, 2, 4, 6, 1]], ['11', '11', '属十一和弦', '延伸', [0, 7, 10, 14, 17], [0, 4, 6, 1, 3]], ['m11', 'm11', '小十一和弦', '延伸', [0, 3, 7, 10, 14, 17], [0, 2, 4, 6, 1, 3]], ['maj13', 'maj13', '大十三和弦', '延伸', [0, 4, 7, 11, 14, 21], [0, 2, 4, 6, 1, 5]], ['13', '13', '属十三和弦', '延伸', [0, 4, 7, 10, 14, 21], [0, 2, 4, 6, 1, 5]], ['m13', 'm13', '小十三和弦', '延伸', [0, 3, 7, 10, 14, 21], [0, 2, 4, 6, 1, 5]], ['maj7#11', 'maj7#11', '利底亚大七', '延伸', [0, 4, 7, 11, 18], [0, 2, 4, 6, 3]],
+  ['7b9', '7b9', '属七降九', '变化', [0, 4, 7, 10, 13], [0, 2, 4, 6, 1]], ['7#9', '7#9', '属七升九（亨德里克斯和弦）', '变化', [0, 4, 7, 10, 15], [0, 2, 4, 6, 1]], ['7#11', '7#11', '属七升十一', '变化', [0, 4, 7, 10, 18], [0, 2, 4, 6, 3]], ['7b13', '7b13', '属七降十三', '变化', [0, 4, 7, 10, 20], [0, 2, 4, 6, 5]], ['7b5', '7b5', '属七降五', '变化', [0, 4, 6, 10], [0, 2, 4, 6]], ['7alt', '7alt', '变化属和弦', '变化', [0, 4, 10, 13, 15, 20], [0, 2, 6, 1, 1, 5]],
+  ['add9', 'add9', '加九和弦', '加音', [0, 4, 7, 14], [0, 2, 4, 1]], ['madd9', 'm(add9)', '小加九和弦', '加音', [0, 3, 7, 14], [0, 2, 4, 1]], ['add11', 'add11', '加十一和弦', '加音', [0, 4, 7, 17], [0, 2, 4, 3]],
+  ['5', '5', '强力和弦（五度）', '强力和弦', [0, 7], [0, 4]],
+];
+const DICT_CN = Object.fromEntries(DICT.map((d) => [d[0], d[2]]));
+const DICT_FAMILIES = ['三和弦', '挂留', '六和弦', '七和弦', '延伸', '变化', '加音', '强力和弦'];
+const ROOTS = [['C', 0, 0], ['Db', 1, 1], ['D', 2, 1], ['Eb', 3, 2], ['E', 4, 2], ['F', 5, 3], ['F#', 6, 3], ['G', 7, 4], ['Ab', 8, 5], ['A', 9, 5], ['Bb', 10, 6], ['B', 11, 6]];
+// 各和弦性质常见于哪些风格（模板库统计 + 风格手册，见 docs/theory-rules.md）
+const DICT_STYLES = { '': ['流行', '摇滚', '民谣', '国风', '古典', '乡村'], m: ['流行', '摇滚', '民谣', '国风', '古典', '电子'], dim: ['古典', '福音', '爵士'], aug: ['古典', '爵士', '配乐'], sus2: ['国风', '流行', '氛围', '后摇'], sus4: ['国风', '流行', '摇滚', '福音'], '7sus4': ['放克', 'R&B', '爵士', '福音'], '9sus4': ['爵士', '放克', 'R&B'], 6: ['爵士', '摇摆', '乡村'], m6: ['爵士', '探戈', '拉丁'], 69: ['爵士', 'Bossa Nova', '国风'], maj7: ['爵士', 'R&B', 'Lo-fi', '新灵魂', 'City Pop'], 7: ['布鲁斯', '爵士', '放克', '福音', '摇滚'], m7: ['爵士', 'R&B', 'Lo-fi', '放克', '新灵魂'], m7b5: ['爵士', '古典', '拉丁'], dim7: ['古典', '福音', '爵士'], mMaj7: ['爵士', '配乐'], 'maj7#5': ['爵士'], '7#5': ['爵士', '福音'], maj9: ['R&B', '新灵魂', 'Lo-fi', '爵士'], 9: ['放克', '布鲁斯', '爵士'], m9: ['R&B', '新灵魂', 'Lo-fi', '爵士'], 11: ['放克', '爵士', '福音'], m11: ['新灵魂', 'R&B', '爵士'], maj13: ['爵士', '新灵魂'], 13: ['放克', '爵士', '布鲁斯'], m13: ['爵士', '新灵魂'], 'maj7#11': ['爵士', '配乐', 'City Pop'], '7b9': ['爵士', '拉丁', '弗拉门戈'], '7#9': ['放克', '摇滚', '布鲁斯'], '7#11': ['爵士', 'Bossa Nova'], '7b13': ['爵士'], '7b5': ['爵士'], '7alt': ['爵士', '比波普'], add9: ['流行', '摇滚', '国风', '民谣'], madd9: ['流行', '国风', '氛围'], add11: ['民谣', '流行'], 5: ['摇滚', '朋克', '金属', '垃圾摇滚'] };
+// 常用开放和弦（标准指法，-1 = 不弹）
+const OPEN = { C: [-1, 3, 2, 0, 1, 0], A: [-1, 0, 2, 2, 2, 0], G: [3, 2, 0, 0, 0, 3], E: [0, 2, 2, 1, 0, 0], D: [-1, -1, 0, 2, 3, 2], Am: [-1, 0, 2, 2, 1, 0], Em: [0, 2, 2, 0, 0, 0], Dm: [-1, -1, 0, 2, 3, 1], C7: [-1, 3, 2, 3, 1, 0], A7: [-1, 0, 2, 0, 2, 0], G7: [3, 2, 0, 0, 0, 1], E7: [0, 2, 0, 1, 0, 0], D7: [-1, -1, 0, 2, 1, 2], B7: [-1, 2, 1, 2, 0, 2], Am7: [-1, 0, 2, 0, 1, 0], Em7: [0, 2, 0, 0, 0, 0], Dm7: [-1, -1, 0, 2, 1, 1], Cmaj7: [-1, 3, 2, 0, 0, 0], Fmaj7: [-1, -1, 3, 2, 1, 0], Amaj7: [-1, 0, 2, 1, 2, 0], Dmaj7: [-1, -1, 0, 2, 2, 2], Emaj7: [0, 2, 1, 1, 0, 0], Gmaj7: [3, 2, 0, 0, 0, 2], Csus2: [-1, 3, 0, 0, 1, 0], Dsus2: [-1, -1, 0, 2, 3, 0], Asus2: [-1, 0, 2, 2, 0, 0], Dsus4: [-1, -1, 0, 2, 3, 3], Asus4: [-1, 0, 2, 2, 3, 0], Esus4: [0, 2, 2, 2, 0, 0], Csus4: [-1, 3, 3, 0, 1, 1], Cadd9: [-1, 3, 2, 0, 3, 0], Gadd9: [3, 0, 0, 2, 0, 3], A6: [-1, 0, 2, 2, 2, 2], E5: [0, 2, 2, -1, -1, -1], A5: [-1, 0, 2, 2, -1, -1], D5: [-1, -1, 0, 2, 3, -1], Asus4_: null, E9: [0, 2, 0, 1, 0, 2], Am6: [-1, 0, 2, 2, 1, 2], Dm6: [-1, -1, 0, 2, 0, 1], Em9: [0, 2, 0, 0, 0, 2], Cdim7: [-1, 3, 4, 2, 4, 2] };
+// 可移动指法：E 型（根音在 6 弦）、A 型（根音在 5 弦）、D 型（根音在 4 弦）。数值相对根音品位。
+const MOVE = {
+  E: { '': [0, 2, 2, 1, 0, 0], m: [0, 2, 2, 0, 0, 0], 7: [0, 2, 0, 1, 0, 0], m7: [0, 2, 0, 0, 0, 0], maj7: [0, -9, 1, 1, 0, -9], sus4: [0, 2, 2, 2, 0, 0], '7sus4': [0, 2, 0, 2, 0, 0], 5: [0, 2, 2, -9, -9, -9], m7b5: [0, -9, 0, 0, -1, -9], dim7: [0, -9, -1, 0, -1, -9], 6: [0, -9, -1, 1, 0, -9], m6: [0, -9, -1, 0, 0, -9], 9: [0, -9, 0, 1, 0, 2], '7#9': [0, -9, 0, 1, 3, -9], '7b9': [0, -9, 0, 1, 0, 1], 13: [0, -9, 0, 1, 2, -9], mMaj7: [0, 2, 1, 0, 0, 0], aug: [0, 3, 2, 1, 1, 0], m9: [0, 2, 0, 0, 0, 2], add9: [0, 2, 4, 1, 0, 0], '7#5': [0, -9, 0, 1, 1, -9], '7b5': [0, -9, 0, 1, -1, -9], m11: [0, 0, 0, 0, 0, 0] },
+  A: { '': [-9, 0, 2, 2, 2, 0], m: [-9, 0, 2, 2, 1, 0], 7: [-9, 0, 2, 0, 2, 0], m7: [-9, 0, 2, 0, 1, 0], maj7: [-9, 0, 2, 1, 2, 0], sus2: [-9, 0, 2, 2, 0, 0], sus4: [-9, 0, 2, 2, 3, 0], '7sus4': [-9, 0, 2, 0, 3, 0], 6: [-9, 0, 2, 2, 2, 2], m6: [-9, 0, 2, 2, 1, 2], 69: [-9, 0, -1, -1, 0, 0], dim: [-9, 0, 1, 2, 1, -9], dim7: [-9, 0, 1, 2, 1, 2], m7b5: [-9, 0, 1, 0, 1, -9], aug: [-9, 0, 3, 2, 2, -9], 9: [-9, 0, -1, 0, 0, 0], maj9: [-9, 0, -1, 1, 0, -9], m9: [-9, 0, -2, 0, 0, -9], 13: [-9, 0, -1, 0, 0, 2], '7b9': [-9, 0, -1, 0, -1, -9], '7#9': [-9, 0, -1, 0, 1, -9], add9: [-9, 0, 2, 4, 2, 0], 5: [-9, 0, 2, 2, -9, -9], mMaj7: [-9, 0, 2, 1, 1, 0], '9sus4': [-9, 0, 0, 0, 0, 0], m11: [-9, 0, 0, 0, 1, 0], 'maj7#11': [-9, 0, 1, 1, 2, -9], '7#5': [-9, 0, -9, 0, 2, 1], '7b5': [-9, 0, 1, 0, 2, -9], '7alt': [-9, 0, -1, 0, 1, 1], '7#11': [-9, 0, 1, 0, 2, 2], '7b13': [-9, 0, -9, 0, 2, 1], maj13: [-9, 0, -1, 1, 0, 2], m13: [-9, 0, -2, 0, 0, 2], 11: [-9, 0, 0, 0, 0, 0], add11: [-9, 0, 2, 2, 2, 3] },
+  D: { '': [-9, -9, 0, 2, 3, 2], m: [-9, -9, 0, 2, 3, 1], 7: [-9, -9, 0, 2, 1, 2], m7: [-9, -9, 0, 2, 1, 1], maj7: [-9, -9, 0, 2, 2, 2], sus2: [-9, -9, 0, 2, 3, 0], sus4: [-9, -9, 0, 2, 3, 3], 6: [-9, -9, 0, 2, 0, 2], m6: [-9, -9, 0, 2, 0, 1], m7b5: [-9, -9, 0, 1, 1, 1], dim7: [-9, -9, 0, 1, 0, 1], add9: [-9, -9, 0, 2, 3, 0] },
+};
+const STR_OPEN = { E: 40, A: 45, D: 50 };
+function shapeOk(fr, pcs, need, bassPc) {
+  const snd = fr.map((f, j) => (f < 0 ? null : GUITAR[j] + f)).filter((x) => x !== null);
+  if (snd.length < Math.min(3, pcs.length)) return false;
+  if (snd.some((n) => !pcs.includes(mod(n, 12)))) return false;
+  const got = new Set(snd.map((n) => mod(n, 12))); for (const p of need) if (!got.has(p)) return false;
+  const first = fr.findIndex((f) => f >= 0); if (mod(GUITAR[first] + fr[first], 12) !== bassPc) return false;
+  const pf = fr.filter((f) => f > 0); return !pf.length || Math.max(...pf) - Math.min(...pf) <= 4;
+}
+function guitarVoicings(rootPc, ivs, bassPc, id, rootName) {
+  const pcs = ivs.map((i) => mod(rootPc + i, 12)); bassPc = bassPc === undefined || bassPc === null ? rootPc : bassPc;
+  // 必须包含：根音、三音（或挂留音）与七音；五音与延伸音可省略
+  const need = new Set([rootPc]); ivs.forEach((i) => { const m = mod(i, 12); if ([3, 4, 10, 11].includes(m) || (ivs.length <= 3 && m !== 7) || (ivs.length === 2)) need.add(mod(rootPc + i, 12)); if (ivs.length <= 3 && [2, 5].includes(m)) need.add(mod(rootPc + i, 12)); });
+  if (ivs.includes(6) && !ivs.includes(7)) need.add(mod(rootPc + 6, 12)); if (ivs.includes(8) && !ivs.includes(7) && ivs.length <= 4) need.add(mod(rootPc + 8, 12));
+  const out = [], seen = new Set();
+  const push = (fr, label) => { const k = fr.join(','); if (seen.has(k) || !shapeOk(fr, pcs, need, bassPc)) return; seen.add(k); const pf = fr.filter((f) => f > 0), lo = pf.length ? Math.min(...pf) : 1; out.push({ frets: fr, base: Math.max(...fr) > 4 ? lo : 1, label, notes: fr.map((f, j) => (f < 0 ? null : GUITAR[j] + f)) }); };
+  const sym = (DICT.find((d) => d[0] === id) || [0, id])[1];
+  if (bassPc === rootPc) {
+    for (const nm of [rootName + sym, rootName + id]) if (OPEN[nm]) push(OPEN[nm].slice(), '开放和弦');
+    for (const [shape, tbl] of Object.entries(MOVE)) {
+      const rel = tbl[id]; if (!rel) continue;
+      const si = { E: 0, A: 1, D: 2 }[shape];
+      let r = mod(rootPc - STR_OPEN[shape], 12); const minRel = Math.min(...rel.filter((x) => x > -9));
+      if (r + minRel < 0) r += 12;
+      const fr = rel.map((x, j) => (x <= -9 ? -1 : r + x)); void si;
+      if (Math.max(...fr) <= 15) push(fr, shape + ' 型' + (r > 0 && fr.filter((f) => f === r).length >= 2 ? '横按' : '') + (r > 0 ? `（${r} 品）` : ''));
+      if (r + 12 + Math.max(...rel) <= 15 && r <= 3) push(rel.map((x) => (x <= -9 ? -1 : r + 12 + x)), shape + ` 型（${r + 12} 品）`);
+    }
+  }
+  if (out.length < 2) { const g = guitarShape({ pc: rootPc, q: '__dict', __pcs: pcs, __bass: bassPc }); if (g) push(g.frets, '自动'); }
+  const lo = (v) => Math.min(...v.frets.filter((f) => f > 0).concat([99])), rk = (v) => (v.label === '开放和弦' ? 0 : v.label === '自动' ? 3 : /^D/.test(v.label) || lo(v) > 9 ? 2 : 1);
+  return out.sort((a, b) => rk(a) - rk(b) || lo(a) - lo(b)).slice(0, 4);
+}
+function dictEntry(rootIdx, id, inv) {
+  const [rn, pc, letter] = ROOTS[mod(rootIdx, 12)], d = DICT.find((x) => x[0] === id); if (!d) return null;
+  const [, sym, cn, fam, ivs, ls] = d;
+  const notes = ivs.map((iv, i) => ({ pc: mod(pc + iv, 12), name: dspell(pc + iv, letter + ls[i]), iv: mod(iv, 12), deg: IV_SHORT[mod(iv, 12)], ivName: IV_NAME[mod(iv, 12)] }));
+  inv = inv || 0; const bassN = notes[Math.min(inv, notes.length - 1)];
+  const name = rn + sym + (inv ? '/' + bassN.name : '');
+  const inversions = notes.slice(1, Math.min(notes.length, 4)).map((n, i) => ({ name: rn + sym + '/' + n.name, inv: i + 1 }));
+  // 试听与钢琴图：低音 + 密集排列
+  const bassNote = 36 + mod(bassN.pc, 12) + (mod(bassN.pc, 12) < 4 ? 12 : 0);
+  let tones = ivs.map((i) => mod(i, 12)); if (tones.length > 4) tones = tones.filter((x) => x !== 7); if (tones.length > 4) tones = tones.filter((x) => x !== 0); const vs = closeVoicings(tones.map((t) => mod(pc + t, 12))); const up = vs.length ? vs.reduce((b, v) => (Math.abs(v[0] - 60) < Math.abs(b[0] - 60) ? v : b)) : [60];
+  return { id, root: rn, rootIdx: mod(rootIdx, 12), name, sym, cn, family: fam, notes, formula: notes.map((n) => n.deg).join('-'), intervals: notes.map((n) => n.ivName), styles: DICT_STYLES[id] || [], inversions, bassNote, upper: up, guitar: guitarVoicings(pc, ivs, bassN.pc, id, rn), pcs: notes.map((n) => n.pc) };
+}
+function chordDict(f = {}) {
+  const out = [], qs = (f.query || '').trim();
+  let parsed = null; if (qs) { const t = qs.replace(/^([a-g])/, (m) => m.toUpperCase()); const m = t.match(/^([A-G][#b]?)(.*)$/); if (m) parsed = m; }
+  for (let r = 0; r < 12; r++) for (const d of DICT) {
+    if (f.root !== undefined && f.root !== null && f.root !== '' && +f.root !== r) continue;
+    if (f.family && d[3] !== f.family) continue;
+    if (f.type && d[0] !== f.type) continue;
+    const [rn, pc] = ROOTS[r];
+    if (qs) {
+      let ok = (d[2].includes(qs));
+      if (!ok && parsed) { const rp = parseChord(parsed[1]); const sfx = parsed[2]; ok = rp && rp.pc === pc && (sfx === '' ? true : d[1].toLowerCase() === sfx.toLowerCase() || d[0].toLowerCase() === sfx.toLowerCase() || (SUF[sfx] !== undefined && SUF[sfx] === d[0] && d[0] !== '')); }
+      if (!ok) continue;
+    }
+    out.push({ rootIdx: r, id: d[0], name: rn + d[1], cn: d[2], family: d[3] });
+  }
+  return out;
+}
+// 反查：根据所选音级找和弦（完全匹配优先，其次为包含所选音的和弦）
+function identifyChord(pcs, bassPc) {
+  const set = [...new Set(pcs.map((p) => mod(p, 12)))]; if (!set.length) return [];
+  const res = [];
+  for (let r = 0; r < 12; r++) for (const d of DICT) {
+    const cp = new Set(d[4].map((i) => mod(ROOTS[r][1] + i, 12)));
+    const hit = set.filter((p) => cp.has(p)).length;
+    if (hit < set.length) continue;
+    const exact = cp.size === set.length;
+    let score = exact ? 100 : 50 - (cp.size - set.length) * 8;
+    if (bassPc !== undefined && bassPc !== null) score += ROOTS[r][1] === mod(bassPc, 12) ? 15 : cp.has(mod(bassPc, 12)) ? 0 : -100;
+    score -= DICT.indexOf(d) * 0.2;
+    if (score > 0) { const inv = bassPc !== undefined && bassPc !== null && ROOTS[r][1] !== mod(bassPc, 12) ? d[4].findIndex((i) => mod(ROOTS[r][1] + i, 12) === mod(bassPc, 12)) : 0; res.push({ rootIdx: r, id: d[0], inv: inv > 0 ? inv : 0, name: ROOTS[r][0] + d[1] + (inv > 0 ? '/' + spell(mod(bassPc, 12), ROOTS[r][2] + d[5][inv]) : ''), cn: d[2], exact, score }); }
+  }
+  return res.sort((a, b) => b.score - a.score).slice(0, 24);
+}
+
+const ChordEngine = { LET, MODES, METERS, STYLES, GENRES, MOODS, Q, COMPLEX, KEYS_M, BAR_OPTS, HR_OPTS, FUNC_CN, PATTERNS, SECTION_PLANS, mkRng, generate, expand, parseChord, parseSeeds, inferKey, buildEvents, toMidi, toText, splitBar, unitSec, keyName, spell, diatonicQ, serialize, deserialize, cloneSong, refresh, transpose, setBpm, alternatives, replaceChord, toggleLock, regenerate, guitarShape, locate, ALT_TIPS, DRUM, midiParts, makeZip, crc32, PARTS, GM, GM_FAMILIES, defaultPrograms, progFor, PROG_LIB, vlIssues, validate, MARKOV, analyzeChord, nextCandidates, previewPair, setNext, chordDict, dictEntry, identifyChord, guitarVoicings, DICT, DICT_FAMILIES, ROOTS, NEXT_CATS, chordIssues };
 if (typeof module !== 'undefined' && module.exports) module.exports = ChordEngine;
 if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
