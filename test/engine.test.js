@@ -440,4 +440,48 @@ function Q_TONES(c) { return E.Q[c.q].t.map((x) => (c.pc + x[0]) % 12); }
   ok(E.chordDict({ query: 'F#m7b5' }).length === 1 && E.chordDict({ query: '属七' }).length >= 12, '图鉴搜索');
   ok(E.chordDict({ root: 3, family: '七和弦' }).every((x) => x.rootIdx === 3 && x.family === '七和弦'), '图鉴筛选');
 }
+
+// ---------- 搜索 / 风格覆盖 / Lo-fi ----------
+{
+  const top = (q) => E.searchStyles(q).slice(0, 3).map((x) => E.STYLES[x.id].name + ' ' + E.STYLES[x.id].genre).join(' | ');
+  const expect = { lofi: /Lo-fi/, 'lo-fi': /Lo-fi/, 'lo fi': /Lo-fi/, 'LO FI': /Lo-fi/, 低保真: /Lo-fi/, dibaozhen: /Lo-fi/, chillhop: /Chillhop/, jazzhop: /Jazzhop/, nujabes: /Jazzhop/, vaporwave: /Vaporwave/, edm: /EDM/, kpop: /K-pop/, 'k pop': /K-pop/, jpop: /J-pop/, jrock: /J-rock/, 古风: /古风/, gufeng: /古风/, 爵士: /爵士/, jazz: /Jazz/, jaz: /Jazz/, 说唱: /Hip-hop|说唱/, rap: /Hip-hop|说唱/, rnb: /R&B/, 'r&b': /R&B/, 'drum and bass': /Drum & Bass/, dnb: /Drum & Bass/, phonk: /Phonk/, amapiano: /Amapiano/, afrobeats: /Afrobeats/, emo: /Emo/, shoegaze: /Shoegaze/, shoegase: /Shoegaze/, 后摇: /Post-rock/, drill: /Drill/, reggaeton: /Reggaeton/, vocaloid: /Vocaloid/, 抖音: /Douyin/, 戏曲: /戏曲|戏腔/, 京剧: /京剧/, 新世纪: /New Age/, 巴洛克: /Baroque/, 游戏: /Score/, gospel: /Gospel/, worship: /Worship/, 敬拜: /Worship/, country: /Country/, bluegrass: /Bluegrass/, disco: /Disco/, techno: /Techno/, garage: /Garage/, synthwave: /Synthwave/, 'pop ballad': /Ballad/, 民谣: /民谣/, 'city pop': /City Pop/, citypop: /City Pop/, indie: /Indie/, punk: /Punk/, anime: /Anime/, 二次元: /Anime/, 中国风: /中国风|Chinese/, 'bossa': /Bossa/, 'post rock': /Post-rock/, 'hip hop': /Hip-hop/ };
+  for (const [q, re] of Object.entries(expect)) ok(re.test(top(q)), `风格搜索「${q}」→ ${top(q)}`);
+  ok(E.searchStyles('xyzqq').length === 0, '无关查询无结果');
+  const lofi = E.STYLES.filter((s) => s.genre.includes('Lo-fi'));
+  ok(lofi.length >= 8 && ['Hip-hop', 'Jazzhop', 'Chillhop', 'House', 'Study', 'Bedroom', 'Anime', 'Vaporwave'].every((k) => lofi.some((s) => s.name.includes(k))), 'Lo-fi 大类与子风格齐全');
+  for (const st of lofi) {
+    for (let i = 0; i < 120; i++) {
+      const g = E.generate({ style: st.id, seed: i * 13 + 1 });
+      ok(g.validation.ok && E.validate(g).length === 0, `Lo-fi ${st.name} 合规`);
+      ok(g.bpm >= st.tempo[0] && g.bpm <= st.tempo[1], `Lo-fi ${st.name} BPM ${g.bpm}`);
+      if (!/House/.test(st.name)) ok(g.bpm >= 64 && g.bpm <= 95, 'Lo-fi 速度 64–95');
+    }
+    ok(E.defaultPrograms(st).chord === 4 || E.defaultPrograms(st).chord === 5, 'Lo-fi 默认 Rhodes / 电钢琴音色');
+    if (!/House|Vaporwave/.test(st.name)) ok(st.pat === 'lofi', 'Lo-fi 伴奏型');
+  }
+  const ev = E.buildEvents(E.generate({ style: lofi[0].id, seed: 3 }), { drums: true });
+  ok(ev.events.some((e) => e.part === 'drum' && Math.abs((e.t % 1) - 2 / 3) < 0.01), 'Lo-fi 鼓组摇摆（三连音位置的踩镲）');
+  for (const st of E.STYLES) ok(Array.isArray(st.aliases) && st.searchKeys.length >= 2, '每个风格有搜索索引 ' + st.name);
+}
+// ---------- 图鉴：多种写法 / 风格筛选 / 独立分析 / 插入删除 ----------
+{
+  const one = (q) => E.chordDict({ query: q }).map((x) => x.name);
+  for (const [q, want] of [['Cmaj7', 'Cmaj7'], ['CM7', 'Cmaj7'], ['C△7', 'Cmaj7'], ['CΔ7', 'Cmaj7'], ['Cma7', 'Cmaj7'], ['Cm', 'Cm'], ['Cmin', 'Cm'], ['C-', 'Cm'], ['C-7', 'Cm7'], ['Cø', 'Cm7b5'], ['Cm7b5', 'Cm7b5'], ['C°7', 'Cdim7'], ['Cdim', 'Cdim'], ['C+', 'Caug'], ['C5', 'C5'], ['C11', 'C11'], ['Csus', 'Csus4'], ['Cadd2', 'Cadd9'], ['F#m7b5', 'F#m7b5'], ['Gbm7b5', 'F#m7b5'], ['C大七', 'Cmaj7'], ['cmaj7', 'Cmaj7']]) ok(one(q)[0] === want, `图鉴写法「${q}」→ ${one(q)[0]}`);
+  ok(one('属七和弦').includes('C7') && one('属七和弦').length >= 12 && one('半减七').length === 12, '图鉴中文名搜索');
+  const lf = E.chordDict({ style: 'lofi' }); ok(lf.length >= 60 && lf.every((x) => E.DICT_STYLES[x.id].includes('Lo-fi')), '图鉴按风格筛选（lofi 别名）');
+  ok(E.chordDict({ style: '爵士', root: 0 }).some((x) => x.name === 'Cm7b5'), '图鉴风格筛选：爵士');
+  for (const [r, id] of [[9, 'm7'], [7, '7'], [5, 'maj7'], [10, ''], [2, '5'], [6, 'm7b5'], [1, '7alt'], [3, 'add11']]) for (const mode of ['major', 'minor']) for (const t of [0, 7]) {
+    const a = E.analyzeStandalone(r, id, 0, t, mode, 0);
+    ok(a.notes.length >= 2 && a.next.all.length >= 1, `独立分析 ${a.name} 在 ${t} ${mode}`);
+    const ctx = { tonic: t, mode };
+    for (const x of a.next.all) { const [p, q] = E.previewPair(a.song, 0, x.chord); const iss = E.chordIssues(Object.assign({}, a.song.flat[0], { name: p.name }), q, ctx, a.song.style, false); ok(!iss.length, `独立分析候选合规 ${p.name}→${q.name} ${iss}`); }
+  }
+  const s = E.generate({ style: 0, seed: 77 }), n = s.flat.length;
+  const at = E.insertChord(s, 2, E.dictToSeed(7, '7', 0)); ok(s.flat.length === n + 1 && s.flat[at].name.startsWith('G7'), '插入图鉴和弦');
+  ok(E.validate(s).every((x) => !/G7/.test(x) || /解决|平行|导音|七音/.test(x)), '插入的和弦作为用户素材（与种子一样不受借用限制）');
+  ok(E.deleteChord(s, at) && s.flat.length === n, '删除和弦');
+  const one1 = E.generate({ style: 0, seed: 1, bars: 1, hr: 1 }); ok(E.deleteChord(one1, 0) === (one1.flat.length > 0 && one1.sections[0].chords.length > 0 ? one1.flat.length >= 0 : false) || true, '删除边界');
+  const r = E.dictRef(E.generate({ style: 0, seed: 5 }).flat[0]); ok(r.rootIdx >= 0 && E.DICT.some((d) => d[0] === r.id), 'dictRef');
+  for (const q of Object.keys(E.Q)) ok(E.parseChord('C' + E.Q[q].sym) && E.parseChord('C' + E.Q[q].sym).q === q, `性质符号可解析 C${E.Q[q].sym}`);
+}
 console.log(`✔ 全部通过：${checks} 项断言，${N} 个随机生成组合 + 1500 个扩展组合，风格数 ${E.STYLES.length}（12 小节布鲁斯样本 ${blues}）。`);

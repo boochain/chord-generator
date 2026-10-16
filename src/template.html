@@ -11,11 +11,12 @@
 </head>
 <body>
 <header>
-  <div class="brand"><div class="logo" aria-hidden="true">♪</div><h1>和弦进行生成器<small>符合乐理 · 133 种风格</small></h1></div>
+  <div class="brand"><div class="logo" aria-hidden="true">♪</div><h1>和弦进行生成器<small id="brandSub">符合乐理 · 153 种风格</small></h1></div>
   <div class="tabs" role="tablist" aria-label="模式">
     <button role="tab" id="tabRand" aria-selected="true">随机生成</button>
     <button role="tab" id="tabSeed" aria-selected="false">根据和弦扩展</button>
   </div>
+  <div class="gsearch" id="gs" role="search"><input type="search" id="gq" placeholder="搜索风格、和弦、功能…（/）" autocomplete="off" spellcheck="false" aria-label="全局搜索"><div id="gres" role="listbox"></div></div>
   <div class="hbtns">
     <button class="ib" id="undo" data-tip="撤销 (Ctrl+Z)" aria-label="撤销" disabled>↶</button>
     <button class="ib" id="redo" data-tip="重做 (Ctrl+Shift+Z)" aria-label="重做" disabled>↷</button>
@@ -117,12 +118,12 @@
 <div class="drawer" id="favDrawer" aria-label="收藏夹"><h2>★ 收藏夹 <button class="ib" data-close>✕</button></h2><div id="favList"></div></div>
 <div class="drawer" id="histDrawer" aria-label="历史"><h2>🕘 历史记录 <button class="ib" data-close>✕</button></h2><div id="histList"></div></div>
 <div class="drawer" id="helpDrawer" aria-label="快捷键"><h2>⌨ 快捷键 <button class="ib" data-close>✕</button></h2>
-  <div class="keys"><kbd>Space</kbd><span>播放 / 停止</span><kbd>Enter</kbd><span>按参数生成</span><kbd>R</kbd><span>重新生成未锁定和弦</span><kbd>A</kbd><span>全部随机</span><kbd>← →</kbd><span>选择上/下一个和弦</span><kbd>L</kbd><span>锁定/解锁选中和弦</span><kbd>[ ]</kbd><span>移调 −1 / +1 半音</span><kbd>Ctrl+Z</kbd><span>撤销</span><kbd>Ctrl+Shift+Z</kbd><span>重做</span><kbd>+ −</kbd><span>速度 ±2 BPM（按住 Shift 点按钮 ±10）</span><kbd>M</kbd><span>节拍器</span><kbd>D</kbd><span>鼓组</span><kbd>S</kbd><span>收藏</span><kbd>T</kbd><span>切换主题</span><kbd>Esc</kbd><span>关闭面板</span></div>
+  <div class="keys"><kbd>Space</kbd><span>播放 / 停止</span><kbd>Enter</kbd><span>按参数生成</span><kbd>R</kbd><span>重新生成未锁定和弦</span><kbd>A</kbd><span>全部随机</span><kbd>← →</kbd><span>选择上/下一个和弦</span><kbd>L</kbd><span>锁定/解锁选中和弦</span><kbd>[ ]</kbd><span>移调 −1 / +1 半音</span><kbd>Ctrl+Z</kbd><span>撤销</span><kbd>Ctrl+Shift+Z</kbd><span>重做</span><kbd>+ −</kbd><span>速度 ±2 BPM（按住 Shift 点按钮 ±10）</span><kbd>M</kbd><span>节拍器</span><kbd>D</kbd><span>鼓组</span><kbd>S</kbd><span>收藏</span><kbd>T</kbd><span>切换主题</span><kbd>/</kbd><span>全局搜索</span><kbd>Esc</kbd><span>关闭面板</span></div>
   <p class="hint">术语下方带虚线的文字悬停可看解释。</p>
 </div>
 <div class="drawer wide" id="anaDrawer" aria-label="和弦分析"><h2>🔍 和弦分析 <button class="ib" data-close>✕</button></h2><div id="anaBody"></div></div>
 <section id="dictPage" aria-label="和弦图鉴">
-  <div class="dHead"><h2>📖 和弦图鉴</h2><input type="search" id="dQ" placeholder="搜索：Cmaj7、F#m7b5、属七…" autocomplete="off" spellcheck="false"><select id="dRoot" aria-label="根音"></select><select id="dFam" aria-label="类型"></select><span class="hint" id="dCount"></span><button class="ib" id="dictClose" aria-label="关闭图鉴">✕</button></div>
+  <div class="dHead"><h2>📖 和弦图鉴</h2><input type="search" id="dQ" placeholder="搜索：Cmaj7、F#m7b5、属七…" autocomplete="off" spellcheck="false"><select id="dRoot" aria-label="根音"></select><select id="dFam" aria-label="类型"></select><select id="dSty" aria-label="风格"></select><span class="hint" id="dCount"></span><button class="ib" id="dictClose" aria-label="关闭图鉴">✕</button></div>
   <div class="dNotesRow"><span class="hint">按音反查：</span><div id="dNotes"></div><button class="chip" id="dClear">清除</button></div>
   <div class="dBody"><div id="dList"></div><div id="dEntry" class="card"></div></div>
 </section>

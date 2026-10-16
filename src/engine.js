@@ -51,6 +51,13 @@ const Q = {
   '7#11': { sym: '7#11', t: [[0, 0], [4, 2], [10, 6], [14, 1], [18, 3]], cls: 'M', r: '7♯11', dom: 1 },
   '7b13': { sym: '7b13', t: [[0, 0], [4, 2], [10, 6], [20, 5]], cls: 'M', r: '7♭13', dom: 1 },
   '7#5': { sym: '7#5', t: [[0, 0], [4, 2], [8, 4], [10, 6]], cls: 'A', r: '+7', dom: 1 },
+  5: { sym: '5', t: [[0, 0], [7, 4]], cls: 'M', r: '5' },
+  add11: { sym: 'add11', t: [[0, 0], [4, 2], [7, 4], [17, 3]], cls: 'M', r: 'add11' },
+  11: { sym: '11', t: [[0, 0], [7, 4], [10, 6], [14, 1], [17, 3]], cls: 'M', r: '11', dom: 1 },
+  maj13: { sym: 'maj13', t: [[0, 0], [4, 2], [11, 6], [14, 1], [21, 5]], cls: 'M', r: 'maj13' },
+  m13: { sym: 'm13', t: [[0, 0], [3, 2], [10, 6], [14, 1], [21, 5]], cls: 'm', r: '13' },
+  '7b5': { sym: '7b5', t: [[0, 0], [4, 2], [6, 4], [10, 6]], cls: 'M', r: '7♭5', dom: 1 },
+  '9sus4': { sym: '9sus4', t: [[0, 0], [5, 3], [7, 4], [10, 6], [14, 1]], cls: 'M', r: '9sus4', dom: 1 },
   '7alt': { sym: '7alt', t: [[0, 0], [4, 2], [10, 6], [13, 1], [20, 5]], cls: 'M', r: '7alt', dom: 1 },
 };
 function mkRng(seed) {
@@ -134,6 +141,10 @@ const GENRES = [
     ['抒情慢歌 Ballad', { tempo: [60, 80], ext: 2, slash: 0.6, pat: 'arp', sec: 0.2, meters: ['4/4', '6/8', '12/8'], hr: { 1: 2, 2: 2 } }],
     ['青少年流行 Teen Pop', { ext: 0, tempo: [110, 130] }],
     ['迪斯科流行 Disco Pop', { ext: 2, tempo: [112, 124], pat: 'funk', tpl: ['2 5 1 6', '6 2 5 1'] }],
+    ['抖音/网络流行 Douyin Pop', { tpl: ['4 5 3 6', '1 5 6 4', '6 4 1 5', '4 5 3 6 2 5 1 1'], tplP: 0.8, ext: 1, tempo: [85, 105], desc: '抖音/网络流行：以 4536251 / 王道进行、1564 为骨架，副歌重复度高、旋律记忆点强。' }],
+    ['术力口 Vocaloid', { tpl: ['4 5 3 6', '4 5 6 6', '2 5 1 6'], ext: 1, sec: 0.2, tempo: [140, 190], pat: 'pulse', desc: 'Vocaloid（术力口）：高速、王道进行与丸サ进行常见，转调和副属较多。' }],
+    ['超流行 Hyperpop', { tempo: [140, 170], ext: 0, pat: 'pulse' }],
+    ['非洲节拍 Afrobeats', { tempo: [100, 115], modes: { major: 2, minor: 2 }, tpl: ['1 4', '6 4 1 5', '2 5 1 1'], ext: 1, pat: 'latin' }],
     ['泡泡糖流行 Bubblegum', { ext: 0, tempo: [115, 135], tpl: ['1 6 4 5', '1 4 5 4'] }],
   ]],
   ['摇滚 Rock', { modes: { major: 2, mixolydian: 2, minor: 2, dorian: 0.5 }, tpl: ['I bVII IV I', '1 4 5 4', 'i bVI bVII i', '1 5 4 4', '1 4', 'i bVII bVI bVII'], tplP: 0.6, ext: 0, tempo: [100, 160], pat: 'drive', sus: 0.15, borrow: 0.25, desc: '摇滚和声大量使用借用和弦（♭VII、♭VI），混合利底亚 ♭VII–IV–I 是经典进行。' }, [
@@ -148,6 +159,9 @@ const GENRES = [
     ['迷幻摇滚 Psychedelic', { modes: { mixolydian: 2, dorian: 2, phrygian: 1 }, ext: 1, tempo: [80, 120], tpl: ['I bVII IV I', 'i IV'] }],
     ['后摇 Post-rock', { ext: 1, tempo: [70, 120], pat: 'arp', sus: 0.3, modes: { major: 2, lydian: 1, minor: 2 } }],
     ['英伦摇滚 Britpop', { tempo: [95, 130], tpl: ['1 3 4 1', '1 5 6 4', '1 4 1 5'] }],
+    ['自赏 Shoegaze', { tempo: [90, 130], sus: 0.25, pat: 'pad' }],
+    ['情绪摇滚 Emo', { tempo: [130, 175], modes: { major: 2, minor: 2 } }],
+    ['日系摇滚 J-rock', { tpl: ['4 5 3 6', '6 4 5 1', '4 5 6 6'], modes: { major: 2, minor: 2 }, tempo: [140, 185], ext: 0, sec: 0.15 }],
     ['软摇滚 Soft Rock', { ext: 1, tempo: [75, 110], slash: 0.4, modes: { major: 4, minor: 1 }, pat: 'strum' }],
   ]],
   ['爵士 Jazz', { modes: { major: 3, minor: 1, dorian: 1 }, tpl: ['2 5 1 1', '2 5 1 6', '1 6 2 5', '3 6 2 5', '1 V/2 2 5', '4 7 3 6 2 5 1 1'], tplP: 0.55, ext: 2, sec: 0.35, tri: 0.3, borrow: 0.15, tempo: [100, 220], pat: 'swing', slash: 0.1, desc: '爵士核心是 ii–V–I 与五度圈运动，大量使用七/九/十三和弦、副属与三全音替代（SubV）。' }, [
@@ -189,11 +203,21 @@ const GENRES = [
   ]],
   ['嘻哈 Hip-hop', { modes: { minor: 3, dorian: 1, harmonic: 0.5 }, tpl: ['1 6', '6 4 1 5', 'i bVI', 'i iv', 'i bVI bIII bVII'], tplP: 0.6, ext: 2, tempo: [80, 100], pat: 'boom', hr: { 1: 2, 0.5: 2 }, desc: '嘻哈和声多为 2–4 和弦的采样式循环（loop），小调为主。' }, [
     ['老派 Boom Bap', {}],
-    ['低保真 Lo-fi', { ext: 3, tempo: [70, 90], sec: 0.3, tpl: ['2 5 1 1', '4 3 6 6', '4 3 2 1', '1 6 2 5'], modes: { major: 2, minor: 2, dorian: 1 }, desc: 'Lo-fi：爵士化的七/九和弦循环，慵懒的摇摆与略带怀旧的音色。' }],
+    ['中文说唱 Chinese Rap', { tpl: ['6 4 1 5', '1 6', 'i bVI bIII bVII'], tempo: [85, 100] }],
     ['陷阱 Trap', { tempo: [130, 160], modes: { minor: 3, harmonic: 2, phrygian: 1 }, ext: 0, pat: 'pad' }],
     ['钻头 Drill', { tempo: [138, 145], modes: { harmonic: 2, phrygian: 2, minor: 1 }, ext: 0, pat: 'pad' }],
     ['爵士说唱 Jazz Rap', { ext: 3, sec: 0.2, tpl: ['2 5 1 6', '1 6 2 5'] }],
     ['云说唱 Cloud Rap', { tempo: [60, 80], pat: 'pad', modes: { minor: 2, lydian: 1, major: 1 } }],
+  ]],
+  ['低保真 Lo-fi', { modes: { major: 3, minor: 1.2, dorian: 1.5 }, tpl: ['2 5 1 1', '4 3 6 6', '1 6 2 5', '4 3 2 1', '4 5 3 6'], tplP: 0.75, ext: 2, tempo: [70, 90], pat: 'lofi', hr: { 1: 3, 0.5: 1 }, sec: 0.15, borrow: 0.08, slash: 0.05, sus: 0.03, desc: 'Lo-fi：取自爵士与灵魂乐采样的七/九和弦循环（ii7–V7–Imaj7、IVmaj7–iii7–vi7），配合慵懒摇摆的 boom-bap 鼓与 Rhodes 电钢琴，速度 70–90 BPM。' }, [
+    ['低保真嘻哈 Lo-fi Hip-hop', {}],
+    ['爵士嘻哈 Jazzhop（Nujabes 风格）', { ext: 3, sec: 0.25, tpl: ['2 5 1 6', '2 5 3 6', '4 5 3 6', '4 3 2 1'], tempo: [82, 92], desc: 'Jazzhop：Nujabes 式的 ii7–V7–iii7–vi7 与 IVmaj7–V7–iii7–vi7 循环，九和弦与副属色彩更多。' }],
+    ['Chillhop', { tpl: ['4 5 3 6', '1 3 4 4', '6 4 1 5', '2 5 1 1'], tempo: [78, 90] }],
+    ['低保真浩室 Lo-fi House', { tempo: [118, 124], pat: 'pulse', modes: { minor: 2, dorian: 2, major: 1 }, tpl: ['6 4 1 5', '1 4', '2 5 1 1'], hr: { 1: 1, 0.5: 2 }, desc: 'Lo-fi House：带磁带质感的浩室，四拍底鼓，速度 118–124 BPM（与其他 Lo-fi 不同）。' }],
+    ['学习/助眠 Lo-fi Study & Sleep', { tempo: [64, 78], tpl: ['1 4', '4 1', '6 4', '4 3 6 6'], ext: 2, sec: 0.05, borrow: 0.03, hr: { 0.5: 2, 1: 1 }, desc: '学习/助眠 Lo-fi：两和弦大七/小七长循环，速度慢、色彩少，适合做背景音乐。' }],
+    ['卧室流行 Lo-fi Bedroom Pop', { tpl: ['1 3 4 4', '4 1 5 6', '1 6 4 5', '1 5 6 4'], ext: 1, tempo: [75, 95], modes: { major: 3, minor: 1 } }],
+    ['日系 Lo-fi Anime / Japanese', { tpl: ['4 5 3 6', '4 5 6 6', '4 3 6 1', '2 5 3 6'], ext: 2, sec: 0.2, tempo: [76, 90], desc: '日系 Lo-fi：以王道进行 IVmaj7–V7–iii7–vi7、丸サ等日系流行进行为骨架。' }],
+    ['蒸汽波 Vaporwave', { tpl: ['4 3 2 5', '2 5 1 4', '4 5 3 6'], ext: 2, tempo: [70, 90], pat: 'pad', desc: 'Vaporwave：放慢的 80 年代都市流行/平滑爵士采样，大七/九和弦循环。' }],
   ]],
   ['电子 EDM', { modes: { minor: 3, major: 2 }, tpl: ['6 4 1 5', 'i bVI bIII bVII', '1 5 6 4', 'i bVII bVI bVII'], tplP: 0.65, ext: 1, tempo: [120, 140], pat: 'pulse', sus: 0.2, desc: '电子舞曲常用 vi–IV–I–V 或小调 i–♭VI–♭III–♭VII 循环，配合八分音符脉冲。' }, [
     ['浩室 House', { tempo: [122, 128], ext: 2 }],
@@ -207,6 +231,8 @@ const GENRES = [
     ['合成器浪潮 Synthwave', { tempo: [80, 118], tpl: ['i bVI bIII bVII', '1 6 3 7', 'i bVI bVII i'], ext: 0 }],
     ['冷浪 Chillwave', { tempo: [80, 100], ext: 2, pat: 'pad', modes: { major: 2, lydian: 1, minor: 1 } }],
     ['英式车库 UK Garage', { tempo: [130, 136], ext: 2, pat: 'skank' }],
+    ['Phonk 芬克', { tempo: [130, 145], modes: { minor: 3, phrygian: 1 }, ext: 0, pat: 'boom', tpl: ['i bVI', 'i iv bVI V'] }],
+    ['阿马皮亚诺 Amapiano', { tempo: [110, 115], ext: 2, modes: { minor: 2, dorian: 2, major: 1 }, tpl: ['2 5 1 6', '6 4 1 5'] }],
     ['硬派舞曲 Hardstyle', { tempo: [150, 155], modes: { minor: 3, harmonic: 1 } }],
     ['电子摇摆 Electro Swing', { tempo: [120, 130], modes: { minor: 2, harmonic: 1, major: 1 }, pat: 'swing', sec: 0.25 }],
   ]],
@@ -259,6 +285,7 @@ const GENRES = [
     ['奇幻 Fantasy', { modes: { lydian: 3, major: 1 }, tpl: ['I II iv I', '1 2 1 2'] }],
     ['科幻 Sci-fi', { modes: { lydian: 2, dorian: 1, minor: 1 }, ext: 2, tempo: [70, 110] }],
     ['战斗 Battle', { modes: { harmonic: 3, minor: 2 }, tempo: [140, 180], pat: 'drive', tpl: ['i bVI bVII i', 'i bII i i'] }],
+    ['音乐剧 Musical / Broadway', { modes: { major: 3, minor: 1 }, ext: 1, sec: 0.25, tempo: [80, 140], pat: 'block' }],
     ['剧情 Drama', { tempo: [60, 90], pat: 'arp', modes: { minor: 2, major: 2 } }],
   ]],
   ['国风/五声 Chinese', { modes: { major: 3, minor: 2 }, tpl: ['1 5 6 3', '4 5 3 6', '6 3 4 1', '1 6 2 5'], tplP: 0.5, ext: 0, sus: 0.3, penta: true, borrow: 0, sec: 0.05, tempo: [60, 110], meters: ['4/4', '2/4', '3/4'], pat: 'arp', desc: '国风以五声音阶（宫商角徵羽）为旋律基础，和声避开偏音（4、7 级）为根音，多用挂留与加九和弦。' }, [
@@ -267,11 +294,13 @@ const GENRES = [
     ['戏腔流行', { modes: { minor: 3, major: 1 }, tempo: [65, 90] }],
     ['江南丝竹', { meters: ['2/4', '4/4'], tempo: [70, 100], modes: { major: 4 } }],
     ['五声调式 宫商角徵羽', { tplP: 0.2 }],
+    ['戏曲 京剧风 Peking Opera', { penta: true, tpl: ['1 5 6 6', '6 5 1 1', '1 6 5 1'], tempo: [60, 96], ext: 0, desc: '戏曲/京剧风：五声调式旋律为主，和声简洁，多用主–属–下属的五声和弦。' }],
     ['和风 Japanese', { penta: false, modes: { phrygian: 2, minor: 2 }, tpl: ['i bII i i', 'iv bIII bII i'], sus: 0.2 }],
   ]],
   ['福音 Gospel', { modes: { major: 4, minor: 1 }, tpl: ['1 6 2 5', '4 5 3 6', 'IV iv I I', '1 3 4 4', '4 #iv° 1 6'], ext: 2, sec: 0.4, borrow: 0.3, tempo: [70, 140], pat: 'block', slash: 0.5, desc: '福音音乐：丰富的副属与借用（iv、#iv°），大量转位与半音化的低音线。' }, [
     ['传统福音 Traditional', { ext: 1, meters: ['4/4', '12/8', '6/8'] }],
     ['当代福音 Contemporary', { ext: 3 }],
+    ['敬拜 Worship / CCM', { tpl: ['1 5 6 4', '4 1 5 6', '1 4 6 5', '6 4 1 5'], tplP: 0.8, ext: 0, sus: 0.25, tempo: [68, 80], pat: 'arp', borrow: 0.03, sec: 0.05, desc: '当代敬拜（CCM）：I–V–vi–IV 等四和弦循环、大量 sus/add9 色彩、渐强式编曲。' }],
     ['灵歌 Spiritual', { ext: 1, tempo: [60, 90] }],
   ]],
   ['雷鬼 Reggae', { modes: { major: 2, minor: 2, dorian: 1 }, tpl: ['1 4', '1 5 4 1', 'i iv', '1 4 5 4'], tplP: 0.65, ext: 0, tempo: [70, 90], pat: 'skank', hr: { 1: 3, 0.5: 1 }, desc: '雷鬼：两三个和弦的循环，吉他在反拍“skank”。' }, [
@@ -293,6 +322,7 @@ const STYLES = [];
 for (const [gname, gdef, subs] of GENRES) {
   for (const [sname, sdef] of subs) {
     const st = Object.assign({}, BASE, gdef, sdef, { genre: gname, name: sname });
+    if (sdef.tpl) st.ownTpl = sdef.tpl;
     st.id = STYLES.length;
     STYLES.push(st);
   }
@@ -473,6 +503,7 @@ const PROG_LIB = {
     '爵士': ['ii7 V7 Imaj7 Imaj7', 'Imaj7 vi7 ii7 V7', 'iii7 vi7 ii7 V7', 'Imaj7 IVmaj7 iii7 vi7 ii7 V7 Imaj7 Imaj7', 'Imaj7 V/2 ii7 V7'],
     'R&B': ['ii7 V7 Imaj7 vi7', 'IVmaj7 V7 iii7 vi7', 'IVmaj7 iii7 ii7 Imaj7', 'Imaj7 iii7 IVmaj7 V7'],
     '放克': ['I7 IV7 I7 IV7', 'I7 I7 IV7 I7', 'ii7 V7 ii7 V7'],
+    'Lo-fi': ['ii7 V7 Imaj7 Imaj7', 'IVmaj7 iii7 vi7 vi7', 'IVmaj7 V7 iii7 vi7', 'Imaj7 vi7 ii7 V7', 'IVmaj7 iii7 ii7 Imaj7', 'ii7 V7 iii7 vi7', 'Imaj7 IVmaj7 Imaj7 IVmaj7'],
     '嘻哈': ['ii7 V7 Imaj7 vi7', 'IVmaj7 iii7 vi7 vi7', 'Imaj7 vi7 IVmaj7 V7'],
     '电子': ['vi IV I V', 'IV V vi vi', 'I V vi IV', 'IV I V vi'],
     '古典': ['I IV V I', 'I vi ii V', 'I IV ii V', 'I V vi iii IV I IV V', 'I ii V I', 'I vi IV V'],
@@ -490,6 +521,7 @@ const PROG_LIB = {
     '爵士': ['iiø V7 i7 i7', 'i7 iv7 iiø V7', 'i7 bVImaj7 iiø V7'],
     'R&B': ['i7 iv7 i7 iv7', 'i7 bVImaj7 bVII7 i7', 'i7 iv7 bVImaj7 V7'],
     '放克': ['i7 i7 iv7 i7', 'i7 iv7 i7 iv7'],
+    'Lo-fi': ['i7 iv7 i7 iv7', 'i7 bVImaj7 bIIImaj7 bVII7', 'i7 iv7 bVImaj7 V7', 'iv7 bVII7 bIIImaj7 bVImaj7'],
     '嘻哈': ['i7 iv7 i7 iv7', 'i bVI bIII bVII', 'i7 bVImaj7 iv7 V7'],
     '古典': ['i iv V i', 'i bVI iv V', 'i iv bVII bIII bVI iiø V i', 'i iiø V i'],
     '拉丁': ['i bVII bVI V', 'i iv V i', 'iiø V7 i7 i7'],
@@ -504,6 +536,7 @@ function libFor(style, ref) {
   const own = key && lib[key] ? lib[key] : [];
   // 风格自带模板（数字=调内级数）也加入，权重较低
   const tpl = (style.tpl || []).filter((t) => !/^[A-Za-z]/.test(t) || ref === (/^i/.test(t) ? 'm' : 'M'));
+  if (style.ownTpl) { const ot = style.ownTpl.filter((t) => !/^[A-Za-z]/.test(t) || ref === (/^i/.test(t) ? 'm' : 'M')); if (ot.length) return { main: ot.concat(ot, own), extra: own.length ? own : lib._.slice(0, 3) }; } // 子风格自带的进行优先
   return { main: own.length ? own : lib._, extra: own.length ? lib._.slice(0, 3).concat(tpl) : tpl };
 }
 const ctxRef = (ctx) => MODES[ctx.mode].ref;
@@ -836,6 +869,7 @@ function resolve(o, rng) {
     const span = hi - lo;
     if (o.feel === '慢') hi = lo + span / 3; else if (o.feel === '快') lo = hi - span / 3; else if (o.feel === '中') { lo += span / 3; hi -= span / 3; }
     r.bpm = clamp(Math.round(lo + rng() * (hi - lo)), 40, 220);
+    r.bpm = clamp(r.bpm, st.tempo[0], st.tempo[1]); // 情绪只在风格速度范围内调整（如 Lo-fi 始终 70–90）
   }
   r.feel = r.bpm < 80 ? '慢' : r.bpm < 125 ? '中' : '快';
   r.bars = isSet(o.bars) ? clamp(+o.bars, 1, 64) : (st.fixed ? 12 : pick(rng, [8, 8, 8, 16]));
@@ -920,7 +954,7 @@ function generateRaw(o = {}) {
   return song;
 }
 /* ---------- 模式二：根据给定和弦扩展 ---------- */
-const SUF = { '': '', M: '', maj: '', m: 'm', min: 'm', '-': 'm', dim: 'dim', '°': 'dim', o: 'dim', aug: 'aug', '+': 'aug', 7: '7', dom7: '7', maj7: 'maj7', M7: 'maj7', 'Δ': 'maj7', 'Δ7': 'maj7', m7: 'm7', min7: 'm7', '-7': 'm7', m7b5: 'm7b5', 'ø': 'm7b5', 'ø7': 'm7b5', 'm7-5': 'm7b5', dim7: 'dim7', '°7': 'dim7', o7: 'dim7', mMaj7: 'mMaj7', mM7: 'mMaj7', 'm(maj7)': 'mMaj7', sus2: 'sus2', sus4: 'sus4', sus: 'sus4', '7sus4': '7sus4', '7sus': '7sus4', add9: 'add9', add2: 'add9', madd9: 'madd9', 'm(add9)': 'madd9', 6: '6', m6: 'm6', 69: '69', '6/9': '69', 9: '9', maj9: 'maj9', M9: 'maj9', m9: 'm9', 11: '9', m11: 'm11', 13: '13', '7b9': '7b9', '7#9': '7#9', '7#11': '7#11', '7b13': '7b13', '7alt': '7alt', alt: '7alt', 'maj7#11': 'maj7#11', 'maj7#5': 'maj7#5', 5: '', '7#5': '7#5', '7+5': '7#5', aug7: '7#5', '+7': '7#5', '△': 'maj7', '△7': 'maj7', 'maj7(#11)': 'maj7#11', mi: 'm', mi7: 'm7', min9: 'm9', 'm(b5)': 'dim', mb5: 'dim', 'min(maj7)': 'mMaj7', sus24: 'sus4', '7(b9)': '7b9', '7(#9)': '7#9', dom9: '9', 'add(9)': 'add9', 'madd2': 'madd9', '(add9)': 'add9', 'm(add2)': 'madd9', 'm7-b5': 'm7b5', 'm7(b5)': 'm7b5', 'mi7b5': 'm7b5' };
+const SUF = { '': '', M: '', maj: '', m: 'm', min: 'm', '-': 'm', dim: 'dim', '°': 'dim', o: 'dim', aug: 'aug', '+': 'aug', 7: '7', dom7: '7', maj7: 'maj7', M7: 'maj7', 'Δ': 'maj7', 'Δ7': 'maj7', m7: 'm7', min7: 'm7', '-7': 'm7', m7b5: 'm7b5', 'ø': 'm7b5', 'ø7': 'm7b5', 'm7-5': 'm7b5', dim7: 'dim7', '°7': 'dim7', o7: 'dim7', mMaj7: 'mMaj7', mM7: 'mMaj7', 'm(maj7)': 'mMaj7', sus2: 'sus2', sus4: 'sus4', sus: 'sus4', '7sus4': '7sus4', '7sus': '7sus4', add9: 'add9', add2: 'add9', madd9: 'madd9', 'm(add9)': 'madd9', 6: '6', m6: 'm6', 69: '69', '6/9': '69', 9: '9', maj9: 'maj9', M9: 'maj9', m9: 'm9', 11: '11', m11: 'm11', 13: '13', maj13: 'maj13', M13: 'maj13', m13: 'm13', min13: 'm13', add11: 'add11', add4: 'add11', '7b5': '7b5', '7-5': '7b5', '9sus4': '9sus4', '9sus': '9sus4', ma7: 'maj7', Ma7: 'maj7', j7: 'maj7', maj: '', ma: '', Maj7: 'maj7', Maj9: 'maj9', ma9: 'maj9', 'Δ9': 'maj9', min6: 'm6', '-6': 'm6', '-9': 'm9', min11: 'm11', '-11': 'm11', '°': 'dim', 'ø9': 'm9', '+': 'aug', '#5': 'aug', 'm#5': 'aug', '7+': '7#5', '-maj7': 'mMaj7', 'm/maj7': 'mMaj7', mmaj7: 'mMaj7', 'dom': '7', '7sus2': 'sus2', 'sus2sus4': 'sus4', 'madd11': 'm11', '(b5)': 'dim', 'm7♭5': 'm7b5', '7b9': '7b9', '7#9': '7#9', '7#11': '7#11', '7b13': '7b13', '7alt': '7alt', alt: '7alt', 'maj7#11': 'maj7#11', 'maj7#5': 'maj7#5', 5: '5', '7#5': '7#5', '7+5': '7#5', aug7: '7#5', '+7': '7#5', '△': 'maj7', '△7': 'maj7', 'maj7(#11)': 'maj7#11', mi: 'm', mi7: 'm7', min9: 'm9', 'm(b5)': 'dim', mb5: 'dim', 'min(maj7)': 'mMaj7', sus24: 'sus4', '7(b9)': '7b9', '7(#9)': '7#9', dom9: '9', 'add(9)': 'add9', 'madd2': 'madd9', '(add9)': 'add9', 'm(add2)': 'madd9', 'm7-b5': 'm7b5', 'm7(b5)': 'm7b5', 'mi7b5': 'm7b5' };
 function parseChord(sym) {
   const s = sym.trim().replace(/♯/g, '#').replace(/♭/g, 'b').replace(/[Ａ-Ｚａ-ｚ０-９＃]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0)).replace(/（/g, '(').replace(/）/g, ')').replace(/／/g, '/');
   const m = s.match(/^([A-Ga-g])([#b]?)(.*)$/);
@@ -1170,7 +1204,7 @@ function validated(raw, o) {
 function generate(o = {}) { return validated(generateRaw, o); }
 function expand(o = {}) { if (!parseSeeds(o.seeds || '').chords.length) throw new Error('无法识别输入的和弦：' + (o.seeds || '（空）')); return validated(expandRaw, o); }
 /* ---------- 节奏型与事件 ---------- */
-const PATTERNS = { block: '柱式和弦', pulse: '八分音符脉冲', arp: '分解和弦', pad: '长音铺底', swing: '摇摆走路贝斯', skank: '反拍 skank', shuffle: '布鲁斯 shuffle', drive: '八分音符强力推进', strum: '民谣扫弦', funk: '十六分切分', latin: '拉丁切分', bossa: '波萨诺瓦', boom: 'Boom-bap 律动', alberti: '阿尔贝蒂低音', waltz: '圆舞曲 嘭-嚓-嚓' };
+const PATTERNS = { block: '柱式和弦', pulse: '八分音符脉冲', arp: '分解和弦', pad: '长音铺底', swing: '摇摆走路贝斯', skank: '反拍 skank', shuffle: '布鲁斯 shuffle', drive: '八分音符强力推进', strum: '民谣扫弦', funk: '十六分切分', latin: '拉丁切分', bossa: '波萨诺瓦', boom: 'Boom-bap 律动', lofi: 'Lo-fi 慵懒摇摆', alberti: '阿尔贝蒂低音', waltz: '圆舞曲 嘭-嚓-嚓' };
 function chordEvents(c, start, dur, meter, pat, out) {
   const M = METERS[meter], sub = M.d === 4 ? 0.5 : 1, U = c.upper, B = c.bassNote, end = start + dur - 1e-6;
   const add = (t, d, notes, vel, part) => { if (t >= start - 1e-9 && t < end) out.push({ t, d: Math.min(d, start + dur - t), notes, vel, part }); };
@@ -1206,6 +1240,7 @@ function chordEvents(c, start, dur, meter, pat, out) {
       for (let b = start; b < end; b += 4) { for (const x of h) add(b + x, 0.45, U, 0.5, 'chord'); add(b, 1.4, [B], 0.65, 'bass'); add(b + 1.5, 0.5, [B + 7], 0.5, 'bass'); add(b + 2, 1.4, [B], 0.6, 'bass'); add(b + 3.5, 0.5, [B + 7], 0.5, 'bass'); }
       break;
     }
+    case 'lofi': for (let b = start; b < end; b += 4) { add(b + 0.04, 2.6, U, 0.42, 'chord'); add(b + 2 + 2 / 3, 1.2, U, 0.32, 'chord'); add(b, 1.4, [B], 0.62, 'bass'); add(b + 1 + 2 / 3, 0.6, [B], 0.45, 'bass'); add(b + 2.5 + 1 / 6, 1.2, [B], 0.5, 'bass'); } break;
     case 'boom': for (let b = start; b < end; b += 4) { add(b, 2.4, U, 0.5, 'chord'); add(b + 2.5, 1, U, 0.4, 'chord'); add(b, 1.5, [B], 0.7, 'bass'); add(b + 1.75, 0.5, [B], 0.55, 'bass'); add(b + 2.5, 1, [B], 0.6, 'bass'); } break;
     case 'waltz': add(start, 1, [B], 0.7, 'bass'); for (let t = start + 1; t < end; t += 1) add(t, 0.9, U, mod(t, 3) === 0 ? 0.5 : 0.42, 'chord'); break;
     default: {
@@ -1218,7 +1253,7 @@ function chordEvents(c, start, dur, meter, pat, out) {
 }
 const DRUM = { kick: 36, snare: 38, clap: 39, rim: 37, hat: 42, ohat: 46, ride: 51 };
 function grooveOf(pat) {
-  return { pulse: 'four', drive: 'rock', strum: 'rock', block: 'rock', boom: 'boom', swing: 'swing', skank: 'onedrop', latin: 'latin', bossa: 'bossa', funk: 'funk', shuffle: 'shuffle', waltz: 'waltz', pad: 'soft', arp: 'soft', alberti: 'soft' }[pat] || 'rock';
+  return { pulse: 'four', drive: 'rock', strum: 'rock', block: 'rock', boom: 'boom', lofi: 'lofi', swing: 'swing', skank: 'onedrop', latin: 'latin', bossa: 'bossa', funk: 'funk', shuffle: 'shuffle', waltz: 'waltz', pad: 'soft', arp: 'soft', alberti: 'soft' }[pat] || 'rock';
 }
 function drumBar(groove, meter, t0, out) {
   const M = METERS[meter], n = M.n, hit = (t, note, vel) => { if (t < t0 + n - 1e-6) out.push({ t, d: 0.1, notes: [note], vel, part: 'drum' }); };
@@ -1232,6 +1267,7 @@ function drumBar(groove, meter, t0, out) {
     const t = t0 + b, odd = b % 2 === 1;
     switch (groove) {
       case 'four': hit(t, DRUM.kick, 0.85); if (odd) hit(t, DRUM.clap, 0.6); hit(t + 0.5, DRUM.ohat, 0.35); break;
+      case 'lofi': if (b === 0) hit(t, DRUM.kick, 0.7); if (b === 1) hit(t + 2 / 3, DRUM.kick, 0.5); if (b === 2) hit(t + 1 / 3 + 0.33, DRUM.kick, 0.55); if (odd) hit(t + 0.03, DRUM.snare, 0.55); hit(t, DRUM.hat, 0.22); hit(t + 2 / 3, DRUM.hat, 0.15); break;
       case 'boom': if (!odd) hit(t, DRUM.kick, 0.85); if (b === 2) hit(t + 0.5, DRUM.kick, 0.6); if (odd) hit(t, DRUM.snare, 0.75); hit(t, DRUM.hat, 0.35); hit(t + 0.6, DRUM.hat, 0.25); break;
       case 'swing': hit(t, DRUM.ride, 0.45); if (odd) { hit(t + 2 / 3, DRUM.ride, 0.3); hit(t, DRUM.hat, 0.35); } if (b === 0) hit(t, DRUM.kick, 0.4); break;
       case 'onedrop': hit(t, DRUM.hat, 0.3); hit(t + 0.5, DRUM.hat, 0.25); if (b === 2) { hit(t, DRUM.kick, 0.8); hit(t, DRUM.rim, 0.6); } break;
@@ -1332,6 +1368,7 @@ const GM = [
 // 风格默认音色（和弦 / 低音 / 旋律）
 function defaultPrograms(style) {
   const g = (style && style.genre) || '';
+  if (/Lo-fi/.test(g)) return /House/.test(style.name) ? { chord: 4, bass: 38, melody: 11 } : /Vaporwave/.test(style.name) ? { chord: 5, bass: 33, melody: 89 } : { chord: 4, bass: 33, melody: 11 };
   if (/爵士|Jazz/.test(g)) return { chord: 4, bass: 32, melody: 65 };
   if (/摇滚|Rock|金属|Metal/.test(g)) return { chord: 29, bass: 34, melody: 30 };
   if (/电子|EDM|合成器|Synth/.test(g)) return { chord: 90, bass: 38, melody: 81 };
@@ -1719,7 +1756,7 @@ const DICT_CN = Object.fromEntries(DICT.map((d) => [d[0], d[2]]));
 const DICT_FAMILIES = ['三和弦', '挂留', '六和弦', '七和弦', '延伸', '变化', '加音', '强力和弦'];
 const ROOTS = [['C', 0, 0], ['Db', 1, 1], ['D', 2, 1], ['Eb', 3, 2], ['E', 4, 2], ['F', 5, 3], ['F#', 6, 3], ['G', 7, 4], ['Ab', 8, 5], ['A', 9, 5], ['Bb', 10, 6], ['B', 11, 6]];
 // 各和弦性质常见于哪些风格（模板库统计 + 风格手册，见 docs/theory-rules.md）
-const DICT_STYLES = { '': ['流行', '摇滚', '民谣', '国风', '古典', '乡村'], m: ['流行', '摇滚', '民谣', '国风', '古典', '电子'], dim: ['古典', '福音', '爵士'], aug: ['古典', '爵士', '配乐'], sus2: ['国风', '流行', '氛围', '后摇'], sus4: ['国风', '流行', '摇滚', '福音'], '7sus4': ['放克', 'R&B', '爵士', '福音'], '9sus4': ['爵士', '放克', 'R&B'], 6: ['爵士', '摇摆', '乡村'], m6: ['爵士', '探戈', '拉丁'], 69: ['爵士', 'Bossa Nova', '国风'], maj7: ['爵士', 'R&B', 'Lo-fi', '新灵魂', 'City Pop'], 7: ['布鲁斯', '爵士', '放克', '福音', '摇滚'], m7: ['爵士', 'R&B', 'Lo-fi', '放克', '新灵魂'], m7b5: ['爵士', '古典', '拉丁'], dim7: ['古典', '福音', '爵士'], mMaj7: ['爵士', '配乐'], 'maj7#5': ['爵士'], '7#5': ['爵士', '福音'], maj9: ['R&B', '新灵魂', 'Lo-fi', '爵士'], 9: ['放克', '布鲁斯', '爵士'], m9: ['R&B', '新灵魂', 'Lo-fi', '爵士'], 11: ['放克', '爵士', '福音'], m11: ['新灵魂', 'R&B', '爵士'], maj13: ['爵士', '新灵魂'], 13: ['放克', '爵士', '布鲁斯'], m13: ['爵士', '新灵魂'], 'maj7#11': ['爵士', '配乐', 'City Pop'], '7b9': ['爵士', '拉丁', '弗拉门戈'], '7#9': ['放克', '摇滚', '布鲁斯'], '7#11': ['爵士', 'Bossa Nova'], '7b13': ['爵士'], '7b5': ['爵士'], '7alt': ['爵士', '比波普'], add9: ['流行', '摇滚', '国风', '民谣'], madd9: ['流行', '国风', '氛围'], add11: ['民谣', '流行'], 5: ['摇滚', '朋克', '金属', '垃圾摇滚'] };
+const DICT_STYLES = { '': ['流行', '摇滚', '民谣', '国风', '古典', '乡村', '雷鬼', '福音', '敬拜'], m: ['流行', '摇滚', '民谣', '国风', '古典', '电子', '说唱', '拉丁'], dim: ['古典', '福音', '爵士'], aug: ['古典', '爵士', '配乐'], sus2: ['国风', '流行', '氛围', '后摇', '敬拜'], sus4: ['国风', '流行', '摇滚', '福音', '敬拜'], '7sus4': ['放克', 'R&B', '爵士', '福音'], '9sus4': ['爵士', '放克', 'R&B'], 6: ['爵士', '摇摆', '乡村'], m6: ['爵士', '探戈', '拉丁'], 69: ['爵士', 'Bossa Nova', '国风', 'Lo-fi'], maj7: ['爵士', 'R&B', 'Lo-fi', '新灵魂', 'City Pop', 'K-pop', 'J-pop', 'Vaporwave'], 7: ['布鲁斯', '爵士', '放克', '福音', '摇滚'], m7: ['爵士', 'R&B', 'Lo-fi', '放克', '新灵魂', 'K-pop', 'Amapiano'], m7b5: ['爵士', '古典', '拉丁'], dim7: ['古典', '福音', '爵士'], mMaj7: ['爵士', '配乐'], 'maj7#5': ['爵士'], '7#5': ['爵士', '福音'], maj9: ['R&B', '新灵魂', 'Lo-fi', '爵士'], 9: ['放克', '布鲁斯', '爵士', 'Lo-fi'], m9: ['R&B', '新灵魂', 'Lo-fi', '爵士'], 11: ['放克', '爵士', '福音'], m11: ['新灵魂', 'R&B', '爵士'], maj13: ['爵士', '新灵魂', 'Lo-fi'], 13: ['放克', '爵士', '布鲁斯', 'Lo-fi'], m13: ['爵士', '新灵魂'], 'maj7#11': ['爵士', '配乐', 'City Pop'], '7b9': ['爵士', '拉丁', '弗拉门戈'], '7#9': ['放克', '摇滚', '布鲁斯'], '7#11': ['爵士', 'Bossa Nova'], '7b13': ['爵士'], '7b5': ['爵士'], '7alt': ['爵士', '比波普'], add9: ['流行', '摇滚', '国风', '民谣', 'Lo-fi', 'K-pop'], madd9: ['流行', '国风', '氛围'], add11: ['民谣', '流行'], 5: ['摇滚', '朋克', '金属', '垃圾摇滚', 'Phonk'] };
 // 常用开放和弦（标准指法，-1 = 不弹）
 const OPEN = { C: [-1, 3, 2, 0, 1, 0], A: [-1, 0, 2, 2, 2, 0], G: [3, 2, 0, 0, 0, 3], E: [0, 2, 2, 1, 0, 0], D: [-1, -1, 0, 2, 3, 2], Am: [-1, 0, 2, 2, 1, 0], Em: [0, 2, 2, 0, 0, 0], Dm: [-1, -1, 0, 2, 3, 1], C7: [-1, 3, 2, 3, 1, 0], A7: [-1, 0, 2, 0, 2, 0], G7: [3, 2, 0, 0, 0, 1], E7: [0, 2, 0, 1, 0, 0], D7: [-1, -1, 0, 2, 1, 2], B7: [-1, 2, 1, 2, 0, 2], Am7: [-1, 0, 2, 0, 1, 0], Em7: [0, 2, 0, 0, 0, 0], Dm7: [-1, -1, 0, 2, 1, 1], Cmaj7: [-1, 3, 2, 0, 0, 0], Fmaj7: [-1, -1, 3, 2, 1, 0], Amaj7: [-1, 0, 2, 1, 2, 0], Dmaj7: [-1, -1, 0, 2, 2, 2], Emaj7: [0, 2, 1, 1, 0, 0], Gmaj7: [3, 2, 0, 0, 0, 2], Csus2: [-1, 3, 0, 0, 1, 0], Dsus2: [-1, -1, 0, 2, 3, 0], Asus2: [-1, 0, 2, 2, 0, 0], Dsus4: [-1, -1, 0, 2, 3, 3], Asus4: [-1, 0, 2, 2, 3, 0], Esus4: [0, 2, 2, 2, 0, 0], Csus4: [-1, 3, 3, 0, 1, 1], Cadd9: [-1, 3, 2, 0, 3, 0], Gadd9: [3, 0, 0, 2, 0, 3], A6: [-1, 0, 2, 2, 2, 2], E5: [0, 2, 2, -1, -1, -1], A5: [-1, 0, 2, 2, -1, -1], D5: [-1, -1, 0, 2, 3, -1], Asus4_: null, E9: [0, 2, 0, 1, 0, 2], Am6: [-1, 0, 2, 2, 1, 2], Dm6: [-1, -1, 0, 2, 0, 1], Em9: [0, 2, 0, 0, 0, 2], Cdim7: [-1, 3, 4, 2, 4, 2] };
 // 可移动指法：E 型（根音在 6 弦）、A 型（根音在 5 弦）、D 型（根音在 4 弦）。数值相对根音品位。
@@ -1773,20 +1810,33 @@ function dictEntry(rootIdx, id, inv) {
   let tones = ivs.map((i) => mod(i, 12)); if (tones.length > 4) tones = tones.filter((x) => x !== 7); if (tones.length > 4) tones = tones.filter((x) => x !== 0); const vs = closeVoicings(tones.map((t) => mod(pc + t, 12))); const up = vs.length ? vs.reduce((b, v) => (Math.abs(v[0] - 60) < Math.abs(b[0] - 60) ? v : b)) : [60];
   return { id, root: rn, rootIdx: mod(rootIdx, 12), name, sym, cn, family: fam, notes, formula: notes.map((n) => n.deg).join('-'), intervals: notes.map((n) => n.ivName), styles: DICT_STYLES[id] || [], inversions, bassNote, upper: up, guitar: guitarVoicings(pc, ivs, bassN.pc, id, rn), pcs: notes.map((n) => n.pc) };
 }
+const DICT_STYLE_TAGS = [...new Set(Object.values(DICT_STYLES).flat())];
 function chordDict(f = {}) {
   const out = [], qs = (f.query || '').trim();
-  let parsed = null; if (qs) { const t = qs.replace(/^([a-g])/, (m) => m.toUpperCase()); const m = t.match(/^([A-G][#b]?)(.*)$/); if (m) parsed = m; }
+  let pq = null, rootQ = null, cnQ = qs;
+  if (qs) {
+    const t = qs.replace(/^([a-g])(?=[#b♯♭]?(?:$|[^a-z]|m|maj|min|dim|aug|sus|add))/, (m) => m.toUpperCase());
+    pq = parseChord(t);
+    const m = t.match(/^([A-G][#b♯♭]?)(.*)$/); if (m) { const rp = parseChord(m[1]); if (rp) { rootQ = rp.pc; cnQ = m[2].trim(); } }
+  }
+  const sty = f.style ? nrm(f.style) : '';
   for (let r = 0; r < 12; r++) for (const d of DICT) {
     if (f.root !== undefined && f.root !== null && f.root !== '' && +f.root !== r) continue;
     if (f.family && d[3] !== f.family) continue;
     if (f.type && d[0] !== f.type) continue;
-    const [rn, pc] = ROOTS[r];
+    const tags = DICT_STYLES[d[0]] || [];
+    if (sty && !tags.some((t) => nrm(t).includes(sty) || STYLE_ALIASES.some(([k, v]) => nrm(t).includes(nrm(k)) && v.split(' ').map(nrm).includes(sty)))) continue;
+    const [, pc] = ROOTS[r];
     if (qs) {
-      let ok = (d[2].includes(qs));
-      if (!ok && parsed) { const rp = parseChord(parsed[1]); const sfx = parsed[2]; ok = rp && rp.pc === pc && (sfx === '' ? true : d[1].toLowerCase() === sfx.toLowerCase() || d[0].toLowerCase() === sfx.toLowerCase() || (SUF[sfx] !== undefined && SUF[sfx] === d[0] && d[0] !== '')); }
+      let ok = false;
+      if (pq && pq.pc === pc && pq.q === d[0] && (Q[d[0]] || d[0] === '')) ok = true;                 // 任意写法：Cmaj7 / CM7 / C△7 / Cma7 / Cø / C-
+      else if (!pq && rootQ === pc && cnQ && (d[2].includes(cnQ) || nrm(d[1]) === nrm(cnQ))) ok = true; // C大七 / C 属七
+      else if (rootQ === pc && !cnQ) ok = true;                                                         // 只输入根音
+      else if (rootQ === null && (d[2].includes(qs) || d[3].includes(qs))) ok = true;                  // 中文名 / 类型
+      else if (rootQ === null && tags.some((t) => nrm(t) === nrm(qs))) ok = true;                       // 风格名
       if (!ok) continue;
     }
-    out.push({ rootIdx: r, id: d[0], name: rn + d[1], cn: d[2], family: d[3] });
+    out.push({ rootIdx: r, id: d[0], name: ROOTS[r][0] + d[1], cn: d[2], family: d[3] });
   }
   return out;
 }
@@ -1807,6 +1857,86 @@ function identifyChord(pcs, bassPc) {
   return res.sort((a, b) => b.score - a.score).slice(0, 24);
 }
 
-const ChordEngine = { LET, MODES, METERS, STYLES, GENRES, MOODS, Q, COMPLEX, KEYS_M, BAR_OPTS, HR_OPTS, FUNC_CN, PATTERNS, SECTION_PLANS, mkRng, generate, expand, parseChord, parseSeeds, inferKey, buildEvents, toMidi, toText, splitBar, unitSec, keyName, spell, diatonicQ, serialize, deserialize, cloneSong, refresh, transpose, setBpm, alternatives, replaceChord, toggleLock, regenerate, guitarShape, locate, ALT_TIPS, DRUM, midiParts, makeZip, crc32, PARTS, GM, GM_FAMILIES, defaultPrograms, progFor, PROG_LIB, vlIssues, validate, MARKOV, analyzeChord, nextCandidates, previewPair, setNext, chordDict, dictEntry, identifyChord, guitarVoicings, DICT, DICT_FAMILIES, ROOTS, NEXT_CATS, chordIssues };
+/* ---------- 搜索：风格别名 / 拼音 / 模糊匹配 ---------- */
+// 关键词（出现在风格名或大类名中）→ 额外可搜索的别名（英文常见拼写、中文俗称、拼音）
+const STYLE_ALIASES = [
+  ['Lo-fi', 'lofi lo-fi lo fi 低保真 dibaozhen chill 学习 助眠 放松 study sleep relax 氛围嘻哈 lofi hip hop'],
+  ['Jazzhop', 'jazzhop jazz hop nujabes 爵士嘻哈 juesixiha'], ['Chillhop', 'chillhop chill hop'], ['Vaporwave', 'vaporwave 蒸汽波 zhengqibo'],
+  ['EDM', 'edm 电音 电子 dianyin dianzi dance 舞曲 club 夜店 蹦迪'], ['House', 'house 浩室 haoshi'], ['Techno', 'techno 铁克诺 科技'], ['Trance', 'trance 出神'],
+  ['Drum & Bass', 'dnb d&b drum and bass drumnbass 鼓打贝斯'], ['Dubstep', 'dubstep 回响贝斯 dub step'], ['UK Garage', 'garage ukg 车库 2step'], ['Synthwave', 'synthwave retrowave outrun 合成器浪潮 复古电子 赛博'], ['Future Bass', 'future bass 未来贝斯'],
+  ['Phonk', 'phonk 芬克 drift phonk 漂移'], ['Amapiano', 'amapiano 阿马皮亚诺 南非'], ['Afrobeats', 'afrobeats afrobeat afro 非洲 非洲节拍'],
+  ['K-pop', 'kpop k-pop 韩流 韩国 韩语 hanliu 韩团 idol'], ['J-pop', 'jpop j-pop 日系 日本流行 ribenliuxing'], ['J-rock', 'jrock j-rock 日摇 日系摇滚'], ['Mandopop', 'cpop c-pop 华语 国语 中文流行 huayu 流行 liuxing'], ['City Pop', 'citypop city pop 城市流行 都市流行'],
+  ['抖音', '抖音 douyin tiktok 网络流行 网红 短视频 爆款 wangluo'], ['Ballad', 'ballad 抒情 慢歌 情歌 shuqing qingge pop ballad'], ['Hyperpop', 'hyperpop 超流行'], ['Vocaloid', 'vocaloid v家 初音 miku 术力口 boca 电子歌姬'],
+  ['Anime', 'anime 动漫 二次元 acg 番剧 动画 dongman erciyuan op ed'], ['Hip-hop', 'hiphop hip hop 说唱 rap 饶舌 嘻哈 xiha shuochang raoshe'], ['Trap', 'trap 陷阱 特拉普'], ['Drill', 'drill 钻头 英式drill'], ['Boom Bap', 'boombap boom bap 老派说唱'],
+  ['R&B', 'rnb r&b randb r and b 节奏布鲁斯 灵魂 soul'], ['Neo-soul', 'neosoul neo soul 新灵魂'], ['Funk', 'funk 放克 fangke'], ['Disco', 'disco 迪斯科 迪厅 disike'],
+  ['Jazz', 'jazz 爵士 爵士乐 jueshi'], ['Bossa Nova', 'bossa nova 巴萨诺瓦 波萨 bossanova'], ['Blues', 'blues 布鲁斯 蓝调 bulusi landiao'],
+  ['Rock', 'rock 摇滚 yaogun'], ['Punk', 'punk 朋克 pengke'], ['Emo', 'emo 情绪摇滚 emo core'], ['Shoegaze', 'shoegaze 自赏 盯鞋 shoe gaze'], ['Post-rock', 'post rock postrock 后摇 houyao'], ['Indie', 'indie 独立 duli'], ['Grunge', 'grunge 垃圾摇滚'],
+  ['Metal', 'metal 金属 重金属 jinshu'], ['Classical', 'classical 古典 gudian 交响 symphony'], ['Baroque', 'baroque 巴洛克'], ['Romantic', 'romantic 浪漫派'], ['Canon', 'canon 卡农 kanong 帕赫贝尔'],
+  ['Score', '配乐 peiyue ost bgm 电影 游戏 影视 film game soundtrack 原声'], ['Epic', 'epic 史诗 shishi trailer'], ['Musical', 'musical broadway 音乐剧 百老汇'], ['Chiptune', 'chiptune 8bit 8-bit 芯片 像素'],
+  ['Chinese', '国风 guofeng 中国风 zhongguofeng 古风 gufeng chinese 五声 民族 戏曲 xiqu'], ['古风', '古风 gufeng 仙侠 武侠'], ['戏', '戏腔 戏曲 京剧 昆曲 jingju xiqiang 黄梅'], ['Japanese', '和风 日式 hefeng japanese'],
+  ['Folk', 'folk 民谣 minyao 乡村 country'], ['Country', 'country 乡村 xiangcun'], ['Bluegrass', 'bluegrass 蓝草'], ['校园', '校园民谣 xiaoyuan'], ['Celtic', 'celtic 凯尔特 爱尔兰'],
+  ['Latin', 'latin 拉丁 lading'], ['Reggaeton', 'reggaeton 雷鬼顿 雷击顿'], ['Salsa', 'salsa 萨尔萨'], ['Tango', 'tango 探戈'], ['Flamenco', 'flamenco 弗拉门戈'],
+  ['Gospel', 'gospel 福音 fuyin 教会'], ['Worship', 'worship 敬拜 赞美 诗歌 ccm praise jingbai'], ['Reggae', 'reggae 雷鬼 leigui'], ['Ska', 'ska 斯卡'],
+  ['Ambient', 'ambient 氛围 环境 fenwei 冥想'], ['New Age', 'new age newage 新世纪 xinshiji'], ['Meditation', 'meditation 冥想 疗愈 healing 助眠'],
+];
+const nrm = (x) => String(x || '').toLowerCase().replace(/[Ａ-Ｚａ-ｚ０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0)).replace(/&/g, 'n').replace(/[\s\-_.·・/'’()（）,，]+/g, '');
+function lev(a, b) { if (Math.abs(a.length - b.length) > 2) return 9; const d = Array.from({ length: a.length + 1 }, (_, i) => [i]); for (let j = 1; j <= b.length; j++) d[0][j] = j; for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; }
+for (const st of STYLES) {
+  const hay = st.name + ' ' + st.genre, al = [];
+  for (const [k, v] of STYLE_ALIASES) if (hay.toLowerCase().includes(k.toLowerCase())) al.push(...v.split(' '));
+  st.aliases = [...new Set(al)];
+  st.searchKeys = [st.name, st.genre, ...st.name.split(/\s+/), ...st.genre.split(/\s+/), ...st.aliases].map(nrm).filter(Boolean);
+}
+// 返回 [{id, score, via}]，via 为命中的别名（用于高亮/提示）
+function searchStyles(q) {
+  const toks = String(q || '').trim().split(/\s+/).filter(Boolean);
+  if (toks.length > 1) { const whole = searchStyles1(q); if (whole.length) return whole; const per = toks.map((t) => new Map(searchStyles1(t).map((x) => [x.id, x]))); return [...per[0].values()].filter((x) => per.every((m) => m.has(x.id))).map((x) => ({ id: x.id, score: Math.min(...per.map((m) => m.get(x.id).score)), via: toks.join(' ') })).sort((a, b) => b.score - a.score); }
+  return searchStyles1(q);
+}
+function searchStyles1(q) {
+  const n = nrm(q); if (!n) return STYLES.map((s) => ({ id: s.id, score: 0, via: '' }));
+  const out = [];
+  for (const st of STYLES) {
+    let best = 0, via = '';
+    const nm = nrm(st.name), gn = nrm(st.genre);
+    if (nm.includes(n)) { best = nm.startsWith(n) ? 100 : 90; via = ''; }
+    else if (gn.includes(n)) { best = 70; via = st.genre; }
+    for (const k of st.searchKeys) {
+      if (best >= 90) break;
+      if (k === n && best < 85) { best = 85; via = k; } else if (k.includes(n) && best < 60) { best = 60; via = k; } else if (n.length >= 4 && k.length >= 3 && best < 40) { const L = lev(n, k.slice(0, Math.max(n.length, Math.min(k.length, n.length + 1)))); if (L <= (n.length >= 7 ? 2 : 1)) { best = 40 - L * 5; via = k; } }
+    }
+    if (best) out.push({ id: st.id, score: best, via });
+  }
+  return out.sort((a, b) => b.score - a.score || a.id - b.id);
+}
+
+/* ---------- 图鉴 ↔ 进行：独立分析与插入 ---------- */
+function dictToSeed(rootIdx, id, inv) {
+  const [, pc, letter] = ROOTS[mod(rootIdx, 12)], d = DICT.find((x) => x[0] === id) || DICT[0];
+  const k = inv ? Math.min(inv, d[4].length - 1) : 0;
+  return { pc, letter, q: Q[id] ? id : '', bassPc: k ? mod(pc + d[4][k], 12) : null, bassLetter: k ? mod(letter + d[5][k], 7) : null };
+}
+// 在任意调中分析一个和弦（图鉴使用）：构造一首只含该和弦的虚拟歌曲，复用 analyzeChord / nextCandidates
+function analyzeStandalone(rootIdx, id, inv, tonic, mode, styleId) {
+  const style = STYLES[styleId] || STYLES[0], ctx = { tonic: mod(tonic, 12), mode };
+  const c = seedToRel(dictToSeed(rootIdx, id, inv), ctx);
+  const song = { kind: 'random', seed: 1, style, meter: '4/4', bpm: 90, hr: 1, settings: { complexity: Q[id] && Q[id].t.length > 3 ? 1 : 0, mood: '中性' }, sections: [{ name: '分析', key: 'Verse', tonic: ctx.tonic, mode, chords: [c, dia(ctx, 0)] }] };
+  refresh(song);
+  const a = analyzeChord(song, 0); a.song = song; return a;
+}
+// 把一个和弦（根音/性质/低音）插入到进行中：ci 之后；ci < 0 时追加到最后一段末尾
+function insertChord(song, ci, seed) {
+  let si, k;
+  if (ci >= 0 && locate(song, ci)) [si, k] = locate(song, ci); else { si = song.sections.length - 1; k = song.sections[si].chords.length - 1; }
+  const sec = song.sections[si], c = seedToRel(seed, { tonic: sec.tonic, mode: sec.mode });
+  sec.chords.splice(k + 1, 0, c);
+  refresh(song); return k + 1 + song.sections.slice(0, si).reduce((t, x) => t + x.chords.length, 0);
+}
+function deleteChord(song, ci) { const loc = locate(song, ci); if (!loc) return false; const chs = song.sections[loc[0]].chords; if (chs.length <= 1) return false; chs.splice(loc[1], 1); refresh(song); return true; }
+function seedFromChord(c) { return { pc: c.pc, letter: c.letter, q: c.q, bassPc: c.xb ? c.xbPc : c.bass > 0 ? mod(c.pc + Q[c.q].t[c.bass][0], 12) : null, bassLetter: c.xb ? LET.indexOf(c.xbName[0]) : c.bass > 0 ? mod(c.letter + Q[c.q].t[c.bass][1], 7) : null }; }
+// 进行中的和弦 → 图鉴条目（根音序号、性质、转位）
+function dictRef(c) { const id = DICT.some((d) => d[0] === c.q) ? c.q : ''; const inv = c.bass > 0 ? c.bass : 0; return { rootIdx: c.pc, id, inv }; }
+
+const ChordEngine = { LET, MODES, METERS, STYLES, GENRES, MOODS, Q, COMPLEX, KEYS_M, BAR_OPTS, HR_OPTS, FUNC_CN, PATTERNS, SECTION_PLANS, mkRng, generate, expand, parseChord, parseSeeds, inferKey, buildEvents, toMidi, toText, splitBar, unitSec, keyName, spell, diatonicQ, serialize, deserialize, cloneSong, refresh, transpose, setBpm, alternatives, replaceChord, toggleLock, regenerate, guitarShape, locate, ALT_TIPS, DRUM, midiParts, makeZip, crc32, PARTS, GM, GM_FAMILIES, defaultPrograms, progFor, PROG_LIB, vlIssues, validate, MARKOV, analyzeChord, nextCandidates, previewPair, setNext, chordDict, dictEntry, identifyChord, guitarVoicings, DICT, DICT_FAMILIES, ROOTS, NEXT_CATS, chordIssues, searchStyles, STYLE_ALIASES, deleteChord, analyzeStandalone, insertChord, dictToSeed, seedFromChord, dictRef, nrm, DICT_STYLES, DICT_STYLE_TAGS };
 if (typeof module !== 'undefined' && module.exports) module.exports = ChordEngine;
 if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;

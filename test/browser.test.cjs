@@ -132,6 +132,52 @@ const assert = (c, m) => { if (!c) throw new Error('✘ ' + m); console.log('✔
   await p.click('.dItem >> nth=0'); await p.waitForTimeout(2300);
   await p.screenshot({ path: path.resolve(__dirname, '..', 'shot-dict.png') });
   await p.click('#dClear'); await p.click('#dictClose'); assert(!(await p.isVisible('#dictPage')), '关闭图鉴');
+  // 风格搜索：别名 / 大小写 / 连字符 / 中文 / 拼音，结果高亮
+  for (const [q, re] of [['lofi', /Lo-fi/], ['LO-FI', /Lo-fi/], ['lo fi', /Lo-fi/], ['低保真', /Lo-fi|低保真/], ['dibaozhen', /Lo-fi/], ['edm', /House|Techno|Trance/], ['kpop', /K-pop/], ['古风', /古风/], ['爵士', /爵士/], ['shoegase', /Shoegaze/], ['抖音', /Douyin/]]) {
+    if (!(await p.isVisible('#pickSearch'))) await p.click('#pickBtn'); await p.fill('#pickSearch', q); await p.waitForTimeout(50);
+    const got = await p.$$eval('#pickList .it[data-s]:not([data-s=rand])', (x) => x.map((e) => e.textContent));
+    assert(got.length && re.test(got[0]), `风格选择器搜索「${q}」→ ${got.slice(0, 3).join(' / ')}`);
+  }
+  await p.fill('#pickSearch', 'lofi');
+  assert((await p.$$('#pickList mark')).length >= 1 && (await p.$$eval('#pickList .gh', (x) => x.map((e) => e.textContent))).some((t) => t.includes('Lo-fi')), '搜索结果高亮且按大类分组');
+  await p.press('#pickSearch', 'Enter'); assert((await p.textContent('#pickLabel')).includes('Lo-fi'), '回车选中第一个 Lo-fi 风格');
+  await p.click('#gen'); await p.waitForTimeout(200);
+  const lb = +(await p.inputValue('#bpmNow')); assert(lb >= 64 && lb <= 95, 'Lo-fi 速度 ' + lb);
+  // 全局搜索：风格 / 和弦 / 功能
+  await p.fill('#gq', 'chillhop'); await p.waitForSelector('#gres.open .gi');
+  assert((await p.textContent('#gres .gi')).includes('Chillhop'), '全局搜索：风格');
+  await p.press('#gq', 'Enter'); await p.waitForTimeout(200); assert((await p.textContent('#pickLabel')).includes('Chillhop'), '全局搜索：选择风格并生成');
+  await p.fill('#gq', 'CM7'); await p.waitForSelector('#gres.open .gi');
+  const gk = await p.$$eval('#gres .gi', (x) => x.map((e) => e.textContent)); assert(gk.some((t) => t.includes('和弦') && t.includes('Cmaj7')), '全局搜索：和弦写法 CM7 → Cmaj7');
+  await p.click('#gres .gi:has-text("Cmaj7")'); await p.waitForSelector('#dictPage.open'); assert((await p.textContent('#dEntry .cbig')) === 'Cmaj7', '全局搜索打开图鉴条目');
+  // 图鉴：风格筛选 + 分析该和弦（调选择）+ 加入进行
+  await p.fill('#dQ', ''); await p.selectOption('#dSty', 'Lo-fi'); const lfc = await p.$$eval('.dItem b', (x) => x.map((e) => e.textContent));
+  assert(lfc.length >= 60 && lfc.every((n) => !/dim$|aug$|5$/.test(n)), '图鉴按风格筛选 Lo-fi（' + lfc.length + '）');
+  await p.selectOption('#dSty', ''); await p.fill('#dQ', 'Am7'); await p.click('.dItem >> nth=0');
+  await p.click('#dAna'); await p.waitForSelector('#anaDrawer.open #anaTonic');
+  assert(await p.isVisible('#anaDrawer'), '图鉴 → 分析抽屉显示在图鉴之上');
+  await p.selectOption('#anaTonic', '0'); await p.selectOption('#anaMode', 'major');
+  assert((await p.textContent('#anaBody .sub')).startsWith('vi7'), '图鉴分析：C 大调中 Am7 = vi7');
+  await p.selectOption('#anaTonic', '7'); assert((await p.textContent('#anaBody .sub')).startsWith('ii7'), '图鉴分析：切换到 G 大调 → ii7');
+  assert((await p.$$('#anaBody .nc')).length >= 10, '图鉴分析：下一和弦列表');
+  await p.click('#anaBody .nc >> nth=0 >> [data-play]');
+  const nBefore = await p.evaluate(() => document.querySelectorAll('.ch:not(.cont)').length);
+  await p.click('#anaBody .nc >> nth=0 >> [data-use]'); await p.waitForTimeout(150);
+  assert((await p.evaluate(() => document.querySelectorAll('.ch:not(.cont)').length)) === nBefore + 2, '图鉴分析：加入进行（和弦 + 下一个）');
+  await p.click('#anaBody [data-dict] >> nth=0'); await p.waitForSelector('#dictPage.open'); assert(!(await p.isVisible('#anaDrawer.open')), '分析候选 → 图鉴');
+  await p.click('#dAdd'); await p.waitForTimeout(150); assert((await p.evaluate(() => document.querySelectorAll('.ch:not(.cont)').length)) === nBefore + 3, '图鉴：加入进行');
+  await p.click('#dictClose');
+  // 进行中的和弦：卡片 🔍、详情栏 ▶ / 📖 / ➕ / 🗑、替换列表 ▶
+  await p.click('[data-ana="0"]'); await p.waitForSelector('#anaDrawer.open .nc'); assert(!(await p.$('#anaTonic')), '卡片 🔍 打开进行内分析'); await p.keyboard.press('Escape');
+  await p.click('.ch:not(.cont) >> nth=0'); await p.click('#inspPlay'); await p.click('#insp [data-altplay] >> nth=0');
+  await p.click('#inspDict'); await p.waitForSelector('#dictPage.open'); const n0name = (await names())[0];
+  assert((await p.textContent('#dEntry .cbig')).replace(/\/.*/, '') === n0name.replace(/\/.*/, ''), '详情栏 📖 打开对应图鉴条目 ' + n0name); await p.click('#dictClose');
+  const cnt0 = (await names()).length; await p.click('.ch:not(.cont) >> nth=0'); await p.click('#inspIns'); await p.waitForSelector('#anaDrawer.open'); assert(await p.$('#anaBody [data-am=insert][aria-pressed=true]'), '详情栏 ➕ 以插入模式打开分析');
+  await p.click('#anaBody .nc >> nth=0 >> [data-use]'); assert((await names()).length === cnt0 + 1, '插入成功'); await p.keyboard.press('Escape');
+  await p.click('.ch:not(.cont) >> nth=1'); await p.click('#inspDel'); assert((await names()).length === cnt0, '详情栏 🗑 删除');
+  await p.keyboard.press('Control+z'); assert((await names()).length === cnt0 + 1, '删除可撤销');
+  await p.keyboard.press('/'); assert(await p.evaluate(() => document.activeElement.id === 'gq'), '/ 聚焦全局搜索'); await p.keyboard.press('Escape');
+  await p.fill('#gq', '导出'); await p.waitForSelector('#gres.open .gi'); assert((await p.textContent('#gres')).includes('导出 MIDI'), '全局搜索：功能'); await p.keyboard.press('Escape');
   // 风格搜索
   await p.click('#pickBtn'); await p.fill('#pickSearch', 'bossa'); const items = await p.$$('#pickList .it[data-s]:not([data-s=rand])');
   assert(items.length === 1, '风格搜索 bossa'); await items[0].click(); assert((await p.textContent('#pickLabel')).includes('Bossa'), '选择风格');
