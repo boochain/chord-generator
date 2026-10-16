@@ -137,6 +137,29 @@ const assert = (c, m) => { if (!c) throw new Error('✘ ' + m); console.log('✔
   await p.click('#dClear'); await p.click('#dictClose'); assert(!(await p.isVisible('#dictPage')) && (await navSel()) === 'tabRand', '关闭图鉴（导航恢复）');
   await more('histBtn'); assert(await p.isVisible('#histDrawer.open') && (await p.$$('#histList .li')).length >= 2, '更多菜单：历史记录'); await p.click('#histList .li >> nth=1 >> .t'); await p.keyboard.press('Escape');
   await more('help'); assert(await p.isVisible('#helpDrawer.open'), '更多菜单：快捷键'); await p.click('#helpDrawer [data-close]');
+  // 主题：现代浅色 / 现代深色 / 经典深浅 / 跟随系统
+  const contrast = () => p.evaluate(() => {
+    const cs = getComputedStyle(document.documentElement), hex = (v) => { const c = document.createElement('canvas').getContext('2d'); c.fillStyle = v.trim(); const h = c.fillStyle; return [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255); };
+    const L = (v) => { const [r, g, b] = hex(v).map((x) => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4)); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+    const cr = (a, b) => { const x = L(cs.getPropertyValue(a)), y = L(cs.getPropertyValue(b)); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+    return { text: cr('--text', '--surface'), text2: cr('--text-2', '--surface'), text3: cr('--text-3', '--surface'), T: cr('--T', '--surface'), S: cr('--S', '--surface'), D: cr('--D', '--surface'), acc: cr('--accent', '--surface') };
+  });
+  for (const [opt, th, skin] of [['light', 'light', 'modern'], ['dark', 'dark', 'modern'], ['classic-dark', 'dark', 'classic'], ['classic-light', 'light', 'classic']]) {
+    await p.click('#moreBtn'); await p.click(`[data-theme-opt="${opt}"]`); await p.waitForTimeout(150);
+    const at = await p.evaluate(() => [document.documentElement.dataset.theme, document.documentElement.dataset.skin, JSON.parse(localStorage.getItem('cg.theme'))]);
+    assert(at[0] === th && at[1] === skin && at[2] === opt, `主题 ${opt} 应用并保存 ` + at);
+    const c = await contrast();
+    assert(c.text >= 7 && c.text2 >= 4.5 && c.text3 >= 4.5 && c.T >= 4.5 && c.S >= 4.5 && c.D >= 4.5 && c.acc >= 3, `主题 ${opt} 对比度 ` + JSON.stringify(Object.fromEntries(Object.entries(c).map(([k, v]) => [k, +v.toFixed(2)]))));
+    await p.click('.ch:not(.cont) >> nth=0'); assert(await p.isVisible('#insp .cbig'), `主题 ${opt}：详情栏渲染`);
+    await p.click('#moreBtn'); assert((await p.getAttribute(`[data-theme-opt="${opt}"]`, 'aria-checked')) === 'true', `主题 ${opt}：菜单勾选`); await p.keyboard.press('Escape');
+    if (opt === 'classic-dark' || opt === 'classic-light') { await p.mouse.move(700, 960); await p.waitForTimeout(300); await p.evaluate(() => document.getElementById('tip').classList.remove('on')); await p.screenshot({ path: path.resolve(__dirname, '..', opt === 'classic-dark' ? 'theme-classic.png' : 'theme-classic-light.png') }); }
+  }
+  await p.keyboard.press('t'); assert((await p.evaluate(() => document.documentElement.dataset.theme + document.documentElement.dataset.skin)) === 'darkclassic', '按 T 在经典主题内切换深浅');
+  { const p3 = await ctx.newPage(); await p3.goto(file); await p3.waitForSelector('.ch'); const rl = await p3.evaluate(() => [document.documentElement.dataset.skin, document.documentElement.dataset.theme, localStorage.getItem('cg.theme')]); assert(rl[0] === 'classic' && rl[1] === 'dark', '主题持久化（新页面读取） ' + rl); await p3.close(); }
+  await p.click('#moreBtn'); await p.click('[data-theme-opt="system"]');
+  await p.emulateMedia({ colorScheme: 'dark' }); await p.waitForTimeout(100); assert((await p.getAttribute('html', 'data-theme')) === 'dark', '跟随系统：深色');
+  await p.emulateMedia({ colorScheme: 'light' }); await p.waitForTimeout(100); assert((await p.getAttribute('html', 'data-theme')) === 'light' && (await p.getAttribute('html', 'data-skin')) === 'modern', '跟随系统：浅色');
+  await p.click('#moreBtn'); await p.click('[data-theme-opt="dark"]');
   assert(await p.isVisible('#ctrl') && !(await p.isVisible('#openCtrl')) && !(await p.isVisible('#genM')), '桌面：三栏布局，参数栏常驻，唯一主按钮');
   assert(!(await p.$eval('#transport', (e) => e.textContent)).match(/[▶❚🔁⏹]/) && !(await p.$eval('body', (e) => e.innerText)).match(/[\u{1F300}-\u{1FAFF}]/u), '界面无 emoji 图标');
   // 风格搜索：别名 / 大小写 / 连字符 / 中文 / 拼音，结果高亮
@@ -197,7 +220,8 @@ const assert = (c, m) => { if (!c) throw new Error('✘ ' + m); console.log('✔
   // 移动端
   await p.setViewportSize({ width: 375, height: 812 }); await p.waitForTimeout(300);
   const ov = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth);
-  assert(ov <= 1, '移动端无横向溢出 (' + ov + ')');
+  const ovEl = () => p.evaluate(() => [...document.querySelectorAll('body *')].filter((e) => e.getBoundingClientRect().right > innerWidth + 1 && getComputedStyle(e).visibility !== 'hidden').slice(0, 6).map((e) => (e.id || e.getAttribute('class')) + ':' + Math.round(e.getBoundingClientRect().right)).join(' '));
+  assert(ov <= 1, '移动端无横向溢出 (' + ov + ') ' + (ov > 1 ? await ovEl() : ''));
   const nb = await p.evaluate(() => [document.getElementById('nav').getBoundingClientRect().top, document.getElementById('nav').getBoundingClientRect().bottom, document.getElementById('transport').getBoundingClientRect().bottom]);
   assert(await p.isVisible('#openCtrl') && nb[1] === 812 && Math.abs(nb[2] - nb[0]) <= 1, '移动端：底部导航 + 其上运输栏 ' + nb);
   assert((await p.evaluate(() => [...document.querySelectorAll('#nav .nav-i')].every((e) => e.getBoundingClientRect().height >= 44))), '底部导航触控目标 ≥ 44px');
@@ -211,7 +235,7 @@ const assert = (c, m) => { if (!c) throw new Error('✘ ' + m); console.log('✔
   assert(await p.evaluate(() => document.getElementById('insp').classList.contains('open')), '移动端和弦详情底部抽屉');
   await p.keyboard.press('Escape'); await p.waitForTimeout(350);
   const ov2 = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth);
-  assert(ov2 <= 1, '移动端无横向溢出 (抽屉后 ' + ov2 + ')');
+  assert(ov2 <= 1, '移动端无横向溢出 (抽屉后 ' + ov2 + ') ' + (ov2 > 1 ? await ovEl() : ''));
   await p.click('#dictBtn'); await p.waitForSelector('#dictPage.open .dItem'); await p.click('.dItem >> nth=3'); await p.waitForTimeout(300);
   assert(await p.isVisible('#dEntry') && (await p.evaluate(() => document.documentElement.scrollWidth - innerWidth)) <= 1, '移动端图鉴：底部详情无溢出');
   await p.screenshot({ path: '/tmp/cg-dict-mobile.png' }); await p.click('#dBack'); await p.click('#dictClose');

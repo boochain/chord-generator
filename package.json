@@ -1,6 +1,6 @@
 {
   "name": "chord-generator",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "private": true,
   "description": "符合乐理的随机和弦进行生成器（单文件 HTML）",
   "scripts": {

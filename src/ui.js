@@ -10,8 +10,19 @@
   const state = { genre: 'rand', style: 'rand' };
 
   /* ---------- 主题 ---------- */
-  const setTheme = (t) => { document.documentElement.dataset.theme = t; LS.set('cg.theme', t); const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = t === 'dark' ? '#111216' : '#F6F7F9'; };
-  setTheme(LS.get('cg.theme', matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'));
+  const sysLight = matchMedia('(prefers-color-scheme: light)');
+  let themePref = LS.get('cg.theme', 'system');
+  function applyTheme() {
+    const p = themePref, classic = p.startsWith('classic'), base = classic ? p.slice(8) : p;
+    const t = base === 'light' || base === 'dark' ? base : sysLight.matches ? 'light' : 'dark';
+    const h = document.documentElement; h.dataset.theme = t; h.dataset.skin = classic ? 'classic' : 'modern';
+    const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = getComputedStyle(h).getPropertyValue('--surface').trim() || (t === 'dark' ? '#111216' : '#FFFFFF');
+    document.querySelectorAll('[data-theme-opt]').forEach((b) => b.setAttribute('aria-checked', b.dataset.themeOpt === p));
+  }
+  const setThemePref = (p) => { themePref = p; LS.set('cg.theme', p); applyTheme(); };
+  const setTheme = (t) => setThemePref((document.documentElement.dataset.skin === 'classic' ? 'classic-' : '') + t);
+  sysLight.addEventListener('change', applyTheme); applyTheme();
+  document.querySelectorAll('[data-theme-opt]').forEach((b) => (b.onclick = () => setThemePref(b.dataset.themeOpt)));
   $('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
 
   /* ---------- 浮动提示 ---------- */
@@ -28,14 +39,14 @@
   const termify = (html) => html.replace(new RegExp(Object.keys(GLOSS).join('|'), 'g'), (m) => `<span class="term" data-tip="${esc(GLOSS[m])}">${m}</span>`);
   document.addEventListener('mouseover', (e) => {
     const t = e.target.closest('[data-tip]');
-    if (!t) { tip.classList.remove('on'); return; }
+    if (!t) { tip.classList.remove('on'); tip.style.left = '0px'; tip.style.top = '0px'; return; }
     tip.textContent = t.dataset.tip; tip.classList.add('on');
     const r = t.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
     let x = Math.min(innerWidth - w - 8, Math.max(8, r.left + r.width / 2 - w / 2)), y = r.top - h - 8;
     if (y < 8) y = r.bottom + 8;
     tip.style.left = x + 'px'; tip.style.top = y + 'px';
   });
-  document.addEventListener('scroll', () => tip.classList.remove('on'), true);
+  document.addEventListener('scroll', () => (tip.classList.remove('on'), tip.style.left = '0px'), true);
 
   /* ---------- 控件 ---------- */
   $('mood').innerHTML = RAND + Object.entries(E.MOODS).map(([k, v]) => `<option value="${k}" title="${esc(v.d)}">${k}</option>`).join('');
