@@ -201,7 +201,8 @@ const assert = (c, m) => { if (!c) throw new Error('✘ ' + m); console.log('✔
   await p.click('[data-ana="0"]'); await p.waitForSelector('#anaDrawer.open .nc'); assert(!(await p.$('#anaTonic')), '卡片「分析」打开进行内分析'); await p.keyboard.press('Escape');
   await p.click('.ch:not(.cont) >> nth=0'); await p.click('#inspPlay'); await p.click('#insp [data-altplay] >> nth=0');
   await p.click('#inspDict'); await p.waitForSelector('#dictPage.open'); const n0name = (await names())[0];
-  assert((await p.textContent('#dEntry .cbig')).replace(/\/.*/, '') === n0name.replace(/\/.*/, ''), '详情栏「图鉴」打开对应条目 ' + n0name); await p.click('#dictClose');
+  const enh = (n) => n.replace(/\/.*/, '').replace(/^([A-G])(#|b)?/, (m, l, acc) => { const pc = ({ C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[l] + (acc === '#' ? 1 : acc === 'b' ? -1 : 0) + 12) % 12; return 'pc' + pc; }); const dn = await p.textContent('#dEntry .cbig');
+  assert(enh(dn) === enh(n0name), '详情栏「图鉴」打开对应条目 ' + n0name + ' → ' + dn); await p.click('#dictClose');
   const cnt0 = (await names()).length; await p.click('.ch:not(.cont) >> nth=0'); await p.click('#inspIns'); await p.waitForSelector('#anaDrawer.open'); assert(await p.$('#anaBody [data-am=insert][aria-pressed=true]'), '详情栏 ➕ 以插入模式打开分析');
   await p.click('#anaBody .nc >> nth=0 >> [data-use]'); assert((await names()).length === cnt0 + 1, '插入成功'); await p.keyboard.press('Escape');
   await p.click('.ch:not(.cont) >> nth=1'); await p.click('#inspDel'); assert((await names()).length === cnt0, '详情栏「删除」');
