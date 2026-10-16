@@ -55,11 +55,34 @@
   $('pattern').innerHTML = '<option value="style">节奏型：随风格</option>' + Object.entries(E.PATTERNS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
   let bpmRand = true;
   const syncBpm = () => { $('bpmVal').textContent = bpmRand ? '（随机）' : $('bpm').value; $('bpmRand').classList.toggle('on', bpmRand); };
-  $('bpm').oninput = () => {
-    bpmRand = false; syncBpm();
-    if (song) { E.setBpm(song, $('bpm').value); renderTags(); if (playing) restartSoon(); }
+  // BPM 直接输入：回车/失焦生效，校验并限制在 20–300
+  const BPM_MIN = 20, BPM_MAX = 300;
+  function parseBpm(v) { const n = Math.round(parseFloat(String(v).replace(',', '.'))); return Number.isFinite(n) ? Math.min(BPM_MAX, Math.max(BPM_MIN, n)) : null; }
+  function applyBpm(v, from) {
+    const n = parseBpm(v);
+    const el = $(from || 'bpmNow');
+    if (n === null) { el.classList.add('bad'); toast('请输入 20–300 之间的数字', true); setTimeout(() => el.classList.remove('bad'), 900); if (song) el.value = song.bpm; return; }
+    if (+v !== n) toast(`BPM 已限制在 ${BPM_MIN}–${BPM_MAX}：${n}`);
+    $('bpm').value = n; $('bpmNow').value = n; bpmRand = false; syncBpm();
+    if (song && song.bpm !== n) { E.setBpm(song, n); renderTags(); if (playing) restartSoon(); commit('改速度 ' + n); }
+  }
+  for (const id of ['bpm', 'bpmNow']) {
+    const el = $(id);
+    el.addEventListener('change', () => applyBpm(el.value, id));
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); applyBpm(el.value, id); el.blur(); }
+      else if (e.key === 'Escape') { if (song) el.value = song.bpm; el.blur(); }
+      else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && e.shiftKey) { e.preventDefault(); applyBpm((parseBpm(el.value) || 120) + (e.key === 'ArrowUp' ? 10 : -10), id); }
+      e.stopPropagation();
+    });
+    el.addEventListener('wheel', (e) => { if (document.activeElement !== el) return; e.preventDefault(); applyBpm((parseBpm(el.value) || 120) + (e.deltaY < 0 ? 1 : -1) * (e.shiftKey ? 10 : 1), id); }, { passive: false });
+  }
+  const taps = [];
+  $('tap').onclick = () => {
+    const now = performance.now(); if (taps.length && now - taps[taps.length - 1] > 2000) taps.length = 0;
+    taps.push(now); if (taps.length > 6) taps.shift();
+    if (taps.length >= 2) { const iv = (taps[taps.length - 1] - taps[0]) / (taps.length - 1); applyBpm(60000 / iv); } else toast('继续点按…');
   };
-  $('bpm').onchange = () => { if (song) commit('改速度 ' + song.bpm); };
   $('bpmRand').onclick = () => { bpmRand = !bpmRand; syncBpm(); };
   syncBpm();
   const toggles = {};
@@ -68,8 +91,26 @@
     const b = $(id); const sync = () => { b.classList.toggle('on', toggles[id]); b.setAttribute('aria-pressed', toggles[id]); };
     sync(); b.onclick = () => { toggles[id] = !toggles[id]; LS.set('cg.' + id, toggles[id]); sync(); if (playing && id !== 'loop') restartSoon(); };
   });
-  $('inst').value = LS.get('cg.inst', 'piano');
-  $('inst').onchange = () => { LS.set('cg.inst', $('inst').value); if (playing) restartSoon(); };
+  $('inst').value = LS.get('cg.inst', 'gm');
+  $('inst').onchange = () => { LS.set('cg.inst', $('inst').value); syncSound(); if (playing) restartSoon(); };
+  // GM 音色选择器：128 个音色按 16 个家族分组
+  const gmOpts = E.GM_FAMILIES.map((f, fi) => `<optgroup label="${fi + 1}. ${f}">` + E.GM.slice(fi * 8, fi * 8 + 8).map(([, cn], k) => `<option value="${fi * 8 + k}">${fi * 8 + k + 1} ${cn}</option>`).join('') + '</optgroup>').join('');
+  const PROG_IDS = { chord: 'progChord', bass: 'progBass', melody: 'progMelody' };
+  for (const [part, id] of Object.entries(PROG_IDS)) {
+    $(id).innerHTML = gmOpts;
+    $(id).onchange = () => { LS.set('cg.progUser', true); LS.set('cg.prog', programs()); syncSound(); if (playing) restartSoon(); else if (part === 'chord' && sel >= 0 && song) preview(song.flat[sel]); };
+  }
+  $('drumKit').value = LS.get('cg.drumKit', 'gm');
+  $('drumKit').onchange = () => { LS.set('cg.drumKit', $('drumKit').value); syncSound(); if (playing) restartSoon(); };
+  function programs() { return { chord: +$('progChord').value, bass: +$('progBass').value, melody: +$('progMelody').value }; }
+  function setPrograms(pr) { for (const [part, id] of Object.entries(PROG_IDS)) if (pr && pr[part] !== undefined) $(id).value = pr[part]; }
+  setPrograms(Object.assign({ chord: 0, bass: 33, melody: 73 }, LS.get('cg.prog', null) || {}));
+  $('progDefault').onclick = () => { if (!song) return; setPrograms(E.defaultPrograms(song.style)); LS.set('cg.progUser', false); LS.set('cg.prog', programs()); syncSound(); toast('已按风格推荐音色'); if (playing) restartSoon(); };
+  function syncSound() {
+    const gm = $('inst').value === 'gm';
+    document.querySelectorAll('.gmsel').forEach((x) => (x.disabled = false));
+    $('sfStatus').textContent = !gm ? '内置合成器' : SF.offline ? '离线：已回退到内置合成器' : SF.loading ? '加载中…' : '';
+  }
   $('pattern').onchange = () => { if (playing) restartSoon(); };
 
   /* ---------- 风格选择器 ---------- */
@@ -153,6 +194,7 @@
   }
   function afterNew(label) {
     if (bpmRand) $('bpm').value = song.bpm;
+    if (!LS.get('cg.progUser', false)) { setPrograms(E.defaultPrograms(song.style)); LS.set('cg.prog', programs()); }
     syncBpm(); render(); commit(label);
   }
   function regen(section) {
@@ -174,12 +216,10 @@
     E.transpose(song, n); render(); commit('移调 ' + (n > 0 ? '+' : '') + n + ' → ' + song.settings.key); if (was) play();
   }
   function stepBpm(d) {
-    if (!song) return; const v = Math.max(40, Math.min(220, song.bpm + d));
-    $('bpm').value = v; bpmRand = false; syncBpm(); E.setBpm(song, v); renderTags(); if (playing) restartSoon();
+    if (!song) return; const v = Math.max(20, Math.min(300, song.bpm + d));
+    $('bpm').value = v; $('bpmNow').value = v; bpmRand = false; syncBpm(); E.setBpm(song, v); renderTags(); if (playing) restartSoon();
     clearTimeout(stepBpm.t); stepBpm.t = setTimeout(() => commit('改速度 ' + song.bpm), 600);
   }
-  $('bpmDown').onclick = (e) => stepBpm(e.shiftKey ? -10 : -2);
-  $('bpmUp').onclick = (e) => stepBpm(e.shiftKey ? 10 : 2);
   function renderOnboard() {
     if (LS.get('cg.onboarded', false)) { $('onboard').innerHTML = ''; return; }
     $('onboard').innerHTML = `<div class="onboard" role="note"><div style="font-size:22px">👋</div><div><b>三步上手</b><ol><li>在左侧选好<b>风格</b>和情绪（不选就全部随机）</li><li>点 <b>✨ 生成</b>，再点 <b>▶</b> 或按 <kbd>空格</kbd> 试听</li><li>点任意和弦查看指法与<b>可替换和弦</b>；🔒 锁定喜欢的，按 <kbd>R</kbd> 重生成其余</li></ol></div><button class="ib sm x" id="obClose" aria-label="关闭引导">✕</button></div>`;
@@ -195,7 +235,7 @@
   function renderTags() {
     const s = song.settings;
     $('keyNow').textContent = s.key + ' ' + (E.MODES[s.mode].n.split(' ')[0]);
-    $('bpmNow').innerHTML = song.bpm + '<small class="u"> BPM</small>';
+    if (document.activeElement !== $('bpmNow')) $('bpmNow').value = song.bpm;
     if (!playing) { const b0 = E.buildEvents(song, {}), tot = b0.totalUnits * b0.unitSec; $('progT').textContent = '0:00 / ' + fmtT(tot); $('progFill').style.width = '0'; }
     const t = document.getElementById('tagline'); if (!t) return;
     t.innerHTML = [['风格', s.genre.split(' ')[0] + ' › ' + s.style], ['情绪', s.mood], ['调', s.key + ' ' + s.modeName], ['拍号', s.meter], ['速度', song.bpm + ' BPM'], ['复杂度', s.complexityName], ['和声节奏', s.hr + '/小节']].map(([k, v]) => `<span class="tag">${k} <b>${esc(v)}</b></span>`).join('');
@@ -369,16 +409,97 @@
     else if (note === 51) noise('highpass', 5000, 0.4, 0.1);
     else noise('highpass', 8000, 0.05, 0.2);
   }
+  /* ---------- GM 采样音源（gleitz/midi-js-soundfonts FluidR3_GM + surikov webaudiofont 鼓组，均为免费资源） ---------- */
+  const SF = { base: 'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/', drumBase: 'https://surikov.github.io/webaudiofontdata/sound/', raw: new Map(), bufs: new Map(), drums: new Map(), offline: false, loading: false };
+  window.__SF = SF;
+  const SF_NN = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+  const sfNote = (m) => SF_NN[m % 12] + (Math.floor(m / 12) - 1);
+  const b64buf = (b64) => { const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; };
+  async function fetchText(url, ms) {
+    const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), ms || 20000);
+    try { const r = await fetch(url, { signal: ctl.signal }); if (!r.ok) throw new Error('HTTP ' + r.status); return await r.text(); } finally { clearTimeout(to); }
+  }
+  async function loadProg(prog) {
+    if (SF.raw.has(prog)) return SF.raw.get(prog);
+    const p = fetchText(SF.base + E.GM[prog][0] + '-mp3.js').then((txt) => {
+      const map = {}; const re = /"([A-G]b?-?\d)"\s*:\s*"data:audio\/[a-z0-9]+;base64,([^"]+)"/g; let m;
+      while ((m = re.exec(txt))) map[m[1]] = m[2];
+      if (!Object.keys(map).length) throw new Error('bad soundfont');
+      return map;
+    });
+    SF.raw.set(prog, p);
+    p.catch(() => SF.raw.delete(prog));
+    return p;
+  }
+  async function noteBuf(prog, midi) {
+    const key = prog * 128 + midi; if (SF.bufs.has(key)) return SF.bufs.get(key);
+    const raw = await loadProg(prog), b64 = raw[sfNote(Math.max(21, Math.min(108, midi)))];
+    if (!b64) return null;
+    const p = ac.decodeAudioData(b64buf(b64)); SF.bufs.set(key, p); return p;
+  }
+  async function drumBuf(note) {
+    if (SF.drums.has(note)) return SF.drums.get(note);
+    const p = fetchText(SF.drumBase + '128' + note + '_0_FluidR3_GM_sf2_file.js').then((txt) => { const m = txt.match(/file:'([^']+)'/); if (!m) throw new Error('bad drum'); return ac.decodeAudioData(b64buf(m[1])); });
+    SF.drums.set(note, p); p.catch(() => SF.drums.delete(note)); return p;
+  }
+  // 播放前预加载本曲用到的音符；失败（离线/超时）则回退到内置合成器
+  async function prepareGM(ev) {
+    const pr = programs(), need = [];
+    for (const e of ev.events) {
+      const prog = e.part === 'chord' ? pr.chord : e.part === 'bass' ? pr.bass : e.part === 'melody' ? pr.melody : null;
+      if (prog !== null) for (const n of e.notes) need.push([prog, Math.round(n)]);
+    }
+    const uniq = [...new Map(need.map((x) => [x[0] * 128 + x[1], x])).values()];
+    const drumNotes = $('drumKit').value === 'gm' ? [...new Set(ev.events.filter((e) => e.part === 'drum').map((e) => e.notes[0]))] : [];
+    const ready = uniq.every(([p, n]) => SF.bufs.has(p * 128 + n)) && drumNotes.every((n) => SF.drums.has(n));
+    if (!ready) { SF.loading = true; syncSound(); $('play').classList.add('sf-loading'); toast('正在加载 GM 音色…'); }
+    try {
+      await Promise.all(uniq.map(([p, n]) => noteBuf(p, n)).concat(drumNotes.map((n) => drumBuf(n))));
+      SF.offline = false; return true;
+    } catch (err) {
+      SF.offline = true; toast('GM 音色加载失败（可能离线），已回退到内置合成器', true); return false;
+    } finally { SF.loading = false; $('play').classList.remove('sf-loading'); syncSound(); }
+  }
+  function sample(buf, t, d, vel, sustain) {
+    if (!buf) return;
+    const src = ac.createBufferSource(), g = ac.createGain(); src.buffer = buf; src.connect(g); g.connect(master);
+    const peak = 0.55 * Math.pow(vel, 1.4), end = t + Math.max(0.06, d);
+    g.gain.setValueAtTime(peak, t); g.gain.setValueAtTime(peak, end); g.gain.exponentialRampToValueAtTime(0.0001, end + (sustain ? 0.35 : 0.2));
+    src.start(t); src.stop(end + 0.45);
+  }
+  const bufNow = (map, key) => { const p = map.get(key); return p && p.__v; };
+  // 已解码的缓冲同步可取（Promise 完成后记录在 __v 上）
+  function settle(map) { for (const p of map.values()) if (!p.__hooked) { p.__hooked = true; p.then((v) => (p.__v = v), () => {}); } }
+  const useGM = () => $('inst').value === 'gm' && !SF.offline;
+  syncSound();
+  function gmTone(prog, midi, t, d, vel) { const b = bufNow(SF.bufs, prog * 128 + Math.round(midi)); if (b) { sample(b, t, d, vel); return true; } return false; }
   function preview(c) {
     if (!ensureAC()) return; if (!playing) newMaster();
+    if (useGM()) {
+      const pr = programs(), notes = [[pr.bass, c.bassNote]].concat(c.upper.map((n) => [pr.chord, n]));
+      const t0 = ac.currentTime + 0.03;
+      Promise.all(notes.map(([p, n]) => noteBuf(p, n))).then(() => { settle(SF.bufs); setTimeout(() => notes.forEach(([p, n], i) => gmTone(p, n, Math.max(ac.currentTime + 0.01, t0) + (i ? (i - 1) * 0.012 : 0), 1.3, i ? 0.7 : 0.8)), 0); }).catch(() => { SF.offline = true; syncSound(); preview(c); });
+      return;
+    }
     const t = ac.currentTime + 0.03, inst = $('inst').value;
     tone(c.bassNote, t, 1.3, 0.8, 'bass');
     c.upper.forEach((n, i) => tone(n, t + (inst === 'guitar' ? i * 0.022 : i * 0.012), 1.3, 0.75, inst));
   }
   let restartTimer = null;
   function restartSoon() { clearTimeout(restartTimer); restartTimer = setTimeout(() => { if (playing) play(playSec); }, 120); }
+  let playReq = 0;
   function play(section) {
     if (!song) generate(); if (!song || !ensureAC()) return;
+    if (useGM()) {
+      const req = ++playReq;
+      const ev = E.buildEvents(song, { metronome: toggles.metro, drums: toggles.drums, melody: toggles.melody, pattern: $('pattern').value, section: typeof section === 'number' ? section : undefined });
+      $('play').classList.add('playing'); $('playIcon').textContent = '❚❚';
+      prepareGM(ev).then(() => { settle(SF.bufs); settle(SF.drums); setTimeout(() => { if (req === playReq) playNow(section); }, 0); });
+      return;
+    }
+    playNow(section);
+  }
+  function playNow(section) {
     stopAudio(); newMaster(); playing = true; playSec = typeof section === 'number' ? section : undefined;
     $('play').classList.add('playing'); $('playIcon').textContent = '❚❚'; $('play').setAttribute('aria-label', '停止 (空格)'); $('stop').disabled = false;
     const inst = $('inst').value;
@@ -395,9 +516,10 @@
         const e = ev.events[idx], t = base + e.t * us;
         if (t > horizon) break;
         if (t >= ac.currentTime - 0.02) {
-          if (e.part === 'drum') drum(e.notes[0], t, e.vel);
-          else if (e.part === 'chord') { strum++; const dn = strum % 2 === 0 && inst === 'guitar'; const ns = dn ? e.notes.slice().reverse() : e.notes; ns.forEach((n, i) => tone(n, t + (inst === 'guitar' ? i * 0.018 : 0), e.d * us, e.vel, inst)); }
-          else for (const n of e.notes) tone(n, t, e.d * us, e.vel, e.part === 'bass' ? 'bass' : e.part === 'melody' ? 'lead' : 'click');
+          const gm = useGM(), pr = gm ? programs() : null;
+          if (e.part === 'drum') { const b = gm && $('drumKit').value === 'gm' ? bufNow(SF.drums, e.notes[0]) : null; if (b) sample(b, t, 0.6, e.vel * 0.9); else drum(e.notes[0], t, e.vel); }
+          else if (e.part === 'chord') { strum++; const dn = strum % 2 === 0 && inst === 'guitar'; const ns = dn ? e.notes.slice().reverse() : e.notes; ns.forEach((n, i) => { if (!(gm && gmTone(pr.chord, n, t + i * 0.008, e.d * us, e.vel * 0.85))) tone(n, t + (inst === 'guitar' ? i * 0.018 : 0), e.d * us, e.vel, inst === 'gm' ? 'piano' : inst); }); }
+          else for (const n of e.notes) { const part = e.part; if (gm && part !== 'click' && gmTone(part === 'bass' ? pr.bass : pr.melody, n, t, e.d * us, e.vel)) continue; tone(n, t, e.d * us, e.vel, part === 'bass' ? 'bass' : part === 'melody' ? 'lead' : 'click'); }
         }
         idx++;
       }
@@ -422,14 +544,14 @@
     };
     tick();
   }
-  function stopAudio() { playing = false; clearInterval(timer); cancelAnimationFrame(raf); if (ac && master) newMaster(); }
+  function stopAudio() { playReq++; playing = false; clearInterval(timer); cancelAnimationFrame(raf); if (ac && master) newMaster(); }
   function stop() {
     stopAudio();
     document.querySelectorAll('.ch.now').forEach((el) => el.classList.remove('now'));
     $('play').classList.remove('playing'); $('playIcon').textContent = '▶'; $('play').setAttribute('aria-label', '播放 (空格)'); $('stop').disabled = true;
     $('progFill').style.width = '0';
   }
-  $('play').onclick = () => (playing ? stop() : play());
+  $('play').onclick = () => (playing || $('play').classList.contains('playing') ? stop() : play());
   $('stop').onclick = stop;
 
   /* ---------- 导出 / 分享 / 收藏 ---------- */
@@ -442,7 +564,7 @@
     download(new Blob([bytes], { type: 'audio/midi' }), fileBase() + (section !== undefined ? '_' + song.sections[section].name.split(' ')[0] : '') + '.mid');
     toast('MIDI 已导出');
   }
-  const midiOpts = (section) => ({ metronome: toggles.metro, drums: toggles.drums, melody: toggles.melody, pattern: $('pattern').value, instrument: $('inst').value, section, title: song.settings.style + ' · ' + song.settings.key });
+  const midiOpts = (section) => ({ metronome: toggles.metro, drums: toggles.drums, melody: toggles.melody, pattern: $('pattern').value, instrument: $('inst').value, programs: programs(), section, title: song.settings.style + ' · ' + song.settings.key });
   const secSuffix = (section) => (section !== undefined ? '_' + song.sections[section].name.split(' ')[0] : '');
   function exportPart(part, section) {
     if (!song) return;

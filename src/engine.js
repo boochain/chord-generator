@@ -356,6 +356,7 @@ function tritoneOf(c) {
 function cadV(ctx) {
   const s = MODES[ctx.mode].s;
   const c = { rel: 7, step: 4, q: '', dom: true, func: 'D', tag: '', diat: s[4] === 7 && diatonicQ(s, 4, false) === '' };
+  if (!c.diat && MODES[ctx.mode].ref !== 'm' && ctx.mode !== 'major') { const d = dia(ctx, 4); d.func = 'D'; return d; } // 调式（如混合利底亚）用自然的 v，不硬借大三和弦属
   if (!c.diat) c.tag = MODES[ctx.mode].ref === 'm' ? '和声小调属' : '借用';
   return c;
 }
@@ -402,17 +403,37 @@ function stepWeights(ctx, style) {
   }
   return w;
 }
+// 级数转移概率（行=当前级数 I..vii，列=下一个级数）。大调数据依据 Hooktheory Trends 公布值
+// （I 之后 V≈31%；IV 之后 I 33.2% / V 26.6% / vi 6.6% / iii 3.5%）与 de Clercq & Temperley (2011) 摇滚语料的排序
+// （IV 是 I 之前最常见的和弦；V→IV 倒退常见），小调依据 Biamonte (2010)、Open Music Theory 小调图式（i–♭VI–♭III–♭VII、i–♭VII–♭VI–V）。
+const MARKOV = {
+  M: [
+    [0, 0.08, 0.05, 0.3, 0.31, 0.22, 0],     // I
+    [0.08, 0, 0.06, 0.1, 0.66, 0.1, 0],      // ii
+    [0.05, 0.05, 0, 0.4, 0.05, 0.45, 0],     // iii
+    [0.36, 0.05, 0.04, 0, 0.36, 0.08, 0],    // IV（Hooktheory：I 33.2%、V 26.6%，其余按比例）
+    [0.45, 0.03, 0.04, 0.18, 0, 0.3, 0],     // V（含 V→vi 阻碍终止、V→IV 摇滚倒退）
+    [0.08, 0.15, 0.12, 0.45, 0.2, 0, 0],     // vi
+    [0.85, 0, 0.1, 0, 0, 0.05, 0],           // vii°
+  ],
+  m: [
+    [0, 0, 0.1, 0.25, 0.15, 0.25, 0.25],     // i
+    [0.1, 0, 0, 0, 0.9, 0, 0],               // ii°
+    [0.15, 0, 0, 0.25, 0, 0.3, 0.3],         // III
+    [0.3, 0, 0.1, 0, 0.25, 0.1, 0.25],       // iv
+    [0.75, 0, 0, 0, 0, 0.25, 0],             // v / V
+    [0.15, 0, 0.2, 0.15, 0.1, 0, 0.4],       // VI
+    [0.4, 0, 0.35, 0.1, 0, 0.15, 0],         // VII
+  ],
+};
 function markov(ctx, style, n, rng, startFunc) {
-  const w = stepWeights(ctx, style), out = [];
-  let f = startFunc || 'T', prev = -1;
+  const ref = MODES[ctx.mode].ref, M = MARKOV[ref], w0 = stepWeights(ctx, style), out = [];
+  let step = 0;
+  if (startFunc) { const c = {}; for (let k = 0; k < 7; k++) if (funcOfStep(ctx, k) === startFunc && w0[k] > 0 && Q[diatonicQ(MODES[ctx.mode].s, k, false)].cls !== 'd') c[k] = w0[k]; if (Object.keys(c).length) step = +wpick(rng, c); }
   for (let i = 0; i < n; i++) {
-    const cand = {};
-    for (let k = 0; k < 7; k++) if (funcOfStep(ctx, k) === f && k !== prev && w[k] > 0) cand[k] = w[k];
-    if (!Object.keys(cand).length) for (let k = 0; k < 7; k++) if (k !== prev && w[k] > 0) cand[k] = w[k];
-    let step = +wpick(rng, cand);
-    if (i === 0 && !startFunc && rng() < 0.75) step = 0;
-    out.push(dia(ctx, step)); prev = step;
-    f = wpick(rng, TRANS[f]);
+    out.push(dia(ctx, step));
+    const row = {}; for (let k = 0; k < 7; k++) { const q = diatonicQ(MODES[ctx.mode].s, k, false); if (M[step][k] > 0 && w0[k] > 0 && Q[q].cls !== 'd') row[k] = M[step][k] * Math.sqrt(w0[k]); }
+    step = Object.keys(row).length ? +wpick(rng, row) : 0;
   }
   return out;
 }
@@ -443,44 +464,159 @@ function cadence(ctx, style, rng, type) {
   const c = dia(ctx, cs); c.tag = '调式特征';
   return { type: 'modal', ch: [c, T], n: '调式终止 ' + romanOf(ctx, c.rel, c.step, c.q) + '→' + romanOf(ctx, 0, 0, T.q) };
 }
-function buildProg(ctx, style, n, rng, o = {}) {
-  let chords, tplUsed = null;
-  if (o.tplOK !== false && style.tpl.length && rng() < style.tplP) {
-    tplUsed = pick(rng, style.tpl);
-    const toks = tplUsed.split(' ');
-    chords = []; for (let i = 0; i < n; i++) chords.push(parseTok(toks[i % toks.length], ctx));
-  } else chords = markov(ctx, style, n, rng, o.startFunc);
-  const fixedForm = !!(style.fixed && tplUsed);
-  let cad = null, k = 0;
-  if (fixedForm) {
-    if (n >= 2) { chords[n - 2] = parseTok('V7', ctx); chords[n - 1] = parseTok(tplUsed.split(' ')[0], ctx); }
-    cad = { type: 'blues', n: '布鲁斯回转 V7→I7' };
-  } else if (o.end !== 'none' && n >= 2) {
-    cad = cadence(ctx, style, rng, !o.end || o.end === 'cad' ? null : o.end);
-    k = cad.ch.length;
-    for (let i = 0; i < k; i++) chords[n - k + i] = Object.assign({}, cad.ch[i]);
+/* ---------- 精选进行库（真实常用进行，罗马数字以大调为参照） ---------- */
+const PROG_LIB = {
+  M: {
+    _: ['I V vi IV', 'I vi IV V', 'vi IV I V', 'I IV vi V', 'I IV V IV', 'IV V iii vi', 'I iii IV V', 'I V vi iii IV I IV V', 'I IV I V'],
+    '流行': ['I V vi IV', 'vi IV I V', 'I vi IV V', 'IV V iii vi', 'I V vi iii IV I IV V', 'I IV vi V', 'IV I V vi'],
+    '摇滚': ['I IV V IV', 'I V IV IV', 'I bVII IV I', 'I IV I V', 'I V vi IV', 'IV I V V'],
+    '爵士': ['ii7 V7 Imaj7 Imaj7', 'Imaj7 vi7 ii7 V7', 'iii7 vi7 ii7 V7', 'Imaj7 IVmaj7 iii7 vi7 ii7 V7 Imaj7 Imaj7', 'Imaj7 V/2 ii7 V7'],
+    'R&B': ['ii7 V7 Imaj7 vi7', 'IVmaj7 V7 iii7 vi7', 'IVmaj7 iii7 ii7 Imaj7', 'Imaj7 iii7 IVmaj7 V7'],
+    '放克': ['I7 IV7 I7 IV7', 'I7 I7 IV7 I7', 'ii7 V7 ii7 V7'],
+    '嘻哈': ['ii7 V7 Imaj7 vi7', 'IVmaj7 iii7 vi7 vi7', 'Imaj7 vi7 IVmaj7 V7'],
+    '电子': ['vi IV I V', 'IV V vi vi', 'I V vi IV', 'IV I V vi'],
+    '古典': ['I IV V I', 'I vi ii V', 'I IV ii V', 'I V vi iii IV I IV V', 'I ii V I', 'I vi IV V'],
+    '民谣': ['I IV I V', 'I V IV I', 'I IV V I', 'I vi IV V', 'I V vi IV'],
+    '拉丁': ['ii7 V7 Imaj7 Imaj7', 'I IV V IV', 'Imaj7 vi7 ii7 V7'],
+    '配乐': ['I V vi IV', 'vi IV I V', 'I iii IV iv', 'IV V vi vi'],
+    '国风': ['I V vi iii', 'IV V iii vi', 'vi iii IV I', 'I vi ii V', 'IV V vi vi'],
+    '福音': ['I IV I V', 'I iii IV V', 'IVmaj7 V7 iii7 vi7', 'I I7 IV iv'],
+    '雷鬼': ['I IV V IV', 'I V vi IV', 'I IV I V'],
+    '氛围': ['I IV I IV', 'I vi IV I', 'IV I IV I', 'I iii vi IV'],
+  },
+  m: {
+    _: ['i bVI bIII bVII', 'i iv bVII bIII', 'i bVII bVI V', 'i iv V i', 'i bVI bVII i', 'i iv bVI V', 'i bVII bVI bVII'],
+    '摇滚': ['i bVII bVI bVII', 'i bIII bVII iv', 'i bVI bVII i', 'i iv bVII i'],
+    '爵士': ['iiø V7 i7 i7', 'i7 iv7 iiø V7', 'i7 bVImaj7 iiø V7'],
+    'R&B': ['i7 iv7 i7 iv7', 'i7 bVImaj7 bVII7 i7', 'i7 iv7 bVImaj7 V7'],
+    '放克': ['i7 i7 iv7 i7', 'i7 iv7 i7 iv7'],
+    '嘻哈': ['i7 iv7 i7 iv7', 'i bVI bIII bVII', 'i7 bVImaj7 iv7 V7'],
+    '古典': ['i iv V i', 'i bVI iv V', 'i iv bVII bIII bVI iiø V i', 'i iiø V i'],
+    '拉丁': ['i bVII bVI V', 'i iv V i', 'iiø V7 i7 i7'],
+    '金属': ['i bVI bVII i', 'i bVII bVI bVII', 'i iv bVI V', 'i bVI bIII bVII'],
+    '配乐': ['i bVI bIII bVII', 'i bVI bVII i', 'i iv bVI V', 'i bIII bVII iv'],
+    '国风': ['i bVII bIII i', 'i iv bVII bIII', 'i bVI bVII i'],
+  },
+};
+const LIB_KEYS = Object.keys(PROG_LIB.M).concat(Object.keys(PROG_LIB.m)).filter((k) => k !== '_');
+function libFor(style, ref) {
+  const lib = PROG_LIB[ref], key = LIB_KEYS.find((k) => style.genre.includes(k));
+  const own = key && lib[key] ? lib[key] : [];
+  // 风格自带模板（数字=调内级数）也加入，权重较低
+  const tpl = (style.tpl || []).filter((t) => !/^[A-Za-z]/.test(t) || ref === (/^i/.test(t) ? 'm' : 'M'));
+  return { main: own.length ? own : lib._, extra: own.length ? lib._.slice(0, 3).concat(tpl) : tpl };
+}
+const ctxRef = (ctx) => MODES[ctx.mode].ref;
+function tplChords(t, ctx) { return t.split(' ').map((x) => parseTok(x, ctx)); }
+function tplLegal(t, ctx, style) {
+  try { const cs = tplChords(t, ctx); return cs.every((c, i) => !chordIssues(c, cs[i + 1] || null, ctx, style, false).length); } catch (e) { return false; }
+}
+function pickTpl(ctx, style, rng, o = {}) {
+  const L = libFor(style, ctxRef(ctx));
+  const legal = (arr) => arr.filter((t) => tplLegal(t, ctx, style));
+  let pool = legal(rng() < 0.8 || !L.extra.length ? L.main : L.extra);
+  if (!pool.length) pool = legal(L.main.concat(L.extra, PROG_LIB[ctxRef(ctx)]._));
+  if (!pool.length) pool = [ctxRef(ctx) === 'm' ? 'i iv i i' : 'I IV I I'].filter((t) => tplLegal(t, ctx, style));
+  if (!pool.length) pool = ['1 4 1 1'];
+  if (o.avoid) { const p2 = pool.filter((t) => t !== o.avoid); if (p2.length) pool = p2; }
+  if (o.startFunc) {
+    const p2 = pool.filter((t) => parseTok(t.split(' ')[0], ctx).func === o.startFunc);
+    if (p2.length) pool = p2;
+    else { const t = pick(rng, pool).split(' '); const k = t.findIndex((x) => parseTok(x, ctx).func === o.startFunc); return k > 0 ? t.slice(k).concat(t.slice(0, k)).join(' ') : t.join(' '); }
   }
-  if (!fixedForm) {
-    const bp = clamp(style.borrow + (o.borrowAdd || 0), 0, 0.8);
-    for (let i = 1; i < n - k; i++) if (chords[i].diat && rng() < bp * 0.5) { const b = borrowOf(ctx, chords[i], rng); if (b) chords[i] = b; }
-    const sp = clamp(style.sec + (o.secAdd || 0), 0, 0.8);
-    // 从后往前插入副属，保证每个 V/x 的目标和弦不会再被替换
-    for (let i = n - k - 1; i >= 1; i--) {
-      const nx = chords[i + 1];
-      if (nx && nx.diat && nx.step !== 0 && Q[nx.q].cls !== 'd' && Q[nx.q].cls !== 'A' && rng() < sp) chords[i] = secDom(ctx, nx.step);
-    }
+  return pick(rng, pool);
+}
+// 色彩：借用 / 副属 / 三全音替代 —— 按复杂度严格限量
+function colorize(chords, ctx, style, rng, o) {
+  const cx = o.complexity === undefined ? 1 : o.complexity;
+  const bp = cx === 0 ? 0 : clamp((style.borrow + (o.borrowAdd || 0)) * (cx === 1 ? 0.2 : 0.35), 0, 0.25);
+  const sp = cx < 2 ? 0 : clamp((style.sec + (o.secAdd || 0)) * 0.5, 0, 0.3);
+  const tp = cx < 2 ? 0 : style.tri * (cx === 3 ? 0.8 : 0.4);
+  let used = 0; const cap = Math.max(1, Math.floor(chords.length / 4));
+  for (let i = 1; i < chords.length - 1; i++) if (used < cap && chords[i].diat && rng() < bp) { const b = borrowOf(ctx, chords[i], rng); if (b) { chords[i] = b; used++; } }
+  for (let i = chords.length - 2; i >= 1; i--) {
+    const nx = chords[i + 1];
+    if (used < cap && nx && nx.diat && nx.step !== 0 && Q[nx.q].cls !== 'd' && Q[nx.q].cls !== 'A' && chords[i].step !== 0 && rng() < sp) { chords[i] = Object.assign(secDom(ctx, nx.step), { q: Q[chords[i].q].dom ? chords[i].q : '' }); used++; }
   }
-  if (!fixedForm && style.tri > 0) {
-    for (let i = n - 2; i >= 1; i--) {
-      const c = chords[i], nx = chords[i + 1];
-      if (c.dom && Q[c.q].cls === 'M' && (c.tag === '副属' || c.rel === 7) && mod(nx.rel - c.rel, 12) === 5 && nx.tag !== '三全音替代' && chords[i - 1].tag !== '副属' && rng() < style.tri) {
-        chords[i] = tritoneOf(c);
-        if (i === n - 2 && cad) cad.n += '（属和弦用三全音替代）';
+  for (let i = chords.length - 2; i >= 1; i--) {
+    const c = chords[i], nx = chords[i + 1];
+    if (c.dom && Q[c.q].cls === 'M' && (c.tag === '副属' || c.rel === 7) && mod(nx.rel - c.rel, 12) === 5 && chords[i - 1].tag !== '副属' && rng() < tp) chords[i] = tritoneOf(c);
+  }
+}
+// 乐句终止：句尾落主（正格/变格/调式）或停在属（半终止）
+function endPhrase(arr, ctx, style, rng, type) {
+  const n = arr.length; if (n < 2) { if (type === 'half') arr[n - 1] = cadV(ctx); else if (type) arr[n - 1] = tonic(ctx); return null; }
+  if (type === 'half') { if (arr[n - 1].rel !== 7) { arr[n - 1] = cadV(ctx); if (arr[n - 2].rel === 7) arr[n - 2] = dia(ctx, 3); } return { n: '半终止（停在 V）' }; }
+  const lastT = arr[n - 1].rel === 0 && arr[n - 1].diat, pen = arr[n - 2];
+  if (lastT && (pen.rel === 7 || pen.rel === 5 || (pen.rel === 10 && ctxRef(ctx) === 'm'))) return { n: pen.rel === 7 ? '正格终止 V→I' : pen.rel === 5 ? '变格终止 IV→I' : '♭VII→i 终止' };
+  const cd = cadence(ctx, style, rng, type === 'cad' ? null : type);
+  const k = cd.ch.length;
+  for (let i = 0; i < k; i++) arr[n - k + i] = Object.assign({}, cd.ch[i]);
+  if (n >= 3 && arr[n - 3].rel === arr[n - 2].rel) arr[n - 3] = dia(ctx, arr[n - 2].rel === 7 ? (ctxRef(ctx) === 'm' ? 3 : 1) : 5);
+  return cd;
+}
+// 合规化：把未通过规则的生成和弦换成同功能的调内和弦，并打散 3 连同和弦（种子/锁定和弦不动）
+function legalize(chords, ctx, style) {
+  const subs = { T: [0, 5, 2], S: [3, 1, 5], D: [4, 6] };
+  const vamp = style.fixed || /Drone|嗡鸣|放克|Funk|冥想/.test(style.name + style.genre);
+  for (let pass = 0; pass < 3; pass++) {
+    for (let i = 0; i < chords.length; i++) {
+      const c = chords[i]; if (c.seed || c.lock || c.tag === '转调属') continue;
+      const bad = chordIssues(c, chords[i + 1] || null, ctx, style, i === chords.length - 1).length > 0;
+      const run = !vamp && i >= 2 && chords[i - 1].rel === c.rel && chords[i - 2].rel === c.rel && chords[i - 1].q === c.q;
+      if (!bad && !run) continue;
+      const f = c.func && subs[c.func] ? c.func : 'T';
+      for (const st of subs[f]) {
+        const d = dia(ctx, st);
+        if (Q[d.q].cls === 'd' && !(chords[i + 1] && [1, 5].includes(mod(chords[i + 1].rel - d.rel, 12)))) continue;
+        if ((chords[i - 1] && chords[i - 1].rel === d.rel) || (run && d.rel === c.rel)) continue;
+        if (chordIssues(d, chords[i + 1] || null, ctx, style, false).length) continue;
+        chords[i] = Object.assign(d, { done: false }); break;
       }
     }
   }
+}
+const FORMS = { 1: ['A'], 2: ['A', 'A'], 3: ['A', 'A', 'B'], 4: ['A', 'A', 'B', 'A'], 6: ['A', 'A', 'B', 'A', 'B', 'A'], 8: ['A', 'A', 'B', 'A', 'A', 'A', 'B', 'A'] };
+function buildProg(ctx, style, n, rng, o = {}) {
+  if (style.fixed && style.tpl.length && o.tplOK !== false) { // 12 小节布鲁斯等固定曲式
+    const tplUsed = pick(rng, style.tpl), toks = tplUsed.split(' '), chords = [];
+    for (let i = 0; i < n; i++) chords.push(parseTok(toks[i % toks.length], ctx));
+    if (n >= 2) { chords[n - 2] = parseTok('V7', ctx); chords[n - 1] = parseTok(toks[0], ctx); }
+    return { chords, tplUsed, cad: { type: 'blues', n: '布鲁斯回转 V7→I7' }, form: '' };
+  }
+  const P = clamp(o.phrase || 4, 2, 8); // 每个乐句的和弦数（4 小节）
+  const nP = Math.max(1, Math.ceil(n / P));
+  const form = (FORMS[nP] || Array.from({ length: nP }, (_, i) => (i % 4 === 2 ? 'B' : 'A'))).slice();
+  const ta = pickTpl(ctx, style, rng, { startFunc: o.startFunc });
+  let tb = null;
+  const TRI = { maj7: '', m7: 'm', 7: '', m7b5: 'dim', dim7: 'dim' };
+  const mk = (t) => { const base = tplChords(t, ctx).map((c) => (o.complexity === 0 && TRI[c.q] !== undefined && !style.fixed ? Object.assign(c, { q: TRI[c.q], fixedQ: false }) : c)), a = []; for (let i = 0; i < Math.max(P, base.length); i++) a.push(Object.assign({}, base[i % base.length])); colorize(a, ctx, style, rng, o); return a; };
+  let A = mk(ta), B = null, markovUsed = false;
+  if (form.includes('B')) {
+    if (rng() < 0.15) { // 低权重马尔可夫变奏：必须从下属开始、不含减和弦，否则回退模板
+      const m = markov(ctx, style, P, rng, 'S');
+      if (m.every((c) => Q[c.q].cls !== 'd') && m[0].func === 'S') { B = m; markovUsed = true; colorize(B, ctx, style, rng, o); }
+    }
+    if (!B) { tb = pickTpl(ctx, style, rng, { avoid: ta, startFunc: rng() < 0.6 ? 'S' : undefined }); B = mk(tb); }
+  }
+  const chords = []; let cad = null, idx = 0;
+  form.forEach((f, k) => {
+    const src = f === 'A' ? A : B, len = Math.min(P, n - idx), off = f === 'A' && A.length > P ? (form.slice(0, k).filter((x) => x === 'A').length % (A.length / P | 0 || 1)) * P : 0;
+    const ph = []; for (let i = 0; i < len; i++) ph.push(Object.assign({}, src[(off + i) % src.length]));
+    const last = idx + len >= n;
+    if (last && o.end !== 'none') cad = endPhrase(ph, ctx, style, rng, !o.end || o.end === 'cad' ? 'cad' : o.end);
+    else if (!last && f === 'B') endPhrase(ph, ctx, style, rng, 'half');
+    chords.push(...ph); idx += len;
+  });
   repairSecondary(chords, ctx);
-  return { chords, tplUsed, cad };
+  legalize(chords, ctx, style);
+  if (n >= 2 && o.end !== 'none' && o.end !== 'half' && chords[n - 1].rel !== 0) chords[n - 1] = tonic(ctx);
+  if (A.some((c) => c.fixedQ)) { // 模板写明了七和弦：终止式替换进来的和弦也统一为七和弦
+    const sc = MODES[ctx.mode].s;
+    for (const c of chords) if (!c.fixedQ && !c.sec && !c.sub) { c.q = c.dom ? '7' : c.diat && sc[c.step] === c.rel ? diatonicQ(sc, c.step, true) : ({ '': 'maj7', m: 'm7', dim: 'm7b5' }[c.q] || c.q); c.fixedQ = true; }
+  }
+  const nm = { A: 'A', B: 'B' };
+  return { chords, tplUsed: ta + (tb ? ' ／ ' + tb : ''), cad, form: form.map((f) => nm[f]).join(''), markovUsed };
 }
 // 保证每个副属/三全音替代确实解决到下一个和弦（模板循环或终止式替换后可能失配）
 function repairSecondary(chords, ctx) {
@@ -498,19 +634,23 @@ function repairSecondary(chords, ctx) {
 /* ---------- 复杂度 ---------- */
 const COMPLEX = ['三和弦', '七和弦', '九/十一/十三', '变化和弦 (altered)'];
 function applyComplexity(chords, ctx, style, level, rng, susAdd) {
-  const s = MODES[ctx.mode].s;
+  const s = MODES[ctx.mode].s, memo = applyComplexity.memo && applyComplexity.memoCtx === ctx ? applyComplexity.memo : new Map();
+  applyComplexity.memo = memo; applyComplexity.memoCtx = ctx;
   for (const c of chords) {
     if (c.fixedQ || c.seed || c.done) continue;
     c.done = true;
+    const key = c.rel + '|' + c.q + '|' + (c.tag || '') + '|' + c.func;
+    if (memo.has(key)) { c.q = memo.get(key); continue; } // 同一和弦在全曲保持同一色彩，乐句重复才听得出来
     let L = level;
     if (L > 0 && rng() < 0.2) L--;
     const cls = Q[c.q].cls;
     let q = c.q;
     if (L >= 1) {
       if (c.diat && !c.dom) {
-        const useNat = (ctx.mode === 'harmonic' && c.step !== 4 && c.step !== 6) || (ctx.mode === 'melodic' && ![3, 4, 6].includes(c.step));
-        const sc = useNat && MODES.minor.s[c.step] === c.rel ? MODES.minor.s : s;
-        q = diatonicQ(sc, c.step, true);
+        // 七和弦性质取自真正包含该根音的音阶（和声/旋律小调中借自自然小调的级数用自然小调）
+        const sc = s[c.step] === c.rel ? s : MODES.minor.s[c.step] === c.rel ? MODES.minor.s : null;
+        q = sc ? diatonicQ(sc, c.step, true) : ({ M: 'maj7', m: 'm7', d: 'm7b5' }[cls] || q);
+        if (Q[q].cls !== cls) q = { M: 'maj7', m: 'm7', d: 'm7b5' }[cls] || c.q;
       }
       else if (cls === 'M') q = c.dom || c.rel === 10 ? '7' : 'maj7';
       else if (cls === 'm') q = 'm7';
@@ -519,16 +659,16 @@ function applyComplexity(chords, ctx, style, level, rng, susAdd) {
       if (c.dom && Q[q].cls === 'M') q = '7';
     }
     if (L >= 2) {
-      const up = { maj7: ['maj9', 'maj9', '69', 'maj7'], 7: ['9', '13', '9'], m7: ['m9', 'm11', 'm9'] };
+      const up = { maj7: ['maj9', 'maj7', 'maj9', '69'], 7: ['9', '7', '9', '13'], m7: ['m9', 'm7', 'm9', 'm11'] };
       if (up[q]) q = pick(rng, up[q]);
       if (ctx.mode === 'lydian' && c.rel === 0 && q.startsWith('maj')) q = 'maj7#11';
     }
     if (L >= 3 && Q[q].dom && c.rel !== 0 && c.rel !== 10) q = pick(rng, ['7b9', '7#9', '7alt', '7#11', '13', '7b13']);
     if (L === 0 && style.penta && cls === 'M' && rng() < 0.3) q = pick(rng, ['add9', 'sus2', '6']);
-    if (cls === 'M' && !c.sub && q === (L >= 1 ? q : '') && rng() < (style.sus + (susAdd || 0)) * (c.rel === 0 ? 0.4 : 1)) {
+    if (cls === 'M' && !c.sub && q === (L >= 1 ? q : '') && rng() < (style.sus + (susAdd || 0)) * 0.4 * (c.rel === 0 ? 0.3 : 1)) {
       q = Q[q].dom ? (L >= 1 ? '7sus4' : 'sus4') : (L >= 1 ? q : pick(rng, ['sus2', 'sus4']));
     }
-    c.q = q;
+    c.q = q; memo.set(key, q);
   }
 }
 /* ---------- 实现与声部进行 ---------- */
@@ -548,49 +688,122 @@ function chordName(c) {
   else if (c.bass > 0) { const t = Q[c.q].t[c.bass]; n += '/' + spell(c.pc + t[0], c.letter + t[1]); }
   return n;
 }
-function voiceAll(list, style, rng) {
-  let prevU = null, prevB = null;
-  list.forEach((c, i) => {
-    const T = Q[c.q].t;
-    let tones = T.map((x) => x[0]);
-    if (tones.length > 4) tones = tones.filter((x) => x !== 7);
-    const pcs = tones.map((x) => mod(c.pc + x, 12));
+/* ---------- 声部进行规则（见 docs/theory-rules.md §4） ---------- */
+// 上一和弦各声部 → 当前和弦各声部的对应：音数相同按音高顺序配对，否则就近配对
+function voiceMap(prevU, curU) {
+  const A = prevU.slice().sort((x, y) => x - y), B = curU.slice().sort((x, y) => x - y);
+  if (A.length === B.length) { // 最小总移动的对应（等价于最平滑的声部进行解释）
     let best = null, bc = 1e9;
-    for (let r = 0; r < pcs.length; r++) {
-      for (const lo of [52, 57, 62]) {
-        const rot = pcs.slice(r).concat(pcs.slice(0, r));
-        let cur = lo + mod(rot[0] - lo, 12); const notes = [cur];
-        for (let k = 1; k < rot.length; k++) { cur = cur + (mod(rot[k] - cur, 12) || 12); notes.push(cur); }
-        if (notes[notes.length - 1] > 81) continue;
-        let cost = 0;
-        if (prevU) {
-          for (const nn of notes) cost += Math.min(...prevU.map((p) => Math.abs(p - nn)));
-          for (const p of prevU) cost += Math.min(...notes.map((nn) => Math.abs(p - nn)));
-        } else cost = Math.abs(notes[0] - 57) + (r ? 2 : 0);
-        cost += Math.abs((notes[0] + notes[notes.length - 1]) / 2 - 64) * 0.15 + rng() * 0.5;
-        if (cost < bc) { bc = cost; best = notes; }
-      }
+    const perm = (arr, used, acc) => {
+      if (acc.length === A.length) { const c = acc.reduce((t, n, i) => t + Math.abs(n - A[i]), 0); if (c < bc) { bc = c; best = acc.slice(); } return; }
+      for (let i = 0; i < B.length; i++) if (!used[i]) { used[i] = true; acc.push(B[i]); perm(arr, used, acc); acc.pop(); used[i] = false; }
+    };
+    perm(B, [], []);
+    return A.map((p, i) => [p, best[i]]);
+  }
+  return A.map((p) => [p, B.reduce((m, n) => (Math.abs(n - p) < Math.abs(m - p) ? n : m), B[0])]);
+}
+// 返回声部进行违规列表：平行/反向五度八度、属七和弦七音与导音未解决
+function vlIssues(pc, cc, pU, pB, cU, cB) {
+  const out = [];
+  if (pc.pc === cc.pc && pc.q === cc.q && pB === cB) return out;
+  const pairs = voiceMap(pU, cU), voices = [[pB, cB]].concat(pairs);
+  for (let i = 0; i < voices.length; i++) for (let j = i + 1; j < voices.length; j++) {
+    const [a1, a2] = voices[i], [b1, b2] = voices[j];
+    if (a1 === a2 || b1 === b2) continue; // 至少一个声部保持则不构成平行
+    const i1 = mod(a1 - b1, 12), i2 = mod(a2 - b2, 12);
+    if (i1 === i2 && (i1 === 0 || i1 === 7) && a1 !== b1) out.push(i1 === 7 ? '平行/反向五度' : '平行/反向八度');
+  }
+  const T = Q[pc.q].t.map((x) => x[0]);
+  if (pc.dom && T.includes(4) && mod(cc.pc - pc.pc, 12) === 5) { // 属→主（含副属）
+    const top = Math.max(...pU), nextPcs = Q[cc.q].t.map((x) => mod(cc.pc + x[0], 12));
+    for (const [p, n] of pairs) {
+      const rel = mod(p - pc.pc, 12), d = n - p;
+      const rootInUpper = cU.some((x) => mod(x, 12) === cc.pc);
+      if (rel === 4 && !(d === 1 || (!rootInUpper && Math.abs(d) <= 2) || (p !== top && (d === -3 || d === -4)) || (d === 0 && nextPcs.includes(mod(p, 12))) || (d === -1 && Q[cc.q].t.some((x) => x[0] === 10 || x[0] === 11)))) out.push('导音未解决');
+      if (rel === 10 && !(d === -1 || d === -2 || (d === 0 && nextPcs.includes(mod(p, 12))))) out.push('七音未下行解决');
     }
-    c.upper = best; prevU = best;
-    const next = list[i + 1];
+  }
+  return out;
+}
+const UP_LO = 52, UP_HI = 79, BASS_LO = 40;
+function upperPcs(c) {
+  const T = Q[c.q].t;
+  let tones = T.map((x) => x[0]);
+  if (tones.length > 4) tones = tones.filter((x) => x !== 7); // 延伸和弦省略五音
+  if (tones.length > 4) tones = tones.filter((x) => x !== 0); // 仍多于 4 音则省略根音（低音已有）
+  return tones.map((x) => mod(c.pc + x, 12));
+}
+function closeVoicings(pcs0) {
+  const pcs = [...new Set(pcs0)].sort((a, b) => a - b);
+  const out = [];
+  for (let r = 0; r < pcs.length; r++) {
+    const rot = pcs.slice(r).concat(pcs.slice(0, r));
+    for (let lo = UP_LO; lo < UP_LO + 16; lo++) {
+      if (mod(lo, 12) !== rot[0]) continue;
+      let cur = lo; const notes = [cur];
+      for (let k = 1; k < rot.length; k++) { cur += mod(rot[k] - cur, 12) || 12; notes.push(cur); }
+      if (notes[notes.length - 1] <= UP_HI) out.push(notes);
+    }
+  }
+  return out;
+}
+function moveCost(a, b) {
+  let tot = 0, mx = 0;
+  for (const [p, n] of voiceMap(a, b)) { const d = Math.abs(p - n); tot += d; mx = Math.max(mx, d); }
+  return { tot, mx };
+}
+function voiceAll(list, style, rng, strict) {
+  // 1) 低音：原位为主，转位仅在带来级进时使用
+  let prevB = null;
+  const nearOct = (pc) => BASS_LO + mod(pc - BASS_LO, 12);
+  list.forEach((c, i) => {
+    const T = Q[c.q].t, next = list[i + 1];
     const edge = i === 0 || !next || next.section !== c.section || (list[i - 1] && list[i - 1].section !== c.section);
     const cand = [0];
-    if (!edge && Q[c.q].cls !== 'd') for (let k = 1; k < T.length; k++) if ([2, 4, 6].includes(T[k][1])) cand.push(k);
-    const pen = { 2: 3, 4: 5, 6: 6 };
-    let bb = 0, bcost = 1e9, bnote = 0;
+    if (!edge && Q[c.q].cls !== 'd' && style.slash > 0.15) for (let k = 1; k < Math.min(3, T.length); k++) if (!(k === 1 && (c.dom || c.rel === 7))) cand.push(k);
+    let bb = 0, bnote = nearOct(c.pc), bcost = 1e9;
     for (const k of cand) {
-      const pc = mod(c.pc + T[k][0], 12);
-      const note = 38 + mod(pc - 38, 12);
-      const cost = (prevB === null ? 0 : Math.abs(note - prevB)) + (k ? pen[T[k][1]] : 0) * (1.6 - style.slash) * 1.6 + rng();
+      const note = nearOct(c.pc + T[k][0]), step = prevB === null ? 0 : Math.abs(note - prevB);
+      let cost = k === 0 ? 0 : 6 * (1.3 - style.slash);
+      if (k > 0 && step > 2) cost += 50;
+      cost += step * 0.25 + rng() * 0.3;
       if (cost < bcost) { bcost = cost; bb = k; bnote = note; }
     }
-    if (c.seedBass !== undefined && c.seedBass < T.length) { bb = c.seedBass; bnote = 38 + mod(c.pc + T[bb][0] - 38, 12); }
-    if (c.lb !== undefined && c.lb < T.length) { bb = c.lb; bnote = 38 + mod(c.pc + T[bb][0] - 38, 12); }
-    if (c.xb) { bb = 0; bnote = 38 + mod(c.xbPc - 38, 12); }
+    if (c.seedBass !== undefined && c.seedBass < T.length) { bb = c.seedBass; bnote = nearOct(c.pc + T[bb][0]); }
+    if (c.lb !== undefined && c.lb < T.length) { bb = c.lb; bnote = nearOct(c.pc + T[bb][0]); }
+    if (c.xb) { bb = 0; bnote = nearOct(c.xbPc); }
     c.bass = bb; c.bassNote = bnote; prevB = bnote;
-    while (Math.min(...c.upper) <= bnote + 2) c.upper = c.upper.map((x) => x + 12);
-    c.name = chordName(c);
   });
+  // 2) 上方声部：对整条进行做动态规划（Viterbi），代价 = 声部移动 + 违规惩罚，保证全局最平滑且合规
+  const C = list.map((c) => {
+    let v = closeVoicings(upperPcs(c)).filter((x) => x[0] > c.bassNote + 4);
+    if (!v.length) v = closeVoicings(upperPcs(c)).map((x) => (x[0] > c.bassNote + 4 ? x : x.map((y) => y + 12)));
+    return v;
+  });
+  const pen = strict ? 1000 : 80;
+  let dp = C[0].map((v) => ({ cost: Math.abs((v[0] + v[v.length - 1]) / 2 - 62) * 0.8 + rng() * 0.2, back: -1 }));
+  const backs = [dp];
+  for (let i = 1; i < list.length; i++) {
+    const p = list[i - 1], c = list[i], cur = [];
+    for (const v of C[i]) {
+      const mid = (v[0] + v[v.length - 1]) / 2;
+      let bc = 1e12, bj = 0;
+      C[i - 1].forEach((u, j) => {
+        let t = dp[j].cost;
+        if (p.section === c.section || true) {
+          const m = moveCost(u, v); t += m.tot + Math.max(0, m.mx - 4) * 3 + (m.mx > 7 ? 500 : 0) + (u.length === v.length && Math.max(...v.map((n, k) => Math.abs(n - u[k]))) > 7 ? 500 : 0);
+          t += vlIssues(p, c, u, p.bassNote, v, c.bassNote).length * pen;
+        }
+        if (t < bc) { bc = t; bj = j; }
+      });
+      cur.push({ cost: bc + Math.abs(mid - 63) * 0.12 + rng() * 0.2, back: bj });
+    }
+    dp = cur; backs.push(dp);
+  }
+  let j = dp.reduce((bi, x, k) => (x.cost < dp[bi].cost ? k : bi), 0);
+  for (let i = list.length - 1; i >= 0; i--) { list[i].upper = C[i][j]; j = backs[i][j].back; }
+  list.forEach((c) => (c.name = chordName(c)));
 }
 
 /* ---------- 设置解析 ---------- */
@@ -608,14 +821,16 @@ function resolve(o, rng) {
   if (isSet(o.mode)) r.mode = o.mode;
   else {
     const w = {};
-    for (const k of Object.keys(MODES)) { const base = st.modes[k] || ((md.m[k] || 0) > 1.2 ? 0.25 : 0); w[k] = base * (md.m[k] || 1); }
+    // 默认以自然大/小调为主；调式色彩只在风格本身需要时出现，且情绪只能调整、不能凭空引入
+    for (const k of Object.keys(MODES)) { const base = st.modes[k] || 0; const tame = k === 'major' || k === 'minor' ? 1 : k === 'harmonic' || k === 'melodic' ? 0 : 0.35; w[k] = base * tame * Math.min(1.6, Math.max(0.5, md.m[k] || 1)); }
+    if ((st.modes.harmonic || 0) + (st.modes.melodic || 0) > 0) w.minor = (w.minor || 0) + (st.modes.harmonic || 0) + (st.modes.melodic || 0);
     if (st.penta) for (const k of Object.keys(w)) if (!['major', 'minor'].includes(k)) w[k] = 0;
     if (!Object.values(w).some((x) => x > 0)) w.major = 1;
     r.mode = wpick(rng, w);
   }
   r.tonic = isSet(o.key) ? mod(+o.key, 12) : Math.floor(rng() * 12);
-  r.meter = isSet(o.meter) ? o.meter : pick(rng, st.meters);
-  if (isSet(o.bpm)) r.bpm = clamp(+o.bpm, 40, 220);
+  r.meter = isSet(o.meter) ? o.meter : st.meters.includes('4/4') ? '4/4' : st.meters[0];
+  if (isSet(o.bpm)) r.bpm = clamp(+o.bpm, 20, 300);
   else {
     let lo = st.tempo[0] * md.tempo, hi = st.tempo[1] * md.tempo;
     const span = hi - lo;
@@ -623,13 +838,14 @@ function resolve(o, rng) {
     r.bpm = clamp(Math.round(lo + rng() * (hi - lo)), 40, 220);
   }
   r.feel = r.bpm < 80 ? '慢' : r.bpm < 125 ? '中' : '快';
-  r.bars = isSet(o.bars) ? clamp(+o.bars, 1, 64) : (st.fixed ? pick(rng, [12, 12, 24]) : pick(rng, [4, 8, 8, 8, 16]));
-  r.complexity = isSet(o.complexity) ? clamp(+o.complexity, 0, 3) : clamp(Math.round(st.ext + md.t * rng() + (rng() - 0.5) * 0.8), 0, 3);
+  r.bars = isSet(o.bars) ? clamp(+o.bars, 1, 64) : (st.fixed ? 12 : pick(rng, [8, 8, 8, 16]));
+  // 默认复杂度保守：大多数风格三和弦/七和弦；只有爵士类默认九和弦，变化和弦需手动开启
+  r.complexity = isSet(o.complexity) ? clamp(+o.complexity, 0, 3) : st.ext >= 2 ? (rng() < 0.6 ? 2 : 1) : st.ext === 1 ? (rng() < 0.5 ? 1 : 0) : 0;
   if (isSet(o.hr)) r.hr = +o.hr;
   else {
-    const w = Object.assign({}, st.hr);
-    if (r.bpm > 150) { w[2] = (w[2] || 0) * 0.3; w[0.5] = (w[0.5] || 0) + 0.5; }
-    if (r.bpm < 75) w[2] = (w[2] || 0) + 1;
+    const w = Object.assign({}, st.hr); delete w[4];
+    if (r.bpm > 140) { w[2] = 0; w[0.5] = (w[0.5] || 0) + 0.3; }
+    w[1] = (w[1] || 0) + 2; // 每小节一个和弦最自然
     r.hr = +wpick(rng, w);
   }
   if (r.hr === 0.5 && r.bars % 2) r.hr = 1;
@@ -683,20 +899,20 @@ function describeChords(chords, ctx) {
 }
 
 /* ---------- 模式一：随机生成 ---------- */
-function generate(o = {}) {
+function generateRaw(o = {}) {
   const seed = o.seed !== undefined ? o.seed : Math.floor(Math.random() * 2 ** 31);
   const rng = mkRng(seed);
   const r = resolve(o, rng), st = r.style, md = MOODS[r.mood];
   const ctx = { tonic: r.tonic, mode: r.mode };
   const n = Math.max(2, Math.round(r.bars * r.hr));
-  const p = buildProg(ctx, st, n, rng, { borrowAdd: md.borrow, secAdd: md.sec });
+  const p = buildProg(ctx, st, n, rng, { borrowAdd: md.borrow, secAdd: md.sec, complexity: r.complexity, phrase: Math.max(2, Math.round(4 * r.hr)) });
   applyComplexity(p.chords, ctx, st, r.complexity, rng, md.sus);
   const song = { kind: 'random', seed, style: st, meter: r.meter, bpm: r.bpm, hr: r.hr, settings: settingsOut(r), sections: [{ name: '和弦进行', tonic: ctx.tonic, mode: ctx.mode, chords: p.chords }] };
   finalize(song, rng);
   const ex = [];
   ex.push(`调性：${keyName(ctx.tonic, ctx.mode)} ${MODES[ctx.mode].n}；风格：${st.genre} › ${st.name}；情绪：${r.mood}（${md.d}）。`);
   if (st.desc) ex.push(st.desc);
-  ex.push(p.tplUsed ? `以风格模板「${p.tplUsed}」为骨架（数字=调内级数），再按风格/情绪概率做借用、副属等替换。` : '使用 主(T)→下属(S)→属(D)→主(T) 的功能和声马尔可夫链加权生成，并突出调式特征和弦。');
+  ex.push(`以精选常用进行「${p.tplUsed}」为骨架${p.form ? `，按 4 小节乐句组织为 ${p.form} 曲式（重复建立记忆点，B 句对比并停在属和弦）` : ''}${p.markovUsed ? '；B 句用功能和声（T→S→D）做少量变奏' : ''}。借用/副属等色彩和弦按复杂度限量使用。`);
   if (p.cad) ex.push('结尾：' + p.cad.n + '。');
   ex.push(...describeChords(song.flat, ctx));
   ex.push(`复杂度：${COMPLEX[r.complexity]}；和声节奏：每小节 ${r.hr} 个和弦；拍号 ${r.meter}，${r.bpm} BPM（${r.feel}）；伴奏型：${PATTERNS[st.pat]}。`);
@@ -771,7 +987,7 @@ const SECTION_PLANS = {
 };
 const SECTION_CN = { Intro: '前奏 Intro', Verse: '主歌 Verse', 'Pre-chorus': '导歌 Pre-chorus', Chorus: '副歌 Chorus', Bridge: '桥段 Bridge', Interlude: '间奏 Interlude', Outro: '尾奏 Outro' };
 const cp = (c) => Object.assign({}, c);
-function expand(o = {}) {
+function expandRaw(o = {}) {
   const seed = o.seed !== undefined ? o.seed : Math.floor(Math.random() * 2 ** 31);
   const rng = mkRng(seed);
   const parsed = parseSeeds(o.seeds || '');
@@ -786,17 +1002,29 @@ function expand(o = {}) {
   const r = resolve(Object.assign({}, o, { key: tonicPc, mode }), rng);
   const st = Object.assign({}, r.style, { fixed: false }), md = MOODS[r.mood];
   const ctx = { tonic: tonicPc, mode };
-  const B = clamp(isSet(o.bars) ? +o.bars : pick(rng, [4, 8]), 2, 16);
+  const B = clamp(isSet(o.bars) ? +o.bars : 8, 2, 16);
   r.bars = B;
-  let hr = r.hr; if (hr === 0.5 && B % 2) hr = 1; r.hr = hr;
+  let hr = isSet(o.hr) ? r.hr : 1; if (hr === 0.5 && B % 2) hr = 1; r.hr = hr;
   const plan = SECTION_PLANS[o.length] || SECTION_PLANS['标准'];
   const modulate = o.modulate !== false && o.modulate !== 'false';
-  const seeds = parsed.chords.map((c) => seedToRel(c, ctx));
+  const seedsOrig = parsed.chords.map((c) => seedToRel(c, ctx));
+  // 种子不足 4 个和弦时，用精选进行补全为 4 和弦动机（种子在前），避免整段只重复一个和弦
+  let seeds = seedsOrig;
+  if (seedsOrig.length < 4) {
+    const t = pickTpl(ctx, st, rng, { startFunc: seedsOrig[0].func === 'D' ? 'T' : seedsOrig[0].func });
+    let tc = tplChords(t, ctx);
+    const k = tc.findIndex((c) => c.rel === seedsOrig[seedsOrig.length - 1].rel);
+    if (k >= 0 && k < 3) tc = tc.slice(k + 1).concat(tc.slice(0, k + 1));
+    const add = tc.filter((c) => !seedsOrig.some((x) => x.rel === c.rel && Q[x.q].cls === Q[c.q].cls));
+    while (add.length && seeds.length < 4) seeds = seeds.concat([add.shift()]);
+    if (seeds.length < 4) seeds = seeds.concat(tc).slice(0, 4);
+    if (seeds !== seedsOrig) applyComplexity(seeds.slice(seedsOrig.length), ctx, st, r.complexity, rng, md.sus);
+  }
   const slots = (bars) => { let b = Math.max(1, bars); if (hr === 0.5 && b % 2) b++; return Math.max(2, Math.round(b * hr)); };
   const loop = (n) => { const a = []; for (let i = 0; i < n; i++) a.push(cp(seeds[i % seeds.length])); return a; };
   const minorish = MODES[mode].ref === 'm' && !['minor', 'harmonic', 'melodic'].includes(mode);
   const cadEnd = (arr, type) => { const cd = cadence(ctx, st, rng, type); const k = Math.min(cd.ch.length, arr.length); for (let i = 0; i < k; i++) arr[arr.length - k + i] = cp(cd.ch[cd.ch.length - k + i]); return cd; };
-  const gen = (n, oo) => { const p = buildProg(ctx, st, n, rng, Object.assign({ tplOK: false, borrowAdd: md.borrow, secAdd: md.sec }, oo)); applyComplexity(p.chords, ctx, st, r.complexity, rng, md.sus); return p; };
+  const gen = (n, oo) => { const p = buildProg(ctx, st, n, rng, Object.assign({ tplOK: false, borrowAdd: md.borrow, secAdd: md.sec, complexity: r.complexity, phrase: Math.max(2, Math.round(4 * hr)) }, oo)); applyComplexity(p.chords, ctx, st, r.complexity, rng, md.sus); return p; };
   const fill = (arr) => applyComplexity(arr, ctx, st, r.complexity, rng, md.sus);
   const subst = { 0: 5, 5: 0, 3: 1, 1: 3, 2: 0 };
   const sections = [];
@@ -817,10 +1045,10 @@ function expand(o = {}) {
     } else if (name === 'Chorus') {
       if (!chorusBase) {
         const v = rng();
-        if (v < 0.4 && seeds.length > 1) {
+        if (v < 0.45 && seeds.length > 1) {
           let k = seeds.findIndex((c) => c.func === 'S'); if (k <= 0) k = 1;
           chorusBase = seeds.slice(k).concat(seeds.slice(0, k)).map(cp); chorusNote = `副歌将种子和弦轮转（从第 ${k + 1} 个和弦开始），换一个功能起点提升能量。`;
-        } else if (v < 0.75) {
+        } else if (v < 0.6) {
           chorusBase = [];
           seeds.forEach((c, k) => {
             const t = subst[c.step], prevStep = k ? chorusBase[k - 1].step : -1, nextStep = seeds[(k + 1) % seeds.length].step;
@@ -842,7 +1070,7 @@ function expand(o = {}) {
         if (prev) { prev.chords[prev.chords.length - 1] = { rel: 9, step: 5, q: '7', fixedQ: true, dom: true, func: 'D', tag: '转调属' }; prev.note += ' 末尾 V7/新调 引出转调。'; }
       }
     } else if (name === 'Bridge') {
-      const p = gen(n, { startFunc: 'S', end: 'half', borrowAdd: md.borrow + 0.3 });
+      const p = gen(n, { startFunc: 'S', end: 'half', borrowAdd: md.borrow + 0.15 });
       if (n > 2 && rng() < 0.6) { p.chords[0] = dia(ctx, 5); fill([p.chords[0]]); }
       sec.chords = p.chords; sec.note = '桥段离开主和弦，转向 vi/借用和弦的对比色彩，最后停在属和弦等待解决。';
     } else {
@@ -851,12 +1079,20 @@ function expand(o = {}) {
     }
     sections.push(sec);
   });
+  sections.forEach((sec, si) => {
+    const sctx = { tonic: sec.tonic, mode: sec.mode };
+    legalize(sec.chords, sctx, st);
+    const last = sec.chords[sec.chords.length - 1];
+    if (si < sections.length - 1 && !(last.rel === 0 || last.func === 'D' || last.func === 'T' || last.tag === '转调属')) sec.chords[sec.chords.length - 1] = cadV(sctx);
+    applyComplexity(sec.chords, sctx, st, r.complexity, rng, md.sus);
+  });
   const song = { kind: 'expand', seed, style: st, meter: r.meter, bpm: r.bpm, hr, settings: settingsOut(Object.assign(r, { tonic: tonicPc, mode })), sections, inference: inf.slice(0, 6), autoKey: auto, seedsParsed: parsed };
   finalize(song, rng);
   const ex = [];
   ex.push(`输入种子：${parsed.chords.map((c) => c.text).join(' ')}${parsed.bad.length ? '（无法识别，已忽略：' + parsed.bad.join(' ') + '）' : ''}。`);
   ex.push(`调性推断（得分）：${inf.slice(0, 3).map((x) => `${x.name}（${x.score}）`).join('、')}；${auto ? '自动' : '手动指定'}采用 ${keyName(tonicPc, mode)} ${MODES[mode].n}。`);
-  ex.push('种子和弦分析：' + seeds.map((c, i) => { const x = realize(cp(c), ctx); return `${parsed.chords[i].text} = ${x.roman}（${FUNC_CN[c.func] || c.func}${c.tag ? '·' + c.tag : ''}）`; }).join('；') + '。');
+  ex.push('种子和弦分析：' + seedsOrig.map((c, i) => { const x = realize(cp(c), ctx); return `${parsed.chords[i].text} = ${x.roman}（${FUNC_CN[c.func] || c.func}${c.tag ? '·' + c.tag : ''}）`; }).join('；') + '。');
+  if (seeds !== seedsOrig) ex.push('种子较短，已用常用进行补全为 4 和弦动机：' + seeds.map((c) => realize(cp(c), ctx).roman).join(' – ') + '。');
   ex.push(`风格：${st.genre} › ${st.name}；情绪：${r.mood}（${md.d}）；结构：${plan.join(' – ')}。`);
   if (st.desc) ex.push(st.desc);
   ex.push(...describeChords(song.flat, ctx));
@@ -864,6 +1100,74 @@ function expand(o = {}) {
   song.explanation = ex;
   return song;
 }
+/* ---------- 乐理校验器：所有生成 / 随机 / 扩展结果必须通过（规则见 docs/theory-rules.md） ---------- */
+const LICENSED = ['借用', '和声小调属', '副属', '三全音替代', '调式特征', '转调属'];
+// 允许的平行调借用（以大调为参照的根音半音数 + 性质）：iv、♭VI、♭VII、♭III、ii°、v（大调中）；小调中：IV、V、♭II（那不勒斯）
+const BORROW_OK = { M: ['5m', '8', '10', '3', '2dim', '7m', '5m7', '8maj7', '10 7', '107', '3maj7', '2m7b5'], m: ['5', '7', '1', '57', '77', '1maj7'] };
+function chordIssues(c, nx, ctx, style, isLastOfSong) {
+  const out = [];
+  const cls = Q[c.q].cls, ref = MODES[ctx.mode].ref;
+  if (!c.diat && !c.seed && !style.fixed) {
+    if (!LICENSED.includes(c.tag)) out.push(`非调内和弦未经许可：${c.name || c.rel}`);
+    if (c.tag === '借用') {
+      const s = MODES[ctx.mode].s, natQ = s.includes(c.rel) ? null : null; void natQ;
+      const key = c.rel + (cls === 'm' ? 'm' : cls === 'd' ? 'dim' : '');
+      const keyQ = c.rel + c.q;
+      const okList = BORROW_OK[ref];
+      if (!okList.includes(key) && !okList.includes(keyQ) && !(ref === 'm' && c.rel === 0 && cls === 'M' && isLastOfSong)) out.push(`借用和弦不在常用范围：${c.name}`);
+    }
+  }
+  if (nx && !c.seed) {
+    const d = mod(nx.rel - c.rel + (nx.tonicShift || 0), 12);
+    if (c.tag === '副属' && (d !== 5 || ['d', 'A'].includes(Q[nx.q].cls))) out.push(`副属未解决到下方五度的大/小三和弦：${c.name}→${nx.name}`);
+    if (c.tag === '三全音替代' && d !== 11) out.push(`三全音替代未半音下行解决：${c.name}→${nx.name}`);
+    if (/古典|Classical/.test(style.genre) && c.rel === 7 && c.func === 'D' && nx.func === 'S' && !nx.seed) out.push(`古典风格禁止属→下属倒退：${c.name}→${nx.name}`);
+    if (cls === 'd' && !c.seed && !(ctx.mode === 'locrian' && c.rel === 0) && ![1, 5].includes(d) && !(Q[c.q].sym === 'dim7' && d === 0)) out.push(`减和弦未按导音(上行半音)或 ii°→V 解决：${c.name}→${nx.name}`);
+  }
+  return out;
+}
+function validate(song) {
+  const issues = [], st = song.style, flat = song.flat;
+  const vamp = st.fixed || /Drone|嗡鸣|放克|Funk|冥想/.test(st.name + st.genre);
+  song.sections.forEach((sec, si) => {
+    const ctx = { tonic: sec.tonic, mode: sec.mode };
+    sec.chords.forEach((c, k) => {
+      const gi = flat.indexOf(c), nx = flat[gi + 1];
+      const nxRel = nx ? Object.assign({}, nx, { tonicShift: mod(song.sections[nx.section].tonic - sec.tonic, 12) }) : null;
+      issues.push(...chordIssues(c, nxRel, ctx, st, gi === flat.length - 1).map((x) => `[${sec.name}#${k + 1}] ${x}`));
+      if (!vamp && k >= 2 && sec.chords[k - 1].name === c.name && sec.chords[k - 2].name === c.name && !c.seed) issues.push(`[${sec.name}#${k + 1}] 同一和弦连续 3 次以上`);
+    });
+    const last = sec.chords[sec.chords.length - 1];
+    const endOK = last.rel === 0 || last.func === 'D' || last.tag === '转调属' || last.seed || (si < song.sections.length - 1 && last.func === 'T');
+    if (!endOK) issues.push(`[${sec.name}] 段落结尾既非主功能也非属功能（无终止感）`);
+  });
+  const fin = flat[flat.length - 1];
+  if (fin && fin.rel !== 0) issues.push('全曲未结束在主和弦');
+  if (flat.length >= 2 && !st.fixed) { const pen = flat[flat.length - 2]; if (!(['D', 'S'].includes(pen.func) || pen.tag === '调式特征' || pen.rel === 10 || pen.seed)) issues.push('终止前和弦不是属/下属/调式特征和弦'); }
+  for (let i = 0; i < flat.length; i++) {
+    const c = flat[i];
+    if (Math.min(...c.upper) < UP_LO || Math.max(...c.upper) > UP_HI + 12) issues.push(`音域越界 ${c.name}`);
+    if (Math.max(...c.upper) - Math.min(...c.upper) > 12) issues.push(`上方声部间距超过八度 ${c.name}`);
+    if (c.bassNote < BASS_LO || c.bassNote >= BASS_LO + 12 || Math.min(...c.upper) - c.bassNote < 5 || Math.min(...c.upper) - c.bassNote > 24) issues.push(`低音位置/间距不当 ${c.name}`);
+    if (i && flat[i - 1].section === c.section) for (const x of vlIssues(flat[i - 1], c, flat[i - 1].upper, flat[i - 1].bassNote, c.upper, c.bassNote)) issues.push(`${flat[i - 1].name}→${c.name} ${x}`);
+  }
+  return issues;
+}
+// 生成 → 校验；不通过先用严格声部进行重排，再换种子重生成
+function validated(raw, o) {
+  const base = o.seed !== undefined ? o.seed : Math.floor(Math.random() * 2 ** 31);
+  let song = null, issues = null;
+  for (let k = 0; k < 40; k++) {
+    song = raw(Object.assign({}, o, { seed: (base + k * 7919) >>> 0 }));
+    issues = validate(song);
+    if (issues.length) { voiceAll(song.flat, song.style, mkRng(song.seed ^ 0x9e3779b9), true); issues = validate(song); }
+    if (!issues.length) { song.validation = { ok: true, tries: k + 1 }; return song; }
+  }
+  song.validation = { ok: false, issues };
+  return song;
+}
+function generate(o = {}) { return validated(generateRaw, o); }
+function expand(o = {}) { if (!parseSeeds(o.seeds || '').chords.length) throw new Error('无法识别输入的和弦：' + (o.seeds || '（空）')); return validated(expandRaw, o); }
 /* ---------- 节奏型与事件 ---------- */
 const PATTERNS = { block: '柱式和弦', pulse: '八分音符脉冲', arp: '分解和弦', pad: '长音铺底', swing: '摇摆走路贝斯', skank: '反拍 skank', shuffle: '布鲁斯 shuffle', drive: '八分音符强力推进', strum: '民谣扫弦', funk: '十六分切分', latin: '拉丁切分', bossa: '波萨诺瓦', boom: 'Boom-bap 律动', alberti: '阿尔贝蒂低音', waltz: '圆舞曲 嘭-嚓-嚓' };
 function chordEvents(c, start, dur, meter, pat, out) {
@@ -893,7 +1197,7 @@ function chordEvents(c, start, dur, meter, pat, out) {
       if (M.d === 8) { for (let t = start; t < end; t += 3) { add(t, 2, U, 0.55, 'chord'); add(t + 2, 1, U, 0.4, 'chord'); add(t, 2, [B], 0.6, 'bass'); add(t + 2, 1, [B + 7], 0.45, 'bass'); } }
       else for (let t = start; t < end; t += 1) { add(t, 0.6, U, 0.55, 'chord'); add(t + 2 / 3, 0.3, U, 0.4, 'chord'); add(t, 0.6, [B], 0.6, 'bass'); add(t + 2 / 3, 0.3, [mod(Math.floor(t), 2) ? B + 9 : B + 7], 0.45, 'bass'); }
       break;
-    case 'drive': for (let t = start; t < end; t += sub) add(t, sub * 0.9, [B], 0.7, 'bass'); add(start, dur, [U[0], U[0] + 7, U[0] + 12], 0.5, 'chord'); break;
+    case 'drive': { const r = 52 + mod(c.pc - 52, 12); for (let t = start; t < end; t += sub) add(t, sub * 0.9, [B], 0.7, 'bass'); add(start, dur, Q[c.q].t.some((x) => x[0] === 7) ? [r, r + 7, r + 12] : U, 0.5, 'chord'); break; }
     case 'strum': { const h = M.d === 4 ? [0, 1, 1.5, 2.5, 3, 3.5] : [0, 2, 3, 5]; for (let b = start; b < end; b += L) for (const x of h) add(b + x, 0.5, U, x % 1 ? 0.38 : 0.55, 'chord'); add(start, dur, [B], 0.6, 'bass'); break; }
     case 'funk': for (let b = start; b < end; b += 4) { for (const x of [0, 0.75, 1.5, 2.25, 2.5, 3.5]) add(b + x, 0.2, U, 0.55, 'chord'); for (const x of [0, 1.75, 2.5, 3]) add(b + x, 0.4, [x === 2.5 ? B + 12 : B], 0.7, 'bass'); } break;
     case 'latin': case 'bossa': {
@@ -939,24 +1243,39 @@ function drumBar(groove, meter, t0, out) {
     }
   }
 }
-// 简易旋律提示：强拍取和弦音，弱拍取调内经过音
+// 旋律提示：强拍落在和弦音上，弱拍用调内音级进连接；音域 E4–E5，乐句尾拉长
 function melodyFor(song, seed) {
-  const rng = mkRng((seed || song.seed || 1) ^ 0x5bd1e995), M = METERS[song.meter], step = M.d === 4 ? 0.5 : 1;
-  const out = []; let prev = 72;
+  const rng = mkRng((seed || song.seed || 1) ^ 0x5bd1e995), M = METERS[song.meter], beat = M.d === 4 ? 1 : 1.5;
+  const LO = 64, HI = 79, out = [];
+  let prev = 71, dir = 1, motif = null;
+  const inRange = (pcs) => { const a = []; for (let n = LO; n <= HI; n++) if (pcs.includes(mod(n, 12))) a.push(n); return a; };
   return {
     span(c, sec, t0, dur) {
-      const scale = MODES[sec.mode].s.map((x) => mod(sec.tonic + x, 12));
-      const ct = Q[c.q].t.map((x) => mod(c.pc + x[0], 12));
-      const near = (pcs, around) => { let best = around, bd = 99; for (let n = 64; n <= 84; n++) if (pcs.includes(mod(n, 12))) { const d = Math.abs(n - around) + rng() * 2; if (d < bd) { bd = d; best = n; } } return best; };
-      for (let t = t0; t < t0 + dur - 1e-6; t += step) {
-        const strong = Math.abs((t - t0) % (step * 2)) < 1e-6;
-        if (!strong && rng() < 0.3) continue;
-        const target = prev + Math.round((rng() - 0.5) * (strong ? 6 : 4));
-        const n = near(strong ? ct : scale, target);
-        const len = strong && rng() < 0.4 ? step * 2 : step;
-        out.push({ t, d: Math.min(len, t0 + dur - t) * 0.95, notes: [n], vel: strong ? 0.6 : 0.45, part: 'melody' });
-        prev = n; if (len > step) t += step;
+      const scale = inRange(MODES[sec.mode].s.map((x) => mod(sec.tonic + x, 12)));
+      const ct = inRange(Q[c.q].t.slice(0, 3).map((x) => mod(c.pc + x[0], 12)).concat(c.q.includes('7') ? [mod(c.pc + Q[c.q].t[3][0], 12)] : []));
+      // 和弦音：选离上一个音最近的（≤ 4 半音优先），偶尔反向保持轮廓
+      const near = (list, around) => list.reduce((b, n) => (Math.abs(n - around) < Math.abs(b - around) ? n : b), list[0]);
+      if (prev >= HI - 2) dir = -1; else if (prev <= LO + 2) dir = 1; else if (rng() < 0.25) dir = -dir;
+      let target = near(ct, prev + dir * 2);
+      const beats = Math.max(1, Math.round(dur / beat));
+      const rhythm = motif && motif.length === beats && rng() < 0.7 ? motif : Array.from({ length: beats }, (_, k) => (k === 0 ? 1 : rng() < 0.75 ? 1 : 0));
+      if (!motif) motif = rhythm;
+      let cur = target;
+      for (let k = 0; k < beats; k++) {
+        if (!rhythm[k]) continue;
+        const t = t0 + k * beat;
+        let n;
+        if (k === 0) n = target;
+        else { // 级进：在音阶上移动一步（方向随轮廓）
+          const idx = scale.indexOf(near(scale, cur));
+          n = scale[clamp(idx + (rng() < 0.8 ? dir : -dir), 0, scale.length - 1)];
+          if (k % 2 === 0 && M.d === 4 && !ct.includes(n)) n = near(ct, n); // 次强拍回到和弦音
+        }
+        let len = beat; while (k + 1 < beats && !rhythm[k + 1] && len < dur) { len += beat; k++; }
+        out.push({ t, d: Math.min(len, t0 + dur - t) * 0.92, notes: [n], vel: k === 0 ? 0.62 : 0.5, part: 'melody' });
+        cur = n;
       }
+      prev = cur;
     },
     out,
   };
@@ -989,6 +1308,41 @@ function buildEvents(song, opts = {}) {
   return { events: ev, timeline, totalUnits: bar0 * M.n, unitSec: unitSec(song.meter, song.bpm), bars: bar0, pattern: pat, groove };
 }
 
+/* ---------- General MIDI 128 音色（gleitz/midi-js-soundfonts 命名 + 中文名，按 16 个家族分组） ---------- */
+const GM_FAMILIES = ['钢琴', '色彩打击乐', '风琴', '吉他', '贝斯', '弦乐', '合奏', '铜管', '簧管', '笛类', '合成主音', '合成铺底', '合成效果', '民族乐器', '打击乐', '音效'];
+const GM = [
+  ['acoustic_grand_piano', '原声大钢琴'], ['bright_acoustic_piano', '明亮钢琴'], ['electric_grand_piano', '电大钢琴'], ['honkytonk_piano', '酒吧钢琴'], ['electric_piano_1', '电钢琴 1（Rhodes）'], ['electric_piano_2', '电钢琴 2（DX）'], ['harpsichord', '羽管键琴'], ['clavinet', '克拉维内特'],
+  ['celesta', '钢片琴'], ['glockenspiel', '钟琴'], ['music_box', '八音盒'], ['vibraphone', '颤音琴'], ['marimba', '马林巴'], ['xylophone', '木琴'], ['tubular_bells', '管钟'], ['dulcimer', '扬琴'],
+  ['drawbar_organ', '拉杆风琴'], ['percussive_organ', '打击风琴'], ['rock_organ', '摇滚风琴'], ['church_organ', '教堂管风琴'], ['reed_organ', '簧风琴'], ['accordion', '手风琴'], ['harmonica', '口琴'], ['tango_accordion', '探戈手风琴'],
+  ['acoustic_guitar_nylon', '尼龙弦吉他'], ['acoustic_guitar_steel', '钢弦吉他'], ['electric_guitar_jazz', '爵士电吉他'], ['electric_guitar_clean', '清音电吉他'], ['electric_guitar_muted', '闷音电吉他'], ['overdriven_guitar', '过载吉他'], ['distortion_guitar', '失真吉他'], ['guitar_harmonics', '吉他泛音'],
+  ['acoustic_bass', '原声贝斯'], ['electric_bass_finger', '指弹电贝斯'], ['electric_bass_pick', '拨片电贝斯'], ['fretless_bass', '无品贝斯'], ['slap_bass_1', '击弦贝斯 1'], ['slap_bass_2', '击弦贝斯 2'], ['synth_bass_1', '合成贝斯 1'], ['synth_bass_2', '合成贝斯 2'],
+  ['violin', '小提琴'], ['viola', '中提琴'], ['cello', '大提琴'], ['contrabass', '低音提琴'], ['tremolo_strings', '震音弦乐'], ['pizzicato_strings', '拨弦弦乐'], ['orchestral_harp', '竖琴'], ['timpani', '定音鼓'],
+  ['string_ensemble_1', '弦乐合奏 1'], ['string_ensemble_2', '弦乐合奏 2'], ['synth_strings_1', '合成弦乐 1'], ['synth_strings_2', '合成弦乐 2'], ['choir_aahs', '合唱“啊”'], ['voice_oohs', '人声“哦”'], ['synth_choir', '合成人声'], ['orchestra_hit', '管弦乐重音'],
+  ['trumpet', '小号'], ['trombone', '长号'], ['tuba', '大号'], ['muted_trumpet', '弱音小号'], ['french_horn', '圆号'], ['brass_section', '铜管组'], ['synth_brass_1', '合成铜管 1'], ['synth_brass_2', '合成铜管 2'],
+  ['soprano_sax', '高音萨克斯'], ['alto_sax', '中音萨克斯'], ['tenor_sax', '次中音萨克斯'], ['baritone_sax', '上低音萨克斯'], ['oboe', '双簧管'], ['english_horn', '英国管'], ['bassoon', '大管'], ['clarinet', '单簧管'],
+  ['piccolo', '短笛'], ['flute', '长笛'], ['recorder', '竖笛'], ['pan_flute', '排箫'], ['blown_bottle', '吹瓶'], ['shakuhachi', '尺八'], ['whistle', '口哨'], ['ocarina', '陶笛'],
+  ['lead_1_square', '方波主音'], ['lead_2_sawtooth', '锯齿波主音'], ['lead_3_calliope', '汽笛风琴主音'], ['lead_4_chiff', '吹管主音'], ['lead_5_charang', '吉他式主音'], ['lead_6_voice', '人声主音'], ['lead_7_fifths', '五度主音'], ['lead_8_bass__lead', '贝斯+主音'],
+  ['pad_1_new_age', '新世纪铺底'], ['pad_2_warm', '温暖铺底'], ['pad_3_polysynth', '复音合成铺底'], ['pad_4_choir', '合唱铺底'], ['pad_5_bowed', '弓弦铺底'], ['pad_6_metallic', '金属铺底'], ['pad_7_halo', '光环铺底'], ['pad_8_sweep', '扫频铺底'],
+  ['fx_1_rain', '雨声'], ['fx_2_soundtrack', '电影音效'], ['fx_3_crystal', '水晶'], ['fx_4_atmosphere', '大气'], ['fx_5_brightness', '明亮'], ['fx_6_goblins', '精灵'], ['fx_7_echoes', '回声'], ['fx_8_scifi', '科幻'],
+  ['sitar', '西塔琴'], ['banjo', '班卓琴'], ['shamisen', '三味线'], ['koto', '筝（日本）'], ['kalimba', '卡林巴'], ['bagpipe', '风笛'], ['fiddle', '提琴（民间）'], ['shanai', '唢呐'],
+  ['tinkle_bell', '铃铛'], ['agogo', '阿哥哥铃'], ['steel_drums', '钢鼓'], ['woodblock', '木鱼'], ['taiko_drum', '太鼓'], ['melodic_tom', '旋律通鼓'], ['synth_drum', '合成鼓'], ['reverse_cymbal', '反向镲'],
+  ['guitar_fret_noise', '吉他品格噪音'], ['breath_noise', '呼吸声'], ['seashore', '海浪'], ['bird_tweet', '鸟鸣'], ['telephone_ring', '电话铃'], ['helicopter', '直升机'], ['applause', '掌声'], ['gunshot', '枪声'],
+];
+// 风格默认音色（和弦 / 低音 / 旋律）
+function defaultPrograms(style) {
+  const g = (style && style.genre) || '';
+  if (/爵士|Jazz/.test(g)) return { chord: 4, bass: 32, melody: 65 };
+  if (/摇滚|Rock|金属|Metal/.test(g)) return { chord: 29, bass: 34, melody: 30 };
+  if (/电子|EDM|合成器|Synth/.test(g)) return { chord: 90, bass: 38, melody: 81 };
+  if (/R&B|灵魂|放克|Funk|嘻哈|Hip/.test(g)) return { chord: 4, bass: 33, melody: 65 };
+  if (/古典|Classical/.test(g)) return { chord: 48, bass: 42, melody: 40 };
+  if (/民谣|Folk|乡村|Country|拉丁|Latin/.test(g)) return { chord: 25, bass: 32, melody: 73 };
+  if (/国风|Chinese/.test(g)) return { chord: 46, bass: 32, melody: 77 };
+  if (/配乐|Score/.test(g)) return { chord: 48, bass: 43, melody: 60 };
+  if (/氛围|Ambient/.test(g)) return { chord: 89, bass: 38, melody: 88 };
+  if (/福音|Gospel/.test(g)) return { chord: 16, bass: 33, melody: 0 };
+  return { chord: 0, bass: 33, melody: 73 };
+}
 /* ---------- MIDI 导出（format 1 多轨 / 单轨分轨） ---------- */
 function vlq(n) { const b = [n & 0x7f]; while ((n >>>= 7)) b.unshift((n & 0x7f) | 0x80); return b; }
 const utf8 = (str) => Array.from(unescape(encodeURIComponent(str))).map((ch) => ch.charCodeAt(0));
@@ -1038,9 +1392,15 @@ function noteItems(events, part, ch, tm) {
   }
   return it;
 }
+// 选择的 GM 音色号写入 MIDI（Program Change）；未指定时按旧的音色名/默认值
+function progFor(part, opts) {
+  const pr = opts.programs || {};
+  if (pr[part] !== undefined && pr[part] !== null && pr[part] !== '') return clamp(+pr[part] | 0, 0, 127);
+  return part === 'chord' ? PROGRAMS[opts.instrument] || 0 : part === 'bass' ? 33 : 73;
+}
 function partHeader(P, opts) {
   const it = [[0, 0, metaText(0x03, P.name)]];
-  if (P.ch !== 9) it.push([0, 0, [0xc0 | P.ch, P.part === 'chord' ? PROGRAMS[opts.instrument] || 0 : P.part === 'bass' ? 33 : 73]]);
+  if (P.ch !== 9) it.push([0, 0, [0xc0 | P.ch, progFor(P.part, opts)]]);
   return it;
 }
 function midiFile(format, tracks, ppq) {
@@ -1125,7 +1485,7 @@ function deserialize(d) {
 }
 const cloneSong = (song) => deserialize(JSON.parse(JSON.stringify(serialize(song))));
 function refresh(song) { song.sections.forEach((sec) => { sec.chords = sec.chords.map(cleanChord); }); return finalize(song, mkRng((song.seed || 1) ^ 0x2545f491)); }
-function setBpm(song, bpm) { song.bpm = clamp(Math.round(+bpm), 40, 220); song.settings.bpm = song.bpm; song.settings.feel = song.bpm < 80 ? '慢' : song.bpm < 125 ? '中' : '快'; return song; }
+function setBpm(song, bpm) { song.bpm = clamp(Math.round(+bpm) || 120, 20, 300); song.settings.bpm = song.bpm; song.settings.feel = song.bpm < 80 ? '慢' : song.bpm < 125 ? '中' : '快'; return song; }
 function transpose(song, n) {
   n = mod(Math.round(n), 12); if (!n) return song;
   song.sections.forEach((sec) => { sec.tonic = mod(sec.tonic + n, 12); });
@@ -1179,6 +1539,7 @@ function toggleLock(song, ci) { const loc = locate(song, ci); if (loc) { const c
 function endTypeOf(c) { return c.rel === 0 ? 'cad' : c.func === 'D' || c.tag === '转调属' ? 'half' : 'none'; }
 // 重新生成：只替换未锁定的和弦；section 为空时作用于全部段落
 function regenerate(song, o = {}) {
+  const before = song.sections.map((sec) => sec.chords.map(cleanChord));
   const seed = o.seed !== undefined ? o.seed : Math.floor(Math.random() * 2 ** 31), rng = mkRng(seed);
   const md = MOODS[song.settings.mood] || MOODS['中性'];
   song.sections.forEach((sec, si) => {
@@ -1186,13 +1547,20 @@ function regenerate(song, o = {}) {
     const n = sec.chords.length, ctx = { tonic: sec.tonic, mode: sec.mode };
     if (sec.chords.every((c) => c.lock)) return;
     const last = sec.chords[n - 1];
-    const p = buildProg(ctx, song.style, n, rng, { tplOK: song.kind === 'random', end: endTypeOf(last), borrowAdd: md.borrow, secAdd: md.sec, startFunc: sec.chords[0].lock ? undefined : (sec.key === 'Pre-chorus' || sec.key === 'Bridge' ? 'S' : undefined) });
+    const p = buildProg(ctx, song.style, n, rng, { tplOK: song.kind === 'random', end: endTypeOf(last), borrowAdd: md.borrow, secAdd: md.sec, complexity: song.settings.complexity, phrase: Math.max(2, Math.round(4 * song.hr)), startFunc: sec.chords[0].lock ? undefined : (sec.key === 'Pre-chorus' || sec.key === 'Bridge' ? 'S' : undefined) });
     applyComplexity(p.chords, ctx, song.style, song.settings.complexity || 0, rng, md.sus);
     if (last.tag === '转调属' && !last.lock) p.chords[n - 1] = cleanChord(last);
     sec.chords = sec.chords.map((c, k) => (c.lock ? c : p.chords[k]));
   });
   song.seed = seed;
-  return refresh(song);
+  refresh(song);
+  if (!o._noRetry) {
+    let issues = validate(song);
+    if (issues.length) { voiceAll(song.flat, song.style, mkRng(seed ^ 0x9e3779b9), true); issues = validate(song); }
+    for (let k = 1; issues.length && k < 40; k++) { song.sections = before.map((sec) => sec.map(cleanChord)).map((chs, i) => Object.assign(song.sections[i], { chords: chs })); regenerate(song, Object.assign({}, o, { seed: (seed + k * 7919) >>> 0, _noRetry: true })); issues = validate(song); if (issues.length) { voiceAll(song.flat, song.style, mkRng(song.seed ^ 0x9e3779b9), true); issues = validate(song); } }
+    song.validation = { ok: !issues.length, issues };
+  }
+  return song;
 }
 const GUITAR = [40, 45, 50, 55, 59, 64];
 function guitarShape(c) {
@@ -1228,6 +1596,6 @@ function guitarShape(c) {
   return { frets: best, base: Math.max(...best) > 4 ? lo : 1, notes: best.map((f, j) => (f < 0 ? null : GUITAR[j] + f)) };
 }
 
-const ChordEngine = { LET, MODES, METERS, STYLES, GENRES, MOODS, Q, COMPLEX, KEYS_M, BAR_OPTS, HR_OPTS, FUNC_CN, PATTERNS, SECTION_PLANS, mkRng, generate, expand, parseChord, parseSeeds, inferKey, buildEvents, toMidi, toText, splitBar, unitSec, keyName, spell, diatonicQ, serialize, deserialize, cloneSong, refresh, transpose, setBpm, alternatives, replaceChord, toggleLock, regenerate, guitarShape, locate, ALT_TIPS, DRUM, midiParts, makeZip, crc32, PARTS };
+const ChordEngine = { LET, MODES, METERS, STYLES, GENRES, MOODS, Q, COMPLEX, KEYS_M, BAR_OPTS, HR_OPTS, FUNC_CN, PATTERNS, SECTION_PLANS, mkRng, generate, expand, parseChord, parseSeeds, inferKey, buildEvents, toMidi, toText, splitBar, unitSec, keyName, spell, diatonicQ, serialize, deserialize, cloneSong, refresh, transpose, setBpm, alternatives, replaceChord, toggleLock, regenerate, guitarShape, locate, ALT_TIPS, DRUM, midiParts, makeZip, crc32, PARTS, GM, GM_FAMILIES, defaultPrograms, progFor, PROG_LIB, vlIssues, validate, MARKOV };
 if (typeof module !== 'undefined' && module.exports) module.exports = ChordEngine;
 if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;

@@ -12,6 +12,7 @@ const assert = (c, m) => { if (!c) throw new Error('✘ ' + m); console.log('✔
   p.on('pageerror', (e) => errs.push(e.message));
   p.on('console', (m) => m.type() === 'error' && errs.push(m.text()));
   p.on('dialog', (d) => { errs.push('dialog ' + d.message()); d.dismiss(); });
+  await p.addInitScript(() => { if (!localStorage.getItem('cg.inst')) localStorage.setItem('cg.inst', 'piano'); });
   await p.goto(file); await p.waitForSelector('.ch');
   const names = () => p.$$eval('.ch:not(.cont) .nm', (x) => x.map((e) => e.textContent));
   assert(await p.$('.onboard'), '首次使用引导');
@@ -24,8 +25,19 @@ const assert = (c, m) => { if (!c) throw new Error('✘ ' + m); console.log('✔
   await p.click('.ch:not(.cont)'); await p.waitForSelector('.alt');
   assert(await p.$('#insp svg'), '和弦详情：钢琴/吉他图');
   assert(await p.evaluate(() => document.body.classList.contains('has-insp')), '选中和弦后显示详情栏');
-  const bp0 = await p.textContent('#bpmNow'); await p.click('#bpmUp'); await p.click('#bpmUp');
-  assert(parseInt(await p.textContent('#bpmNow')) === parseInt(bp0) + 4, '运输栏 BPM 步进 ' + bp0);
+  assert(!(await p.$('#bpmUp')) && !(await p.$('#bpmDown')), '已移除 −/+ 步进按钮');
+  await p.fill('#bpmNow', '500'); await p.press('#bpmNow', 'Enter');
+  assert((await p.inputValue('#bpmNow')) === '300', 'BPM 输入 500 被钳制到 300');
+  await p.fill('#bpmNow', '87'); await p.press('#bpmNow', 'Enter');
+  assert((await p.inputValue('#bpmNow')) === '87' && (await p.inputValue('#bpm')) === '87', 'BPM 直接输入 87 并同步到设置');
+  await p.fill('#bpmNow', '5'); await p.locator('#bpmNow').blur();
+  assert((await p.inputValue('#bpmNow')) === '20', 'BPM 失焦时钳制到下限 20');
+  await p.fill('#bpm', '120'); await p.press('#bpm', 'Enter');
+  assert((await p.inputValue('#bpmNow')) === '120', '设置面板 BPM 输入');
+  for (let i = 0; i < 4; i++) { await p.click('#tap'); await p.waitForTimeout(500); }
+  const tapB = +(await p.inputValue('#bpmNow')); assert(tapB >= 100 && tapB <= 135, '敲击测速 ≈120：' + tapB);
+  const gm = await p.evaluate(() => ['#progChord', '#progBass', '#progMelody'].map((s) => [document.querySelectorAll(s + ' option').length, document.querySelectorAll(s + ' optgroup').length]));
+  assert(gm.every(([o, g]) => o === 128 && g === 16), 'GM 音色选择 128 个 / 16 族 ' + JSON.stringify(gm));
   await p.click('#closeInsp'); assert(!(await p.evaluate(() => document.body.classList.contains('has-insp'))), '关闭详情栏');
   await p.click('[data-swap="0"]'); await p.waitForSelector('.alt'); assert(await p.$('.ch.sel'), '⇄ 按钮打开替换列表');
   const before = (await names())[0];
@@ -114,6 +126,34 @@ const assert = (c, m) => { if (!c) throw new Error('✘ ' + m); console.log('✔
   const ov2 = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   assert(ov2 <= 1, '移动端无横向溢出 (抽屉后 ' + ov2 + ')');
   await p.screenshot({ path: path.resolve(__dirname, '..', 'screenshot-mobile.png'), fullPage: false });
+  // GM 采样：离线回退
+  {
+    const pf = await b.newPage(); const fe = [];
+    pf.on('pageerror', (e) => fe.push(e.message));
+    await pf.addInitScript(() => { localStorage.setItem('cg.inst', 'gm'); localStorage.setItem('cg.onboarded', '1'); });
+    await pf.route(/gleitz|surikov/, (r) => r.abort());
+    await pf.goto(file); await pf.waitForSelector('.ch');
+    await pf.evaluate(() => document.querySelector('.onboard #obClose') && document.querySelector('#obClose').click());
+    await pf.click('#play'); await pf.waitForTimeout(2500);
+    assert(await pf.evaluate(() => window.__SF && window.__SF.offline), 'GM 加载失败时标记离线');
+    assert(await pf.$('.ch.now'), '离线回退到内置合成器继续播放');
+    assert(fe.length === 0, '回退无页面错误 ' + JSON.stringify(fe));
+    await pf.close();
+  }
+  // GM 采样：在线加载（网络可用时）
+  {
+    const pg = await b.newPage(); const ge = [];
+    pg.on('pageerror', (e) => ge.push(e.message));
+    await pg.addInitScript(() => { localStorage.setItem('cg.inst', 'gm'); });
+    await pg.goto(file); await pg.waitForSelector('.ch');
+    await pg.evaluate(() => document.querySelector('#obClose') && document.querySelector('#obClose').click());
+    await pg.click('#play'); await pg.waitForFunction(() => window.__SF.offline || document.querySelector('.ch.now'), null, { timeout: 25000 });
+    const st = await pg.evaluate(() => ({ off: window.__SF.offline, now: !!document.querySelector('.ch.now'), bufs: window.__SF.bufs.size }));
+    assert(st.now, 'GM 播放进行中 ' + JSON.stringify(st));
+    console.log('  GM 在线采样：' + (st.off ? '网络不可用，已回退' : '加载成功'));
+    assert(ge.length === 0, 'GM 播放无页面错误 ' + JSON.stringify(ge));
+    await pg.close();
+  }
   assert(errs.length === 0, '无控制台错误 ' + JSON.stringify(errs));
   await b.close();
   console.log('浏览器检查全部通过');

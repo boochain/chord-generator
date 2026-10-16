@@ -223,6 +223,17 @@ details.explain summary{cursor:pointer;font-weight:700;color:var(--muted);font-s
 }
 @media(max-width:380px){.prog-t{display:none}.stepper .num{min-width:38px}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-@media(max-width:880px){.stepper .u{display:none}}
 @media(max-width:880px){.transport .lbl,.transport .ib.pri .lbl{display:none!important}.logo,#redo{display:none!important}.tabs button{padding:5px 9px;font-size:12.5px}header{justify-content:space-between}}
 @media(max-width:880px){.transport{gap:5px;justify-content:space-between}.transport .prog{position:absolute;left:18px;right:18px;top:3px;min-width:0}.transport .prog-bar{height:3px;border:0}.transport .grow{display:none}}
+
+.bpmin{width:58px;height:30px;border:1px solid transparent;background:transparent;color:var(--text);font:600 13px/1 inherit;font-variant-numeric:tabular-nums;text-align:center;border-radius:8px;padding:0 2px;-moz-appearance:textfield}
+.bpmin::-webkit-inner-spin-button,.bpmin::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.bpmin:focus{border-color:var(--acc);background:var(--panel);outline:none}
+.bpmin.bad{border-color:var(--danger)}
+.bpmin.wide{flex:1;width:auto;height:38px;background:var(--panel2);border:1px solid var(--line);font-size:15px}
+.stepper .u{font-size:10.5px;color:var(--faint);margin-right:4px}
+#tap{font-size:10.5px;font-weight:700;letter-spacing:.5px}
+#soundPop{min-width:300px}
+.sf-loading{animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.4}}
+@media(max-width:880px){.stepper .u{display:none!important}.bpmin{width:44px}#tap{display:none}}

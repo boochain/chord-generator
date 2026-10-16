@@ -177,7 +177,7 @@ for (let i = 0; i < N; i++) {
   if (o.key !== 'rand') ok(s.tonic === o.key, label + ' key override');
   if (o.meter !== 'rand') ok(s.meter === o.meter, label + ' meter override');
   if (o.complexity !== 'rand') ok(s.complexity === o.complexity, label + ' complexity override');
-  if (s.complexity === 0) ok(song.flat.every((c) => ['', 'm', 'dim', 'aug', 'sus2', 'sus4', 'add9', 'madd9', '6'].includes(c.q) || c.fixedQ || c.tag === '三全音替代'), label + ' triads at level 0');
+  if (s.complexity === 0) ok(song.flat.every((c) => ['', 'm', 'dim', 'aug', 'sus2', 'sus4', 'add9', 'madd9', '6'].includes(c.q) || c.fixedQ || c.tag === '三全音替代'), label + ' triads at level 0 ' + song.flat.filter((c) => !(['', 'm', 'dim', 'aug', 'sus2', 'sus4', 'add9', 'madd9', '6'].includes(c.q) || c.fixedQ || c.tag === '三全音替代')).map((c) => c.name + ':' + c.q + ':' + c.tag));
   if (st.fixed && o.style === st.id) blues++;
   const pen = song.flat[song.flat.length - 2];
   if (!st.fixed || o.style !== st.id) ok(['D', 'S'].includes(pen.func) || pen.tag === '调式特征' || pen.rel !== 0, label + ' penultimate cadence chord');
@@ -290,4 +290,105 @@ ok(!/<script[^>]+src=|<link[^>]+href=["']https?:|@import/.test(html), 'no extern
 ok(html.includes(fs.readFileSync(path.join(__dirname, '..', 'src', 'engine.js'), 'utf8').slice(0, 2000)), 'engine inlined');
 ok(/lang="zh-CN"/.test(html), 'Chinese UI');
 
+
+/* ---------- 音乐性回归测试（默认参数下必须“听起来像音乐”） ---------- */
+{
+  let chords = 0, diat = 0, meter44 = 0, cadOK = 0, rep = 0, repN = 0, cx = 0, songs = 0;
+  for (let i = 0; i < 1500; i++) {
+    const s = E.generate({ seed: 90000 + i });
+    songs++;
+    if (s.meter === '4/4') meter44++;
+    if (s.settings.complexity <= 1) cx++;
+    const sec = s.sections[0];
+    let prev = null;
+    for (const c of s.flat) {
+      chords++;
+      if (c.diat || c.tag === '和声小调属' || c.tag === '调式特征') diat++;
+      ok(Math.min(...c.upper) >= 52 && Math.max(...c.upper) <= 79, `music#${i} 上方声部在 E3–G5 内 ${c.name} ${c.upper}`);
+      ok(c.bassNote >= 40 && c.bassNote <= 52, `music#${i} 低音在 E2–E3 ${c.bassNote}`);
+      ok(Math.max(...c.upper) - Math.min(...c.upper) <= 12, `music#${i} 密集排列 ${c.name} ${c.upper}`);
+      if (prev && prev.upper.length === c.upper.length) {
+        const mv = Math.max(...c.upper.map((n, k) => Math.abs(n - prev.upper[k])));
+        ok(mv <= 7, `music#${i} 单声部最大移动 ≤ 7 半音 ${prev.name}→${c.name} ${mv}`);
+      }
+      prev = c;
+    }
+    const last = s.flat[s.flat.length - 1];
+    if (last.rel === 0) cadOK++;
+    const P = Math.round(4 * s.hr);
+    if (!s.style.fixed && s.flat.length >= 2 * P) { // 乐句重复：第 1、2 句开头相同
+      repN++;
+      const a = s.flat.slice(0, P - 2).map((c) => c.name).join(), b = s.flat.slice(P, 2 * P - 2).map((c) => c.name).join();
+      if (a === b) rep++;
+    }
+  }
+  ok(diat / chords >= 0.85, '默认参数调内和弦比例 ≥ 85%：' + ((100 * diat) / chords).toFixed(1) + '%');
+  ok(meter44 / songs >= 0.9, '默认拍号以 4/4 为主：' + meter44);
+  ok(cadOK === songs, '每首都以主和弦终止');
+  ok(rep / repN >= 0.7, '乐句重复率 ≥ 70%：' + ((100 * rep) / repN).toFixed(1) + '%');
+  ok(cx / songs >= 0.75, '默认复杂度以三和弦/七和弦为主：' + cx);
+  // 种子扩展也保持调内
+  let ed = 0, et = 0;
+  for (const [sd, i] of [['Am F C G', 1], ['Dm7', 2], ['C G/B Am', 3], ['Em C G D', 4], ['F', 5]]) for (let k = 0; k < 40; k++) {
+    const s = E.expand({ seeds: sd, seed: i * 1000 + k });
+    for (const c of s.flat) { et++; if (c.diat || c.seed || ['和声小调属', '调式特征', '转调属'].includes(c.tag)) ed++; }
+    ok(s.sections.find((x) => x.key === 'Verse').chords.length >= 4, '主歌至少 4 个和弦');
+    ok(new Set(s.sections.find((x) => x.key === 'Chorus').chords.map((c) => c.name)).size >= 2, '副歌至少 2 种和弦');
+  }
+  ok(ed / et >= 0.85, '种子扩展调内比例 ≥ 85%：' + ((100 * ed) / et).toFixed(1) + '%');
+  // 旋律提示：强拍为和弦音、音域受限、以级进为主
+  let steps = 0, leaps = 0;
+  for (let i = 0; i < 200; i++) {
+    const s = E.generate({ seed: 70000 + i });
+    const ev = E.buildEvents(s, { melody: true });
+    const mel = ev.events.filter((e) => e.part === 'melody');
+    for (let k = 1; k < mel.length; k++) { const d = Math.abs(mel[k].notes[0] - mel[k - 1].notes[0]); if (d <= 4) steps++; else leaps++; }
+    for (const x of ev.timeline) {
+      if (x.cont) continue;
+      const c = s.flat[x.ci], m = mel.find((e) => Math.abs(e.t - x.t) < 1e-6);
+      if (m) ok(Q_TONES(c).includes(m.notes[0] % 12), `melody#${i} 强拍和弦音 ${c.name}`);
+    }
+    mel.forEach((e) => ok(e.notes[0] >= 64 && e.notes[0] <= 79, 'melody range'));
+  }
+  ok(steps / (steps + leaps) >= 0.8, '旋律以级进/小跳为主：' + ((100 * steps) / (steps + leaps)).toFixed(1) + '%');
+}
+function Q_TONES(c) { return E.Q[c.q].t.map((x) => (c.pc + x[0]) % 12); }
+
+// ---------- 乐理硬约束：100% 合规 ----------
+{
+  const RC = E.mkRng(777);
+  const pk = (a) => a[Math.floor(RC() * a.length)];
+  let nGen = 0, nExp = 0, nReg = 0;
+  for (let i = 0; i < 2500; i++) {
+    const o = { style: Math.floor(RC() * E.STYLES.length), seed: i * 31 + 5 };
+    if (RC() < 0.5) o.mode = pk(MODES);
+    if (RC() < 0.4) o.complexity = Math.floor(RC() * 4);
+    if (RC() < 0.4) o.mood = pk(MOODS);
+    const s = E.generate(o);
+    const v = E.validate(s);
+    ok(v.length === 0 && s.validation.ok, `乐理合规 generate#${i} ${JSON.stringify(o)} ${v.slice(0, 3).join('; ')}`);
+    nGen++;
+    if (i % 3 === 0) {
+      E.regenerate(s, { seed: i });
+      const v2 = E.validate(s);
+      ok(v2.length === 0, `乐理合规 regenerate#${i} ${v2.slice(0, 3).join('; ')}`);
+      nReg++;
+    }
+  }
+  const SEEDS = ['C G Am F', 'Am F C G', 'Dm7 G7 Cmaj7', 'C', 'Em C G D', 'F G Em Am', 'Cm Ab Eb Bb', 'C/E F G'];
+  for (let i = 0; i < 800; i++) {
+    const s = E.expand({ seeds: pk(SEEDS), seed: i + 1, key: Math.floor(RC() * 12), length: pk(['短', '中', '长']) });
+    const v = E.validate(s);
+    ok(v.length === 0 && s.validation.ok, `乐理合规 expand#${i} ${v.slice(0, 3).join('; ')}`);
+    nExp++;
+  }
+  console.log(`  乐理验证器：generate ${nGen} / regenerate ${nReg} / expand ${nExp} 全部 100% 通过`);
+  // MIDI 音色号
+  const s = E.generate({ style: 0, seed: 9 });
+  const bytes = Array.from(E.toMidi(s, { programs: { chord: 48, bass: 38, melody: 80 }, melody: true }));
+  const has = (ch, p) => bytes.some((b, k) => b === (0xc0 | ch) && bytes[k + 1] === p);
+  ok(has(0, 48), 'MIDI 和弦轨写入所选 GM 音色 48');
+  ok(E.progFor('bass', { programs: { bass: 38 } }) === 38 && E.progFor('melody', { programs: { melody: 200 } }) === 127, 'progFor 读取并钳制音色号');
+  ok(E.GM.length === 128 && E.GM_FAMILIES.length === 16, 'GM 128 音色 / 16 族');
+}
 console.log(`✔ 全部通过：${checks} 项断言，${N} 个随机生成组合 + 1500 个扩展组合，风格数 ${E.STYLES.length}（12 小节布鲁斯样本 ${blues}）。`);

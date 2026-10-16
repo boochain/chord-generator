@@ -57,7 +57,7 @@
         <label class="f">拍号<select id="meter"></select></label>
         <label class="f">速度感<select id="feel"><option value="rand">🎲 随机</option><option>快</option><option>中</option><option>慢</option></select></label>
         <label class="f full"><span>速度 BPM <b id="bpmVal"></b></span>
-          <span class="row"><input type="range" id="bpm" min="40" max="220" value="100" aria-label="BPM"><button class="chip on" id="bpmRand" type="button" aria-pressed="true">🎲 随机</button></span>
+          <span class="row"><input type="number" id="bpm" class="bpmin wide" min="20" max="300" step="1" value="100" inputmode="numeric" aria-label="速度 BPM（20–300）"><button class="chip on" id="bpmRand" type="button" aria-pressed="true">🎲 随机</button></span>
         </label>
         <label class="f"><span><span class="term" data-tip="每小节放几个和弦。数字越大和弦变化越快。">和声节奏</span></span><select id="hr"></select></label>
         <label class="f"><span><span class="term" data-tip="三和弦最朴素；七和弦更丰富；九/十一/十三增加延伸音；变化和弦在属和弦上加入 ♭9、♯9、♯11、♭13 等张力。">复杂度</span></span><select id="complexity"></select></label>
@@ -74,12 +74,18 @@
       <button class="playbtn" id="play" aria-label="播放 (空格)" data-tip="播放 / 停止 (空格)"><span id="playIcon">▶</span></button>
       <button class="ib dsk" id="stop" aria-label="停止" disabled>■</button>
       <div class="prog" aria-hidden="true"><div class="prog-bar"><i id="progFill"></i></div><span class="prog-t" id="progT">0:00 / 0:00</span></div>
-      <div class="stepper" role="group" aria-label="速度"><button class="ib sm" id="bpmDown" aria-label="减慢">−</button><span id="bpmNow" class="num">— BPM</span><button class="ib sm" id="bpmUp" aria-label="加快">+</button></div>
+      <div class="stepper" role="group" aria-label="速度"><input type="number" id="bpmNow" class="bpmin" min="20" max="300" step="1" inputmode="numeric" aria-label="速度 BPM（20–300，回车确认）" data-tip="输入 BPM（20–300），回车/失焦生效；↑↓ 或滚轮微调，Shift ±10"><span class="u">BPM</span><button class="ib sm" id="tap" aria-label="点按测速" data-tip="连续点按测速 Tap tempo">TAP</button></div>
       <div class="menu"><button class="ib" id="soundBtn" aria-haspopup="true" aria-expanded="false" data-tip="循环 / 节拍器 / 鼓 / 旋律 / 音色">🎚<span class="lbl">声音</span></button>
         <div class="pop sheet" id="soundPop">
           <div class="pop-title">播放</div>
           <div class="chips"><button class="chip" id="loop" aria-pressed="false">🔁 循环</button><button class="chip" id="metro" aria-pressed="false">🥁 节拍器</button><button class="chip on" id="drums" aria-pressed="true">🪘 鼓组</button><button class="chip" id="melody" aria-pressed="false">🎵 旋律提示</button></div>
-          <label class="f">音色<select id="inst"><option value="piano">🎹 钢琴</option><option value="epiano">🎛 电钢琴</option><option value="pad">🌫 合成铺底</option><option value="guitar">🎸 吉他扫弦</option></select></label>
+          <div class="pop-title">音色 <span class="hint-i" id="sfStatus" role="status"></span></div>
+          <label class="f">音源<select id="inst"><option value="gm">🎼 GM 采样音色（FluidR3，在线加载）</option><optgroup label="内置合成器（离线）"><option value="piano">🎹 合成钢琴</option><option value="epiano">🎛 合成电钢琴</option><option value="pad">🌫 合成铺底</option><option value="guitar">🎸 合成吉他扫弦</option></optgroup></select></label>
+          <label class="f">和弦音色<select id="progChord" class="gmsel"></select></label>
+          <label class="f">低音音色<select id="progBass" class="gmsel"></select></label>
+          <label class="f">旋律音色<select id="progMelody" class="gmsel"></select></label>
+          <label class="f">鼓组<select id="drumKit"><option value="gm">🥁 GM 标准鼓组（采样）</option><option value="synth">内置合成鼓</option></select></label>
+          <div class="chips"><button class="chip" id="progDefault" type="button">↺ 按风格推荐音色</button></div>
           <label class="f">伴奏节奏型<select id="pattern"></select></label>
         </div>
       </div>
