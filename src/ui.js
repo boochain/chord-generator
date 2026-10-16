@@ -3,13 +3,14 @@
   const E = window.ChordEngine;
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const RAND = '<option value="rand">🎲 随机</option>';
+  const RAND = '<option value="rand">随机</option>';
+  const ic = (n, c) => `<svg class="ic${c ? ' ' + c : ''}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
   const LS = { get: (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* 存储已满或被禁用 */ } } };
   let mode = 'rand', song = null, sel = -1;
   const state = { genre: 'rand', style: 'rand' };
 
   /* ---------- 主题 ---------- */
-  const setTheme = (t) => { document.documentElement.dataset.theme = t; LS.set('cg.theme', t); };
+  const setTheme = (t) => { document.documentElement.dataset.theme = t; LS.set('cg.theme', t); const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = t === 'dark' ? '#111216' : '#F6F7F9'; };
   setTheme(LS.get('cg.theme', matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'));
   $('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
 
@@ -41,7 +42,7 @@
   $('meter').innerHTML = RAND + Object.keys(E.METERS).map((m) => `<option>${m}</option>`).join('');
   const SH = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   function fillKeyMode() {
-    const first = mode === 'seed' ? '<option value="auto">🔍 自动推断</option>' : RAND;
+    const first = mode === 'seed' ? '<option value="auto">自动推断</option>' : RAND;
     const kv = $('key').value, mv = $('mode').value;
     $('key').innerHTML = first + E.KEYS_M.map((k, i) => `<option value="${i}">${k}${k !== SH[i] ? ' / ' + SH[i] : ''}</option>`).join('');
     $('mode').innerHTML = first + Object.entries(E.MODES).map(([k, v]) => `<option value="${k}">${v.n}</option>`).join('');
@@ -117,7 +118,7 @@
   const genres = [...new Set(E.STYLES.map((s) => s.genre))];
   function pickLabel() {
     if (state.style !== 'rand') { const s = E.STYLES[+state.style]; return s.genre.split(' ')[0] + ' › ' + s.name; }
-    return state.genre === 'rand' ? '🎲 全部随机' : '🎲 ' + state.genre + '（大类内随机）';
+    return state.genre === 'rand' ? '全部随机' : state.genre + '（大类内随机）';
   }
   function hl(text, q) { // 高亮：忽略大小写/空格/连字符匹配查询
     const t = String(text); if (!q) return esc(t);
@@ -130,18 +131,18 @@
   }
   function renderPick() {
     const q = $('pickSearch').value.trim();
-    let h = q ? '' : `<div class="it${state.genre === 'rand' && state.style === 'rand' ? ' sel' : ''}" data-g="rand" data-s="rand">🎲 全部随机</div>`;
+    let h = q ? '' : `<div class="it${state.genre === 'rand' && state.style === 'rand' ? ' sel' : ''}" data-g="rand" data-s="rand">${ic('dice')}全部随机</div>`;
     if (q) {
       const res = E.searchStyles(q);
       if (!res.length) h += `<div class="empty" style="padding:12px">没有找到「${esc(q)}」。试试：lofi、edm、kpop、古风、爵士、说唱</div>`;
       const byG = new Map(); res.forEach((r) => { const st = E.STYLES[r.id]; if (!byG.has(st.genre)) byG.set(st.genre, []); byG.get(st.genre).push(r); });
       for (const [g, items] of byG) {
-        h += `<div class="gh" data-g="${esc(g)}" data-s="rand" title="此大类内随机"><span>${hl(g, q)}</span><span>🎲</span></div>`;
+        h += `<div class="gh" data-g="${esc(g)}" data-s="rand" title="此大类内随机"><span>${hl(g, q)}</span><span class="gh-r">${ic('dice')}</span></div>`;
         h += items.map((r) => { const s = E.STYLES[r.id]; const viaShown = r.via && E.nrm(s.name).indexOf(E.nrm(q)) < 0 && r.via !== s.genre; return `<div class="it${String(s.id) === String(state.style) ? ' sel' : ''}" role="option" data-g="${esc(g)}" data-s="${s.id}">${hl(s.name, q)}${viaShown ? ` <small class="via">≈ ${hl(r.via, q)}</small>` : ''}</div>`; }).join('');
       }
     } else for (const g of genres) {
       const items = E.STYLES.filter((s) => s.genre === g);
-      h += `<div class="gh" data-g="${esc(g)}" data-s="rand" title="此大类内随机"><span>${esc(g)}</span><span>🎲</span></div>`;
+      h += `<div class="gh" data-g="${esc(g)}" data-s="rand" title="此大类内随机"><span>${esc(g)}</span><span class="gh-r">${ic('dice')}</span></div>`;
       h += items.map((s) => `<div class="it${String(s.id) === String(state.style) ? ' sel' : ''}" role="option" data-g="${esc(g)}" data-s="${s.id}">${esc(s.name)}</div>`).join('');
     }
     $('pickList').innerHTML = h;
@@ -155,10 +156,15 @@
   document.addEventListener('click', (e) => { if (!e.target.closest('#picker')) $('pickPop').classList.remove('open'); document.querySelectorAll('.menu').forEach((m) => { if (!m.contains(e.target)) { const pp = m.querySelector('.pop'); pp.classList.remove('open'); m.querySelector('button').setAttribute('aria-expanded', 'false'); } }); });
   renderPick();
 
+  /* ---------- 导航 ---------- */
+  const NAV = ['tabRand', 'tabSeed', 'dictBtn', 'favBtn'];
+  function setNav(id) { NAV.forEach((n) => { const on = n === id; $(n).setAttribute('aria-selected', on); if (on) $(n).setAttribute('aria-current', 'page'); else $(n).removeAttribute('aria-current'); }); }
+  const modeNav = () => (mode === 'seed' ? 'tabSeed' : 'tabRand');
   /* ---------- 模式 ---------- */
   function setMode(m) {
     mode = m;
-    $('tabRand').setAttribute('aria-selected', m === 'rand'); $('tabSeed').setAttribute('aria-selected', m === 'seed');
+    closeDict(true); setNav(m === 'seed' ? 'tabSeed' : 'tabRand');
+    $('ctrlTitle').textContent = m === 'seed' ? '歌曲扩展' : '生成参数';
     $('seedBox').hidden = m !== 'seed';
     $('barsLabel').textContent = m === 'seed' ? '段落小节数' : '小节数';
     fillKeyMode(); if (m === 'seed') updateInfer();
@@ -206,7 +212,7 @@
   function generate() {
     $('gen').classList.add('busy'); requestAnimationFrame(() => requestAnimationFrame(() => $('gen').classList.remove('busy')));
     stop();
-    try { song = mode === 'seed' ? E.expand(opts()) : E.generate(opts()); $('seedErr').textContent = ''; } catch (e) { $('seedErr').textContent = e.message; toast(e.message, true); if (isMobile()) openSheetEl('ctrl'); return; }
+    try { song = mode === 'seed' ? E.expand(opts()) : E.generate(opts()); $('seedErr').textContent = ''; } catch (e) { $('seedErr').textContent = e.message; toast(e.message, true); if (railSheet()) openSheetEl('ctrl'); return; }
     sel = -1; afterNew('生成：' + song.settings.style + ' · ' + song.settings.key);
   }
   function afterNew(label) {
@@ -220,7 +226,8 @@
     commit(section === undefined ? '重新生成（保留锁定）' : '重新生成：' + song.sections[section].name);
     toast(song.flat.some((c) => c.lock) ? '已重新生成未锁定的和弦' : '已重新生成');
   }
-  $('gen').onclick = generate;
+  const railSheet = () => matchMedia('(max-width: 1199px)').matches;
+  $('gen').onclick = () => { generate(); if (railSheet() && $('ctrl').classList.contains('open') && !$('seedErr').textContent) closeDrawers(); };
   $('regen').onclick = () => regen();
   $('allRand').onclick = () => {
     ['mood', 'meter', 'bars', 'complexity', 'hr', 'feel'].forEach((id) => ($(id).value = 'rand'));
@@ -239,7 +246,7 @@
   }
   function renderOnboard() {
     if (LS.get('cg.onboarded', false)) { $('onboard').innerHTML = ''; return; }
-    $('onboard').innerHTML = `<div class="onboard" role="note"><div style="font-size:22px">👋</div><div><b>三步上手</b><ol><li>在左侧选好<b>风格</b>和情绪（不选就全部随机）</li><li>点 <b>✨ 生成</b>，再点 <b>▶</b> 或按 <kbd>空格</kbd> 试听</li><li>点任意和弦查看指法与<b>可替换和弦</b>；🔒 锁定喜欢的，按 <kbd>R</kbd> 重生成其余</li></ol></div><button class="ib sm x" id="obClose" aria-label="关闭引导">✕</button></div>`;
+    $('onboard').innerHTML = `<div class="onboard" role="note"><span class="ob-ic">${ic('info')}</span><div><b>三步上手</b><ol><li>在「生成参数」中选择<b>风格</b>与情绪，不选则全部随机</li><li>点击<b>生成</b>，再按底部播放键或 <kbd>空格</kbd> 试听</li><li>点任意和弦查看指法与<b>可替换和弦</b>；锁定喜欢的和弦后按 <kbd>R</kbd> 重新生成其余</li></ol></div><button class="ib x" id="obClose" aria-label="关闭引导">${ic('x')}</button></div>`;
     $('obClose').onclick = () => { LS.set('cg.onboarded', true); renderOnboard(); };
   }
   renderOnboard();
@@ -254,22 +261,25 @@
     $('keyNow').textContent = s.key + ' ' + (E.MODES[s.mode].n.split(' ')[0]);
     if (document.activeElement !== $('bpmNow')) $('bpmNow').value = song.bpm;
     if (!playing) { const b0 = E.buildEvents(song, {}), tot = b0.totalUnits * b0.unitSec; $('progT').textContent = '0:00 / ' + fmtT(tot); $('progFill').style.width = '0'; }
+    $('meterNow').textContent = s.meter;
+    $('cvTitle').textContent = s.genre.split(' ')[0] + ' › ' + s.style;
+    $('cvSub').textContent = `${s.key} ${s.modeName} · ${s.mood} · ${song.bpm} BPM`;
     const t = document.getElementById('tagline'); if (!t) return;
-    t.innerHTML = [['风格', s.genre.split(' ')[0] + ' › ' + s.style], ['情绪', s.mood], ['调', s.key + ' ' + s.modeName], ['拍号', s.meter], ['速度', song.bpm + ' BPM'], ['复杂度', s.complexityName], ['和声节奏', s.hr + '/小节']].map(([k, v]) => `<span class="tag">${k} <b>${esc(v)}</b></span>`).join('');
+    t.innerHTML = [['拍号', s.meter], ['复杂度', s.complexityName], ['和声节奏', s.hr + '/小节']].map(([k, v]) => `<span class="tag">${k} <b>${esc(v)}</b></span>`).join('');
   }
   function render() {
-    let h = '<div class="tags" id="tagline"></div><div class="legend"><span><i style="background:var(--T)"></i><span class="term" data-tip="' + esc(GLOSS.主功能) + '">主功能 T</span></span><span><i style="background:var(--S)"></i><span class="term" data-tip="' + esc(GLOSS.下属功能) + '">下属 S</span></span><span><i style="background:var(--D)"></i><span class="term" data-tip="' + esc(GLOSS.属功能) + '">属 D</span></span><span style="color:var(--acc2)">粉字 = 借用 / 副属 / 替代 / 转调</span></div>';
+    let h = '<div class="meta-row"><div class="tags" id="tagline"></div><div class="legend"><span><i style="background:var(--T)"></i><span class="term" data-tip="' + esc(GLOSS.主功能) + '">主功能 T</span></span><span><i style="background:var(--S)"></i><span class="term" data-tip="' + esc(GLOSS.下属功能) + '">下属 S</span></span><span><i style="background:var(--D)"></i><span class="term" data-tip="' + esc(GLOSS.属功能) + '">属 D</span></span><span><i class="lg-x"></i>标签 = 借用 / 副属 / 替代 / 转调</span></div></div>';
     let barNo = 1;
     song.sections.forEach((sec, si) => {
-      h += `<div class="section" style="animation-delay:${si * 40}ms"><div class="sh"><h3>${esc(sec.name)}</h3><span class="k">${esc(sec.keyLabel)}</span>${sec.modulated ? '<span class="mod">⤴ 转调 +全音</span>' : ''}<span class="sp"></span>
-        <button class="ib" data-act="playsec" data-si="${si}" data-tip="只播放本段">▶</button><button class="ib" data-act="regensec" data-si="${si}" data-tip="重新生成本段（保留锁定）">↻</button><button class="ib" data-act="midisec" data-si="${si}" data-tip="导出本段多轨 MIDI">⬇ MIDI</button><button class="ib" data-act="zipsec" data-si="${si}" data-tip="本段分轨打包 .zip（和弦/低音/旋律/鼓）">📦</button></div>${sec.note ? `<p class="note">${termify(esc(sec.note))}</p>` : ''}<div class="bars">`;
+      h += `<div class="section" style="animation-delay:${si * 40}ms"><div class="sh"><h3>${esc(sec.name)}</h3><span class="k">${esc(sec.keyLabel)}</span>${sec.modulated ? '<span class="mod">转调 +全音</span>' : ''}<span class="sp"></span>
+        <button class="ib" data-act="playsec" data-si="${si}" data-tip="只播放本段" aria-label="播放本段">${ic('play')}</button><button class="ib" data-act="regensec" data-si="${si}" data-tip="重新生成本段（保留锁定）" aria-label="重新生成本段">${ic('refresh')}</button><button class="ib" data-act="midisec" data-si="${si}" data-tip="导出本段多轨 MIDI" aria-label="导出本段 MIDI">${ic('download')}</button><button class="ib" data-act="zipsec" data-si="${si}" data-tip="本段分轨打包 .zip（和弦/低音/旋律/鼓）" aria-label="本段分轨打包">${ic('archive')}</button></div>${sec.note ? `<p class="note">${termify(esc(sec.note))}</p>` : ''}<div class="bars">`;
       for (const bar of sec.bars) {
         h += `<div class="bar"><span class="no">${barNo++}</span>`;
         for (const cell of bar) {
           const c = song.flat[cell.ci];
           if (cell.cont) h += `<div class="ch cont ${c.func}" data-ci="${cell.ci}" data-cont="1"><div class="nm">%</div><div class="fn">延续 ${esc(c.name)}</div></div>`;
           else h += `<div class="ch ${c.func}${c.lock ? ' locked' : ''}${cell.ci === sel ? ' sel' : ''}" data-ci="${cell.ci}" style="flex:${cell.dur};animation-delay:${Math.min(cell.ci * 12, 400)}ms" tabindex="0" role="button" aria-label="${esc(c.name)} ${esc(c.roman)}">
-            <span class="ch-tools"><button class="lk${c.lock ? ' on' : ''}" data-lock="${cell.ci}" aria-label="${c.lock ? '解锁' : '锁定'} ${esc(c.name)}" aria-pressed="${!!c.lock}" data-tip="${c.lock ? '已锁定：重新生成时保留 (L)' : '锁定此和弦 (L)'}">${c.lock ? '🔒' : '🔓'}</button><button class="sw" data-swap="${cell.ci}" aria-label="替换 ${esc(c.name)}" data-tip="查看可替换和弦">⇄</button><button class="sw" data-ana="${cell.ci}" aria-label="分析 ${esc(c.name)}" data-tip="分析该和弦：所有合规的下一个和弦">🔍</button></span>
+            <span class="ch-tools"><button class="lk${c.lock ? ' on' : ''}" data-lock="${cell.ci}" aria-label="${c.lock ? '解锁' : '锁定'} ${esc(c.name)}" aria-pressed="${!!c.lock}" data-tip="${c.lock ? '已锁定：重新生成时保留 (L)' : '锁定此和弦 (L)'}">${ic(c.lock ? 'lock' : 'unlock')}</button><button class="sw" data-swap="${cell.ci}" aria-label="替换 ${esc(c.name)}" data-tip="查看可替换和弦">${ic('swap')}</button><button class="sw" data-ana="${cell.ci}" aria-label="分析 ${esc(c.name)}" data-tip="分析该和弦：所有合规的下一个和弦">${ic('scan')}</button></span>
             <div class="nm">${esc(c.name)}</div><div class="rn">${esc(c.roman)}</div><div class="fn">${FN[c.func] || esc(c.func)}</div>${c.tag ? `<div class="tg" data-tip="${esc(GLOSS[c.tag] || c.tag)}">${esc(c.tag)}</div>` : ''}</div>`;
         }
         h += '</div>';
@@ -294,7 +304,7 @@
   });
   $('result').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.classList.contains('ch')) { e.stopPropagation(); select(+e.target.dataset.ci, true); } });
   function toggleLock(ci) { E.toggleLock(song, ci); render(); commit((song.flat[ci].lock ? '锁定 ' : '解锁 ') + song.flat[ci].name); }
-  const isMobile = () => matchMedia('(max-width: 880px)').matches;
+  const isMobile = () => matchMedia('(max-width: 839px)').matches;
   function select(ci, sound, openSheet) {
     if (!song || ci < 0 || ci >= song.flat.length) return;
     sel = ci;
@@ -312,8 +322,8 @@
     for (let n = lo; n <= hi; n++) { if (!isB(n)) { white.push({ n, x }); x += W; } else black.push({ n, x: x - 4 }); }
     const col = (n) => (n === bass ? 'var(--D)' : on.has(n) ? 'var(--acc)' : null);
     let s = `<svg viewBox="0 0 ${x} 60" role="img" aria-label="钢琴键盘：${esc(c.name)}">`;
-    for (const k of white) s += `<rect x="${k.x}" y="0" width="${W - 1}" height="58" rx="2" fill="${col(k.n) || '#f4f5fb'}" stroke="#8890b0" stroke-width=".5"/>${k.n % 12 === 0 ? `<text x="${k.x + 2}" y="55" font-size="6" fill="#666">C${k.n / 12 - 1}</text>` : ''}`;
-    for (const k of black) s += `<rect x="${k.x}" y="0" width="8" height="36" rx="1.5" fill="${col(k.n) || '#20243a'}"/>`;
+    for (const k of white) s += `<rect x="${k.x}" y="0" width="${W - 1}" height="58" rx="2" fill="${col(k.n) || 'var(--key-w)'}" stroke="var(--key-line)" stroke-width=".5"/>${k.n % 12 === 0 ? `<text x="${k.x + 2}" y="55" font-size="6" fill="var(--text-3)">C${k.n / 12 - 1}</text>` : ''}`;
+    for (const k of black) s += `<rect x="${k.x}" y="0" width="8" height="36" rx="1.5" fill="${col(k.n) || 'var(--key-b)'}"/>`;
     return s + '</svg>';
   }
   function guitarSVG(c) {
@@ -345,21 +355,22 @@
   }
   function renderInsp() {
     document.body.classList.toggle('has-insp', !!song && sel >= 0 && sel < song.flat.length);
-    if (!song || sel < 0 || sel >= song.flat.length) { $('insp').innerHTML = ''; $('insp').classList.remove('open'); return; }
+    if (!song || sel < 0 || sel >= song.flat.length) { $('insp').innerHTML = `<div class="empty-state">${ic('grid', 'es-ic')}<b>未选择和弦</b><p>点击任意和弦，查看组成音、钢琴与吉他指法，以及可替换的和弦。</p></div>`; $('insp').classList.remove('open'); return; }
     const c = song.flat[sel], alts = E.alternatives(song, sel);
     const groups = {}; alts.forEach((a, i) => { (groups[a.kind] = groups[a.kind] || []).push([a, i]); });
-    let h = `<h2>和弦详情 <span style="flex:1"></span><button class="ib" id="prevC" aria-label="上一个">‹</button><button class="ib" id="nextC" aria-label="下一个">›</button><button class="ib" id="closeInsp" aria-label="关闭详情">✕</button></h2>
-      <div class="cbig">${esc(c.name)}</div><div class="sub">${esc(c.roman)}</div>
-      <div class="badges"><span class="badge ${c.func}" data-tip="${esc(GLOSS[{ T: '主功能', S: '下属功能', D: '属功能' }[c.func]] || '')}">${FN[c.func] || esc(c.func)}</span>${c.tag ? `<span class="badge x" data-tip="${esc(GLOSS[c.tag] || '')}">${esc(c.tag)}</span>` : ''}${c.bass > 0 || c.xb ? '<span class="badge" data-tip="' + esc(GLOSS.转位) + '">转位/斜线</span>' : ''}<button class="badge" id="lockSel" style="cursor:pointer">${c.lock ? '🔒 已锁定' : '🔓 锁定'}</button></div>
-      <div class="hint" style="margin:0">组成音：${[c.bassNote, ...c.upper].map((n) => noteName(c, n)).join(' · ')}</div>
-      <div class="actrow"><button class="btn" id="inspPlay">▶ 试听</button><button class="btn" id="anaBtn">🔍 分析该和弦</button><button class="btn" id="inspDict">📖 图鉴</button><button class="btn" id="inspIns">➕ 后面插入</button><button class="btn" id="inspDel" ${song.flat.length <= 1 ? 'disabled' : ''}>🗑 删除</button></div>
-      <div class="viz">${pianoSVG(c)}</div><div class="viz" style="color:var(--text)">${guitarSVG(c)}</div>
-      <h2 style="margin-top:12px">可替换和弦 <span class="hint" style="margin:0;text-transform:none">点击替换并试听</span></h2><div class="alts">`;
+    let h = `<div class="pane-head"><h2>和弦详情</h2><span class="grow"></span><button class="ib" id="prevC" aria-label="上一个" data-tip="上一个 (←)">${ic('chevL')}</button><button class="ib" id="nextC" aria-label="下一个" data-tip="下一个 (→)">${ic('chevR')}</button><button class="ib" id="closeInsp" data-tip="取消选择" aria-label="关闭详情">${ic('x')}</button></div><div class="pane-body">
+      <div class="insp-hero ${c.func}"><div><div class="cbig">${esc(c.name)}</div><div class="sub">${esc(c.roman)}</div></div><button class="ib play-sm" id="inspPlay" aria-label="试听 ${esc(c.name)}" data-tip="试听">${ic('play')}</button></div>
+      <div class="badges"><span class="badge ${c.func}" data-tip="${esc(GLOSS[{ T: '主功能', S: '下属功能', D: '属功能' }[c.func]] || '')}">${FN[c.func] || esc(c.func)}</span>${c.tag ? `<span class="badge x" data-tip="${esc(GLOSS[c.tag] || '')}">${esc(c.tag)}</span>` : ''}${c.bass > 0 || c.xb ? '<span class="badge" data-tip="' + esc(GLOSS.转位) + '">转位/斜线</span>' : ''}</div>
+      <div class="hint">组成音：${[c.bassNote, ...c.upper].map((n) => noteName(c, n)).join(' · ')}</div>
+      <div class="actrow"><button class="btn tonal" id="anaBtn">${ic('scan')}<span>分析该和弦</span></button><button class="btn outlined" id="lockSel" aria-pressed="${!!c.lock}">${ic(c.lock ? 'lock' : 'unlock')}<span>${c.lock ? '已锁定' : '锁定'}</span></button></div>
+      <div class="actrow sec"><button class="btn text" id="inspDict">${ic('book')}<span>图鉴</span></button><button class="btn text" id="inspIns">${ic('plus')}<span>后面插入</span></button><button class="btn text danger" id="inspDel" ${song.flat.length <= 1 ? 'disabled' : ''}>${ic('trash')}<span>删除</span></button></div>
+      <h3 class="sec-t">指法</h3><div class="viz">${pianoSVG(c)}</div><div class="viz" style="color:var(--text)">${guitarSVG(c)}</div>
+      <h3 class="sec-t">可替换和弦 <span class="hint">点击替换并试听</span></h3><div class="alts">`;
     for (const [k, list] of Object.entries(groups)) {
       h += `<div class="altg"><span class="term" data-tip="${esc(E.ALT_TIPS[k] || '')}">${esc(k)}</span></div>`;
-      h += list.map(([a, i]) => `<span class="altw"><button class="alt" data-alt="${i}" data-tip="${esc(a.why)}"><b>${esc(a.name)}</b><small>${esc(a.roman)}</small></button><button class="ap" data-altplay="${i}" aria-label="试听 ${esc(a.name)}">▶</button></span>`).join('');
+      h += list.map(([a, i]) => `<span class="altw"><button class="alt" data-alt="${i}" data-tip="${esc(a.why)}"><b>${esc(a.name)}</b><small>${esc(a.roman)}</small></button><button class="ap" data-altplay="${i}" aria-label="试听 ${esc(a.name)}">${ic('play')}</button></span>`).join('');
     }
-    $('insp').innerHTML = h + '</div>';
+    $('insp').innerHTML = h + '</div></div>';
     $('insp').querySelectorAll('[data-alt]').forEach((b) => (b.onclick = () => {
       const a = alts[+b.dataset.alt], old = c.name;
       E.replaceChord(song, sel, a.chord); render(); preview(song.flat[sel]); commit(`替换 ${old} → ${song.flat[sel].name}`);
@@ -523,7 +534,7 @@
     if (useGM()) {
       const req = ++playReq;
       const ev = E.buildEvents(song, { metronome: toggles.metro, drums: toggles.drums, melody: toggles.melody, pattern: $('pattern').value, section: typeof section === 'number' ? section : undefined });
-      $('play').classList.add('playing'); $('playIcon').textContent = '❚❚';
+      $('play').classList.add('playing'); $('playIcon').dataset.s = 'pause';
       prepareGM(ev).then(() => { settle(SF.bufs); settle(SF.drums); setTimeout(() => { if (req === playReq) playNow(section); }, 0); });
       return;
     }
@@ -531,7 +542,7 @@
   }
   function playNow(section) {
     stopAudio(); newMaster(); playing = true; playSec = typeof section === 'number' ? section : undefined;
-    $('play').classList.add('playing'); $('playIcon').textContent = '❚❚'; $('play').setAttribute('aria-label', '停止 (空格)'); $('stop').disabled = false;
+    $('play').classList.add('playing'); $('playIcon').dataset.s = 'pause'; $('play').setAttribute('aria-label', '停止 (空格)'); $('stop').disabled = false;
     const inst = $('inst').value;
     const ev = E.buildEvents(song, { metronome: toggles.metro, drums: toggles.drums, melody: toggles.melody, pattern: $('pattern').value, section: playSec });
     const us = ev.unitSec, total = ev.totalUnits * us;
@@ -578,14 +589,14 @@
   function stop() {
     stopAudio();
     document.querySelectorAll('.ch.now').forEach((el) => el.classList.remove('now'));
-    $('play').classList.remove('playing'); $('playIcon').textContent = '▶'; $('play').setAttribute('aria-label', '播放 (空格)'); $('stop').disabled = true;
+    $('play').classList.remove('playing'); $('playIcon').dataset.s = 'play'; $('play').setAttribute('aria-label', '播放 (空格)'); $('stop').disabled = true;
     $('progFill').style.width = '0';
   }
   $('play').onclick = () => (playing || $('play').classList.contains('playing') ? stop() : play());
   $('stop').onclick = stop;
 
   /* ---------- 导出 / 分享 / 收藏 ---------- */
-  function toast(t, err) { const el = $('toast'); el.textContent = (err ? '⚠ ' : '✓ ') + t; el.classList.toggle('err', !!err); el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 2000); }
+  function toast(t, err) { const el = $('toast'); el.innerHTML = ic(err ? 'info' : 'check') + '<span>' + esc(t) + '</span>'; el.classList.toggle('err', !!err); el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 2000); }
   const fileBase = () => { const s = song.settings; return `chords_${s.key}_${s.mode}_${song.bpm}bpm`.replace(/#/g, 's'); };
   function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }
   function exportMidi(section) {
@@ -615,8 +626,9 @@
   document.querySelectorAll('#expPop [data-part]').forEach((b) => (b.onclick = () => exportPart(b.dataset.part)));
   $('zipAll').onclick = () => exportZip();
   const menuBtn = (btn, pop) => ($(btn).onclick = (e) => { e.stopPropagation(); document.querySelectorAll('.menu .pop.open').forEach((x) => x !== $(pop) && x.classList.remove('open')); const o = $(pop).classList.toggle('open'); $(btn).setAttribute('aria-expanded', o); });
-  menuBtn('expBtn', 'expPop'); menuBtn('soundBtn', 'soundPop');
+  menuBtn('expBtn', 'expPop'); menuBtn('soundBtn', 'soundPop'); menuBtn('moreBtn', 'morePop');
   $('expPop').addEventListener('click', () => $('expPop').classList.remove('open'));
+  $('morePop').addEventListener('click', () => { $('morePop').classList.remove('open'); $('moreBtn').setAttribute('aria-expanded', 'false'); });
   $('midi').onclick = () => exportMidi();
   $('txt').onclick = () => { if (song) download(new Blob([E.toText(song)], { type: 'text/plain;charset=utf-8' }), fileBase() + '.txt'); };
   async function copyText(txt) {
@@ -668,12 +680,12 @@
   $('png').onclick = pngExport;
   let favs = LS.get('cg.favs', []);
   function renderFavs() {
-    $('favList').innerHTML = favs.length ? favs.map((f, i) => `<div class="li"><div class="t" data-load="${i}"><div>${esc(f.name)}</div><small>${new Date(f.time).toLocaleString()} · ${esc(f.preview)}</small></div><button class="ib" data-del="${i}" aria-label="删除">🗑</button></div>`).join('') : '<p class="hint">还没有收藏。生成后按 ☆ 或 <kbd>S</kbd> 收藏。</p>';
+    $('favList').innerHTML = favs.length ? favs.map((f, i) => `<div class="li"><div class="t" data-load="${i}"><div>${esc(f.name)}</div><small>${new Date(f.time).toLocaleString()} · ${esc(f.preview)}</small></div><button class="ib" data-del="${i}" aria-label="删除">${ic('trash')}</button></div>`).join('') : `<div class="empty-state">${ic('star', 'es-ic')}<b>还没有收藏</b><p>生成满意的进行后，在「导出」菜单中收藏，或按 <kbd>S</kbd>。</p></div>`;
   }
   function saveFav() {
     if (!song) return; const s = song.settings;
     favs.unshift({ name: `${s.style} · ${s.key} ${s.modeName.split(' ')[0]} · ${s.mood}`, time: Date.now(), preview: song.flat.slice(0, 6).map((c) => c.name).join(' '), data: E.serialize(song) });
-    favs = favs.slice(0, 100); LS.set('cg.favs', favs); renderFavs(); toast('已收藏 ★');
+    favs = favs.slice(0, 100); LS.set('cg.favs', favs); renderFavs(); toast('已收藏');
   }
   $('save').onclick = saveFav;
   $('favList').onclick = (e) => {
@@ -683,13 +695,13 @@
   };
   renderFavs();
   const drawers = { favBtn: 'favDrawer', histBtn: 'histDrawer', help: 'helpDrawer' };
-  function closeDrawers() { document.querySelectorAll('.drawer.open,.panel.open').forEach((d) => d.classList.remove('open')); $('scrim').classList.remove('open'); }
+  function closeDrawers() { const fav = $('favDrawer').classList.contains('open'); document.querySelectorAll('.drawer.open,.pane.open').forEach((d) => d.classList.remove('open')); $('scrim').classList.remove('open'); if (fav) setNav(document.body.classList.contains('dict-open') ? 'dictBtn' : modeNav()); }
   function closeSheets() { closeDrawers(); }
   function openSheetEl(id) { closeDrawers(); $(id).classList.add('open'); $('scrim').classList.add('open'); }
   $('openCtrl').onclick = () => openSheetEl('ctrl');
   document.querySelectorAll('[data-close-ctrl]').forEach((b) => (b.onclick = closeDrawers));
   $('genM').onclick = () => { closeDrawers(); generate(); };
-  function openDrawer(id) { closeDrawers(); $(id).classList.add('open'); $('scrim').classList.add('open'); }
+  function openDrawer(id) { closeDrawers(); $(id).classList.add('open'); $('scrim').classList.add('open'); $('morePop').classList.remove('open'); if (id === 'favDrawer') setNav('favBtn'); }
   Object.entries(drawers).forEach(([b, d]) => ($(b).onclick = () => openDrawer(d)));
   $('scrim').onclick = closeDrawers;
   document.querySelectorAll('[data-close]').forEach((b) => (b.onclick = closeDrawers));
@@ -722,17 +734,17 @@
     }
     const nx = a.next, max = Math.max(...nx.all.map((x) => x.p));
     const isDict = anaCtx.type === 'dict';
-    let h = head + `<div class="anaHead"><div class="cbig">${esc(a.name)}</div><div><div class="sub">${esc(a.roman)} · ${esc(nx.key)}</div><span class="badge ${a.func}">${esc(a.funcCn)}</span>${a.tag ? `<span class="badge x">${esc(a.tag)}</span>` : ''}<span class="badge">${esc(a.quality)}</span></div><button class="ib" id="anaPlay" aria-label="试听 ${esc(a.name)}">▶</button><button class="ib" id="anaDict" aria-label="在图鉴中查看">📖</button></div>
+    let h = head + `<div class="anaHead"><div class="cbig">${esc(a.name)}</div><div><div class="sub">${esc(a.roman)} · ${esc(nx.key)}</div><span class="badge ${a.func}">${esc(a.funcCn)}</span>${a.tag ? `<span class="badge x">${esc(a.tag)}</span>` : ''}<span class="badge">${esc(a.quality)}</span></div><button class="ib" id="anaPlay" aria-label="试听 ${esc(a.name)}" data-tip="试听">${ic('play')}</button><button class="ib" id="anaDict" aria-label="在图鉴中查看" data-tip="在图鉴中查看">${ic('book')}</button></div>
       <table class="anaT"><tr><th>音名</th>${a.notes.map((n) => `<td><b>${esc(n.name)}</b></td>`).join('')}</tr><tr><th>级数</th>${a.notes.map((n) => `<td>${esc(n.deg)}</td>`).join('')}</tr><tr><th>音程</th>${a.notes.map((n) => `<td>${esc(n.ivName)}</td>`).join('')}</tr></table>
       <div class="hint" style="margin:6px 0">公式：${esc(a.formula)}</div>
       <h3>在其他调中的解释</h3><div class="interp">${a.interp.map((x) => `<span class="ip${x.same ? ' cur' : ''}"><b>${esc(x.key)}</b> ${esc(x.roman)} <small>${esc(x.func)}</small></span>`).join('') || '<span class="hint">—</span>'}</div>
       <h3>下一个和弦 <span class="hint" style="margin:0">全部通过乐理校验 · 概率按语料统计</span></h3>`;
-    if (isDict) h += `<p class="hint" style="margin:0 0 8px">「加入进行」会把 ${esc(a.name)} 和所选的下一个和弦一起插入到当前进行${song && sel >= 0 ? '的选中和弦之后' : '末尾'}。</p><button class="btn" id="anaAddSelf">➕ 只加入 ${esc(a.name)}</button>`;
+    if (isDict) h += `<p class="hint" style="margin:0 0 8px">「加入进行」会把 ${esc(a.name)} 和所选的下一个和弦一起插入到当前进行${song && sel >= 0 ? '的选中和弦之后' : '末尾'}。</p><button class="btn tonal" id="anaAddSelf">${ic('plus')}只加入 ${esc(a.name)}</button>`;
     else h += `<div class="seg" role="radiogroup" aria-label="操作"><button data-am="replace" aria-pressed="${anaMode === 'replace'}">${nextName ? '替换下一个（' + esc(nextName) + '）' : '追加'}</button><button data-am="insert" aria-pressed="${anaMode === 'insert'}">插入到后面</button></div>`;
     const useLbl = isDict ? '加入进行' : anaMode === 'insert' ? '插入' : '使用';
     nx.groups.forEach((g, gi) => {
       h += `<div class="ng"><div class="ngh">${esc(g.cat)} <small>${g.items.length}</small></div>`;
-      h += g.items.map((x, i) => `<div class="nc" data-g="${gi}" data-i="${i}"><button class="ib np" data-play aria-label="试听 ${esc(a.name)} → ${esc(x.name)}">▶</button><div class="nm"><b>${esc(x.name)}</b> <small>${esc(x.roman)}</small><div class="why">${esc(x.why)}${x.need ? ' <em>' + esc(x.need) + '</em>' : ''}</div></div><div class="pb" title="语料概率"><i style="width:${Math.max(4, (x.p / max) * 100).toFixed(0)}%"></i><span>${pct(x.p)}</span></div><span class="ncb"><button class="ib" data-dict aria-label="图鉴：${esc(x.name)}">📖</button><button class="btn sm" data-use>${useLbl}</button></span></div>`).join('');
+      h += g.items.map((x, i) => `<div class="nc" data-g="${gi}" data-i="${i}"><button class="ib np" data-play aria-label="试听 ${esc(a.name)} → ${esc(x.name)}">${ic('play')}</button><div class="nm"><b>${esc(x.name)}</b> <small>${esc(x.roman)}</small><div class="why">${esc(x.why)}${x.need ? ' <em>' + esc(x.need) + '</em>' : ''}</div></div><div class="pb" title="语料概率"><i style="width:${Math.max(4, (x.p / max) * 100).toFixed(0)}%"></i><span>${pct(x.p)}</span></div><span class="ncb"><button class="ib" data-dict aria-label="图鉴：${esc(x.name)}">${ic('book')}</button><button class="btn sm" data-use>${useLbl}</button></span></div>`).join('');
       h += '</div>';
     });
     $('anaBody').innerHTML = h;
@@ -760,11 +772,12 @@
   /* ---------- 和弦图鉴 ---------- */
   const dictState = { root: '', family: '', style: '', q: '', notes: new Set(), cur: null, inv: 0 };
   function openDict(ref) {
+    closeDrawers(); setNav('dictBtn');
     $('dictPage').classList.remove('show-entry'); $('dictPage').classList.add('open'); document.body.classList.add('dict-open'); renderDictFilters();
     if (ref && ref.rootIdx !== undefined) { const d = E.DICT.find((x) => x[0] === ref.id) || E.DICT[0]; dictState.cur = { rootIdx: ref.rootIdx, id: d[0], name: E.ROOTS[ref.rootIdx][0] + d[1], cn: d[2] }; dictState.inv = ref.inv || 0; dictState.q = E.ROOTS[ref.rootIdx][0]; dictState.root = ''; dictState.family = ''; dictState.style = ''; dictState.notes.clear(); $('dQ').value = dictState.q; $('dRoot').value = ''; $('dFam').value = ''; $('dSty').value = ''; $('dNotes').querySelectorAll('[data-pc]').forEach((b) => b.setAttribute('aria-pressed', 'false')); renderDict(); renderDictEntry(false); $('dictPage').classList.add('show-entry'); return; }
     renderDict();
   }
-  function closeDict() { $('dictPage').classList.remove('open', 'show-entry'); document.body.classList.remove('dict-open'); }
+  function closeDict(silent) { const was = document.body.classList.contains('dict-open'); $('dictPage').classList.remove('open', 'show-entry'); document.body.classList.remove('dict-open'); if (was && silent !== true) setNav(modeNav()); }
   function renderDictFilters() {
     if ($('dRoot').options.length) return;
     $('dRoot').innerHTML = '<option value="">全部根音</option>' + E.ROOTS.map((r, i) => `<option value="${i}">${r[0]}</option>`).join('');
@@ -796,7 +809,7 @@
   function renderDictEntry(play) {
     const x = dictState.cur; if (!x) { $('dEntry').innerHTML = ''; return; }
     const e = E.dictEntry(x.rootIdx, x.id, dictState.inv);
-    $('dEntry').innerHTML = `<div class="anaHead"><div class="cbig">${esc(e.name)}</div><div><div class="sub">${esc(e.cn)}</div><span class="badge">${esc(e.family)}</span></div><span class="actrow"><button class="btn" id="dPlay">▶ 试听</button><button class="btn" id="dAna">🔍 分析该和弦</button><button class="btn" id="dAdd">➕ 加入进行</button></span><button class="ib only-m" id="dBack" aria-label="返回列表">✕</button></div>
+    $('dEntry').innerHTML = `<div class="anaHead"><div class="cbig">${esc(e.name)}</div><div><div class="sub">${esc(e.cn)}</div><span class="badge">${esc(e.family)}</span></div><span class="actrow"><button class="btn filled" id="dPlay">${ic('play')}<span>试听</span></button><button class="btn tonal" id="dAna">${ic('scan')}<span>分析该和弦</span></button><button class="btn outlined" id="dAdd">${ic('plus')}<span>加入进行</span></button></span><button class="ib only-m" id="dBack" aria-label="返回列表">${ic('chevL')}</button></div>
       <table class="anaT"><tr><th>拼写</th>${e.notes.map((n) => `<td><b>${esc(n.name)}</b></td>`).join('')}</tr><tr><th>公式</th>${e.notes.map((n) => `<td>${esc(n.deg)}</td>`).join('')}</tr><tr><th>音程</th>${e.notes.map((n) => `<td>${esc(n.ivName)}</td>`).join('')}</tr></table>
       <div class="hint">公式：${esc(e.formula)}　常见风格：${e.styles.map((s) => `<span class="badge">${esc(s)}</span>`).join('')}</div>
       <div class="interp">转位 / 斜线：<button class="ip${dictState.inv ? '' : ' cur'}" data-inv="0">${esc(e.root + e.sym)}</button>${e.inversions.map((v) => `<button class="ip${dictState.inv === v.inv ? ' cur' : ''}" data-inv="${v.inv}">${esc(v.name)}</button>`).join('')}</div>
@@ -811,7 +824,7 @@
   }
   const f10 = (g) => g.frets.some((f) => f >= 10);
   $('dictBtn').onclick = () => openDict();
-  $('dictClose').onclick = closeDict;
+  $('dictClose').onclick = () => closeDict();
 
   $('brandSub').textContent = `符合乐理 · ${E.STYLES.length} 种风格`;
   /* ---------- 全局搜索：风格 / 和弦 / 功能 ---------- */

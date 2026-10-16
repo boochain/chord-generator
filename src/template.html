@@ -4,131 +4,161 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#111216">
 <title>和弦进行生成器 · Chord Progression Generator</title>
 <style>
 /*CSS*/
 </style>
 </head>
 <body>
-<header>
-  <div class="brand"><div class="logo" aria-hidden="true">♪</div><h1>和弦进行生成器<small id="brandSub">符合乐理 · 153 种风格</small></h1></div>
-  <div class="tabs" role="tablist" aria-label="模式">
-    <button role="tab" id="tabRand" aria-selected="true">随机生成</button>
-    <button role="tab" id="tabSeed" aria-selected="false">根据和弦扩展</button>
-  </div>
-  <div class="gsearch" id="gs" role="search"><input type="search" id="gq" placeholder="搜索风格、和弦、功能…（/）" autocomplete="off" spellcheck="false" aria-label="全局搜索"><div id="gres" role="listbox"></div></div>
-  <div class="hbtns">
-    <button class="ib" id="undo" data-tip="撤销 (Ctrl+Z)" aria-label="撤销" disabled>↶</button>
-    <button class="ib" id="redo" data-tip="重做 (Ctrl+Shift+Z)" aria-label="重做" disabled>↷</button>
-    <button class="ib" id="dictBtn" data-tip="和弦图鉴" aria-label="和弦图鉴">📖<span class="lbl">图鉴</span></button>
-    <button class="ib" id="histBtn" data-tip="历史记录 (H)" aria-label="历史记录">🕘<span class="lbl">历史</span></button>
-    <button class="ib" id="favBtn" data-tip="收藏夹 (F)" aria-label="收藏夹">★<span class="lbl">收藏</span></button>
-    <button class="ib" id="theme" data-tip="切换深色/浅色 (T)" aria-label="切换主题">◐</button>
-    <button class="ib" id="help" data-tip="快捷键 (?)" aria-label="快捷键">⌨</button>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5v15l12-7.5z" fill="currentColor" stroke="none"/></symbol><symbol id="i-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none"/></symbol><symbol id="i-stop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none"/></symbol><symbol id="i-repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></symbol><symbol id="i-metronome" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 3h5l4 18h-13z"/><path d="m12 15 6-9"/></symbol><symbol id="i-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol><symbol id="i-sparkles" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></symbol><symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/></symbol><symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></symbol><symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></symbol><symbol id="i-redo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></symbol><symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol><symbol id="i-more" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="19" r="1.4" fill="currentColor"/></symbol><symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol><symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></symbol><symbol id="i-chevL" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></symbol><symbol id="i-chevR" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></symbol><symbol id="i-chevD" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></symbol><symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol><symbol id="i-unlock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.8-1.2"/></symbol><symbol id="i-swap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/></symbol><symbol id="i-scan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6M11 8v6"/></symbol><symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h14v16H6.5A2.5 2.5 0 0 0 4 21.5"/><path d="M20 19v3H6.5"/></symbol><symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></symbol><symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/></symbol><symbol id="i-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></symbol><symbol id="i-history" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 3"/></symbol><symbol id="i-keyboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></symbol><symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol><symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol><symbol id="i-dice" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.3" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.3" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1.3" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1.3" fill="currentColor"/></symbol><symbol id="i-wand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 4 5 5L9 20H4v-5z"/><path d="M13 6l5 5"/></symbol><symbol id="i-music" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol><symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></symbol><symbol id="i-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></symbol><symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></symbol><symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></symbol><symbol id="i-archive" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v11h14V9"/><path d="M10 13h4"/></symbol><symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol><symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 10 5-10 5L2 7z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></symbol><symbol id="i-tune" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol><symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol><symbol id="i-sharp" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 7 20M17 4l-2 16M5 9h15M4 15h15"/></symbol><symbol id="i-flat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v17c4-1 9-3 9-7 0-3-3-4-6-2"/></symbol><symbol id="i-tap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V5a2 2 0 0 1 4 0v6"/><path d="M13 10a2 2 0 0 1 4 0v3a7 7 0 0 1-7 7 6 6 0 0 1-5-3l-2-4a2 2 0 0 1 3-2l2 2"/></symbol><symbol id="i-drum" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="8" rx="8" ry="3"/><path d="M4 8v8c0 1.7 3.6 3 8 3s8-1.3 8-3V8"/></symbol></svg>
+<a class="skip" href="#canvas">跳到和弦进行</a>
+<header class="appbar">
+  <div class="brand"><span class="logo" aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#i-music"/></svg></span><div class="brand-t"><b>和弦进行</b><small id="brandSub">符合乐理 · 153 种风格</small></div></div>
+  <nav class="nav" id="nav" aria-label="主导航">
+    <button class="nav-i" id="tabRand" aria-current="page" aria-selected="true"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg><span>生成</span></button>
+    <button class="nav-i" id="tabSeed" aria-selected="false"><svg class="ic" aria-hidden="true"><use href="#i-layers"/></svg><span>歌曲扩展</span></button>
+    <button class="nav-i" id="dictBtn" aria-selected="false"><svg class="ic" aria-hidden="true"><use href="#i-book"/></svg><span>和弦图鉴</span></button>
+    <button class="nav-i" id="favBtn" aria-selected="false"><svg class="ic" aria-hidden="true"><use href="#i-star"/></svg><span>收藏</span></button>
+  </nav>
+  <div class="gsearch" id="gs" role="search"><svg class="ic gs-ic" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="gq" placeholder="搜索风格、和弦、功能" autocomplete="off" spellcheck="false" aria-label="全局搜索（快捷键 /）"><kbd class="gs-k">/</kbd><div id="gres" role="listbox"></div></div>
+  <div class="bar-actions">
+    <button class="icon-btn" id="undo" data-tip="撤销 (Ctrl+Z)" aria-label="撤销" disabled><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg></button>
+    <button class="icon-btn" id="redo" data-tip="重做 (Ctrl+Shift+Z)" aria-label="重做" disabled><svg class="ic" aria-hidden="true"><use href="#i-redo"/></svg></button>
+    <div class="menu"><button class="icon-btn" id="moreBtn" aria-haspopup="menu" aria-expanded="false" aria-label="更多" data-tip="更多"><svg class="ic" aria-hidden="true"><use href="#i-more"/></svg></button>
+      <div class="pop right" id="morePop" role="menu">
+        <button id="histBtn" role="menuitem"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg><span>历史记录</span><kbd>H</kbd></button>
+        <button id="theme" role="menuitem"><svg class="ic th-d" aria-hidden="true"><use href="#i-moon"/></svg><svg class="ic th-l" aria-hidden="true"><use href="#i-sun"/></svg><span>切换深色 / 浅色</span><kbd>T</kbd></button>
+        <button id="help" role="menuitem"><svg class="ic" aria-hidden="true"><use href="#i-keyboard"/></svg><span>快捷键</span><kbd>?</kbd></button>
+      </div>
+    </div>
   </div>
 </header>
+
 <main id="main">
-  <section class="card panel" id="ctrl" aria-label="生成参数">
-    <div class="panel-head"><h2>生成参数</h2><button class="ib only-m" data-close-ctrl aria-label="关闭参数">✕</button></div>
-    <div class="group" id="seedBox" hidden>
-      <label class="f">种子和弦 <span class="hint-i">空格 / 逗号 / ｜ / - 分隔，如 <code>Am F C G</code>、<code>Dm7</code>、<code>C/E</code></span>
-        <input type="text" id="seeds" value="Am F C G" placeholder="Am F C G" autocomplete="off" spellcheck="false" aria-describedby="seedErr">
-      </label>
-      <div class="row wrap" id="inferBox"></div>
-      <div class="err" id="seedErr" role="alert"></div>
-      <div class="grid">
-        <label class="f">歌曲长度<select id="songLen"><option>短</option><option selected>标准</option><option>长</option></select></label>
-        <label class="f">转调<select id="modulate"><option value="1">最后副歌 +全音</option><option value="0">不转调</option></select></label>
-      </div>
-    </div>
-    <div class="group">
-      <div class="f picker" id="picker"><span class="flab">风格</span>
-        <button class="pickbtn" id="pickBtn" aria-haspopup="listbox" aria-expanded="false"><span id="pickLabel">🎲 全部随机</span><span aria-hidden="true">▾</span></button>
-        <div class="pop" id="pickPop"><input type="search" id="pickSearch" placeholder="搜索风格：jazz / 国风 / lo-fi…" aria-label="搜索风格"><div class="plist" id="pickList" role="listbox"></div></div>
-      </div>
-      <div class="grid">
-        <label class="f">情绪<select id="mood"></select></label>
-        <label class="f"><span id="barsLabel">小节数</span><select id="bars"></select></label>
-        <label class="f">调性<select id="key"></select></label>
-        <label class="f">调式<select id="mode"></select></label>
-      </div>
-    </div>
-    <details class="group adv" id="adv">
-      <summary>高级设置 <span class="hint-i">拍号、速度、复杂度、和声节奏</span></summary>
-      <div class="grid">
-        <label class="f">拍号<select id="meter"></select></label>
-        <label class="f">速度感<select id="feel"><option value="rand">🎲 随机</option><option>快</option><option>中</option><option>慢</option></select></label>
-        <label class="f full"><span>速度 BPM <b id="bpmVal"></b></span>
-          <span class="row"><input type="number" id="bpm" class="bpmin wide" min="20" max="300" step="1" value="100" inputmode="numeric" aria-label="速度 BPM（20–300）"><button class="chip on" id="bpmRand" type="button" aria-pressed="true">🎲 随机</button></span>
+  <aside class="pane rail" id="ctrl" aria-label="生成参数">
+    <div class="pane-head"><h2 id="ctrlTitle">生成参数</h2><button class="icon-btn only-sheet" data-close-ctrl aria-label="关闭参数"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+    <div class="pane-body">
+      <section class="group" id="seedBox" hidden>
+        <label class="field"><span class="lab">种子和弦</span>
+          <input type="text" id="seeds" value="Am F C G" placeholder="Am F C G" autocomplete="off" spellcheck="false" aria-describedby="seedHelp seedErr">
+          <span class="help" id="seedHelp">用空格、逗号或 | 分隔，如 Am F C G、Dm7、C/E</span>
         </label>
-        <label class="f"><span><span class="term" data-tip="每小节放几个和弦。数字越大和弦变化越快。">和声节奏</span></span><select id="hr"></select></label>
-        <label class="f"><span><span class="term" data-tip="三和弦最朴素；七和弦更丰富；九/十一/十三增加延伸音；变化和弦在属和弦上加入 ♭9、♯9、♯11、♭13 等张力。">复杂度</span></span><select id="complexity"></select></label>
-      </div>
-    </details>
-    <div class="panel-foot">
-      <button class="ib big wide" id="allRand" data-tip="所有参数设为随机并生成 (A)">🎲 全部随机</button>
-      <button class="ib pri big wide only-m" id="genM">✨ 生成</button>
-    </div>
-  </section>
-
-  <section class="workspace" aria-label="结果">
-    <div class="transport card" id="transport" role="toolbar" aria-label="播放与操作">
-      <button class="playbtn" id="play" aria-label="播放 (空格)" data-tip="播放 / 停止 (空格)"><span id="playIcon">▶</span></button>
-      <button class="ib dsk" id="stop" aria-label="停止" disabled>■</button>
-      <div class="prog" aria-hidden="true"><div class="prog-bar"><i id="progFill"></i></div><span class="prog-t" id="progT">0:00 / 0:00</span></div>
-      <div class="stepper" role="group" aria-label="速度"><input type="number" id="bpmNow" class="bpmin" min="20" max="300" step="1" inputmode="numeric" aria-label="速度 BPM（20–300，回车确认）" data-tip="输入 BPM（20–300），回车/失焦生效；↑↓ 或滚轮微调，Shift ±10"><span class="u">BPM</span><button class="ib sm" id="tap" aria-label="点按测速" data-tip="连续点按测速 Tap tempo">TAP</button></div>
-      <div class="menu"><button class="ib" id="soundBtn" aria-haspopup="true" aria-expanded="false" data-tip="循环 / 节拍器 / 鼓 / 旋律 / 音色">🎚<span class="lbl">声音</span></button>
-        <div class="pop sheet" id="soundPop">
-          <div class="pop-title">播放</div>
-          <div class="chips"><button class="chip" id="loop" aria-pressed="false">🔁 循环</button><button class="chip" id="metro" aria-pressed="false">🥁 节拍器</button><button class="chip on" id="drums" aria-pressed="true">🪘 鼓组</button><button class="chip" id="melody" aria-pressed="false">🎵 旋律提示</button></div>
-          <div class="pop-title">音色 <span class="hint-i" id="sfStatus" role="status"></span></div>
-          <label class="f">音源<select id="inst"><option value="gm">🎼 GM 采样音色（FluidR3，在线加载）</option><optgroup label="内置合成器（离线）"><option value="piano">🎹 合成钢琴</option><option value="epiano">🎛 合成电钢琴</option><option value="pad">🌫 合成铺底</option><option value="guitar">🎸 合成吉他扫弦</option></optgroup></select></label>
-          <label class="f">和弦音色<select id="progChord" class="gmsel"></select></label>
-          <label class="f">低音音色<select id="progBass" class="gmsel"></select></label>
-          <label class="f">旋律音色<select id="progMelody" class="gmsel"></select></label>
-          <label class="f">鼓组<select id="drumKit"><option value="gm">🥁 GM 标准鼓组（采样）</option><option value="synth">内置合成鼓</option></select></label>
-          <div class="chips"><button class="chip" id="progDefault" type="button">↺ 按风格推荐音色</button></div>
-          <label class="f">伴奏节奏型<select id="pattern"></select></label>
+        <div class="chips" id="inferBox"></div>
+        <div class="err" id="seedErr" role="alert"></div>
+        <div class="grid2">
+          <label class="field"><span class="lab">歌曲长度</span><select id="songLen"><option>短</option><option selected>标准</option><option>长</option></select></label>
+          <label class="field"><span class="lab">转调</span><select id="modulate"><option value="1">最后副歌 +全音</option><option value="0">不转调</option></select></label>
         </div>
-      </div>
-      <div class="keygrp dsk" role="group" aria-label="移调"><button class="ib sm" id="tDown" data-tip="降半音 ([)" aria-label="降半音">♭</button><span class="num" id="keyNow">—</span><button class="ib sm" id="tUp" data-tip="升半音 (])" aria-label="升半音">♯</button></div>
+      </section>
+      <section class="group">
+        <div class="field picker" id="picker"><span class="lab">风格</span>
+          <button class="select-btn" id="pickBtn" aria-haspopup="listbox" aria-expanded="false"><span id="pickLabel">全部随机</span><svg class="ic" aria-hidden="true"><use href="#i-chevD"/></svg></button>
+          <div class="pop picker-pop" id="pickPop"><div class="pop-search"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="pickSearch" placeholder="搜索：lofi、爵士、kpop、古风…" aria-label="搜索风格"></div><div class="plist" id="pickList" role="listbox"></div></div>
+        </div>
+        <div class="grid2">
+          <label class="field"><span class="lab">情绪</span><select id="mood"></select></label>
+          <label class="field"><span class="lab" id="barsLabel">小节数</span><select id="bars"></select></label>
+          <label class="field"><span class="lab">调性</span><select id="key"></select></label>
+          <label class="field"><span class="lab">调式</span><select id="mode"></select></label>
+        </div>
+      </section>
+      <details class="group adv" id="adv">
+        <summary><span>高级设置</span><span class="help">拍号、速度、复杂度、和声节奏</span><svg class="ic chev" aria-hidden="true"><use href="#i-chevD"/></svg></summary>
+        <div class="grid2">
+          <label class="field"><span class="lab">拍号</span><select id="meter"></select></label>
+          <label class="field"><span class="lab">速度感</span><select id="feel"><option value="rand">随机</option><option>快</option><option>中</option><option>慢</option></select></label>
+          <div class="field full"><span class="lab">速度 BPM <b id="bpmVal"></b></span>
+            <span class="row"><input type="number" id="bpm" class="num-in" min="20" max="300" step="1" value="100" inputmode="numeric" aria-label="速度 BPM（20–300）"><button class="chip on" id="bpmRand" type="button" aria-pressed="true"><svg class="ic" aria-hidden="true"><use href="#i-dice"/></svg>随机</button></span>
+          </div>
+          <label class="field"><span class="lab"><span class="term" data-tip="每小节放几个和弦。数字越大和弦变化越快。">和声节奏</span></span><select id="hr"></select></label>
+          <label class="field"><span class="lab"><span class="term" data-tip="三和弦最朴素；七和弦更丰富；九/十一/十三增加延伸音；变化和弦在属和弦上加入 ♭9、♯9、♯11、♭13 等张力。">复杂度</span></span><select id="complexity"></select></label>
+        </div>
+      </details>
+    </div>
+    <div class="pane-foot">
+      <button class="btn tonal" id="allRand" data-tip="所有参数设为随机并生成 (A)"><svg class="ic" aria-hidden="true"><use href="#i-dice"/></svg><span>全部随机</span></button>
+      <button class="btn filled" id="gen" data-tip="按当前参数生成 (Enter)"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg><span>生成</span></button>
+    </div>
+  </aside>
+
+  <section class="pane canvas" id="canvas" aria-label="和弦进行" tabindex="-1">
+    <div class="toolbar" role="toolbar" aria-label="进行操作">
+      <button class="btn outlined only-sheet-rail" id="openCtrl" aria-label="打开生成参数"><svg class="ic" aria-hidden="true"><use href="#i-tune"/></svg><span>参数</span></button>
+      <div class="tb-title"><h1 id="cvTitle">和弦进行</h1><span class="tb-sub" id="cvSub"></span></div>
       <span class="grow"></span>
-      <button class="ib only-m" id="openCtrl" aria-label="打开参数">⚙<span class="lbl">参数</span></button>
-      <button class="ib dsk" id="regen" data-tip="重新生成未锁定的和弦 (R)">↻<span class="lbl">重生成</span></button>
-      <button class="ib pri" id="gen" data-tip="按当前参数生成 (Enter)">✨<span class="lbl">生成</span></button>
-      <div class="menu"><button class="ib" id="expBtn" aria-haspopup="menu" aria-expanded="false">⬇<span class="lbl">导出</span></button>
-        <div class="pop sheet right" id="expPop" role="menu">
+      <button class="btn text" id="regen" data-tip="重新生成未锁定的和弦 (R)"><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg><span>重新生成</span></button>
+      <div class="menu"><button class="btn outlined" id="expBtn" aria-haspopup="menu" aria-expanded="false"><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg><span>导出</span><svg class="ic sm" aria-hidden="true"><use href="#i-chevD"/></svg></button>
+        <div class="pop right" id="expPop" role="menu">
           <div class="pop-title">MIDI</div>
-          <button id="midi" role="menuitem">🎼 多轨 MIDI（全曲）</button>
-          <button id="zipAll" role="menuitem">📦 全部分轨打包 .zip</button>
+          <button id="midi" role="menuitem"><svg class="ic" aria-hidden="true"><use href="#i-music"/></svg><span>多轨 MIDI（全曲）</span></button>
+          <button id="zipAll" role="menuitem"><svg class="ic" aria-hidden="true"><use href="#i-archive"/></svg><span>全部分轨打包 .zip</span></button>
           <div class="pop-row"><button data-part="chord" role="menuitem">和弦</button><button data-part="bass" role="menuitem">低音</button><button data-part="melody" role="menuitem">旋律</button><button data-part="drum" role="menuitem">鼓</button></div>
-          <div class="pop-title">其他</div>
-          <button id="png" role="menuitem">🖼 PNG 和弦谱</button><button id="txt" role="menuitem">📄 文本文件</button><button id="copy" role="menuitem">📋 复制文本</button>
-          <div class="pop-title">保存</div>
-          <button id="save" role="menuitem">☆ 收藏当前进行 (S)</button><button id="share" role="menuitem">🔗 复制分享链接</button>
+          <div class="pop-sep"></div>
+          <button id="png" role="menuitem"><svg class="ic" aria-hidden="true"><use href="#i-image"/></svg><span>PNG 和弦谱</span></button>
+          <button id="txt" role="menuitem"><svg class="ic" aria-hidden="true"><use href="#i-file"/></svg><span>文本文件 .txt</span></button>
+          <button id="copy" role="menuitem"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg><span>复制和弦谱</span></button>
+          <div class="pop-sep"></div>
+          <button id="save" role="menuitem"><svg class="ic" aria-hidden="true"><use href="#i-star"/></svg><span>收藏当前进行</span><kbd>S</kbd></button>
+          <button id="share" role="menuitem"><svg class="ic" aria-hidden="true"><use href="#i-link"/></svg><span>复制分享链接</span></button>
         </div>
       </div>
     </div>
-    <div class="card" id="out" aria-live="polite"><div id="onboard"></div><div id="result"><div class="empty">正在生成…</div></div></div>
+    <div class="canvas-body" id="out" aria-live="polite"><div id="onboard"></div><div id="result"><div class="empty">正在生成…</div></div></div>
   </section>
 
-  <aside class="card panel" id="insp" aria-label="和弦详情"></aside>
+  <aside class="pane insp" id="insp" aria-label="和弦详情"></aside>
 </main>
+
+<footer class="transport" id="transport" role="toolbar" aria-label="播放控制">
+  <div class="t-group">
+    <button class="play-btn" id="play" aria-label="播放 (空格)" data-tip="播放 / 停止 (空格)"><span id="playIcon"><svg class="ic pi-play" aria-hidden="true"><use href="#i-play"/></svg><svg class="ic pi-pause" aria-hidden="true"><use href="#i-pause"/></svg></span></button>
+    <button class="icon-btn" id="stop" aria-label="停止" data-tip="停止" disabled><svg class="ic" aria-hidden="true"><use href="#i-stop"/></svg></button>
+    <button class="icon-btn tog" id="loop" aria-pressed="false" aria-label="循环播放" data-tip="循环播放"><svg class="ic" aria-hidden="true"><use href="#i-repeat"/></svg></button>
+  </div>
+  <div class="prog" aria-hidden="true"><span class="prog-t" id="progT">0:00 / 0:00</span><div class="prog-bar"><i id="progFill"></i></div></div>
+  <div class="t-group lcd" role="group" aria-label="速度与拍号">
+    <label class="bpm-box"><input type="number" id="bpmNow" class="num-in" min="20" max="300" step="1" inputmode="numeric" aria-label="速度 BPM（20–300，回车确认）" data-tip="输入 BPM（20–300），回车/失焦生效；Shift+↑↓ 或滚轮微调"><span class="u">BPM</span></label>
+    <button class="icon-btn" id="tap" aria-label="点按测速" data-tip="连续点按测速 Tap tempo"><svg class="ic" aria-hidden="true"><use href="#i-tap"/></svg></button>
+    <span class="meter-now" id="meterNow" data-tip="拍号">4/4</span>
+    <button class="icon-btn tog" id="metro" aria-pressed="false" aria-label="节拍器" data-tip="节拍器 (M)"><svg class="ic" aria-hidden="true"><use href="#i-metronome"/></svg></button>
+  </div>
+  <div class="t-group keygrp" role="group" aria-label="移调">
+    <button class="icon-btn" id="tDown" data-tip="降半音 ([)" aria-label="降半音"><svg class="ic" aria-hidden="true"><use href="#i-flat"/></svg></button><span class="key-now" id="keyNow">—</span><button class="icon-btn" id="tUp" data-tip="升半音 (])" aria-label="升半音"><svg class="ic" aria-hidden="true"><use href="#i-sharp"/></svg></button>
+  </div>
+  <div class="menu"><button class="icon-btn" id="soundBtn" aria-haspopup="true" aria-expanded="false" aria-label="声音设置" data-tip="鼓组 / 旋律 / 音色 / 节奏型"><svg class="ic" aria-hidden="true"><use href="#i-sliders"/></svg></button>
+    <div class="pop up right sheet" id="soundPop">
+      <div class="pop-title">伴奏</div>
+      <div class="chips"><button class="chip on" id="drums" aria-pressed="true"><svg class="ic" aria-hidden="true"><use href="#i-drum"/></svg>鼓组</button><button class="chip" id="melody" aria-pressed="false"><svg class="ic" aria-hidden="true"><use href="#i-music"/></svg>旋律提示</button></div>
+      <label class="field"><span class="lab">伴奏节奏型</span><select id="pattern"></select></label>
+      <div class="pop-title">音色 <span class="help" id="sfStatus" role="status"></span></div>
+      <label class="field"><span class="lab">音源</span><select id="inst"><option value="gm">GM 采样音色（FluidR3，在线加载）</option><optgroup label="内置合成器（离线）"><option value="piano">合成钢琴</option><option value="epiano">合成电钢琴</option><option value="pad">合成铺底</option><option value="guitar">合成吉他扫弦</option></optgroup></select></label>
+      <label class="field"><span class="lab">和弦音色</span><select id="progChord" class="gmsel"></select></label>
+      <label class="field"><span class="lab">低音音色</span><select id="progBass" class="gmsel"></select></label>
+      <label class="field"><span class="lab">旋律音色</span><select id="progMelody" class="gmsel"></select></label>
+      <label class="field"><span class="lab">鼓组</span><select id="drumKit"><option value="gm">GM 标准鼓组（采样）</option><option value="synth">内置合成鼓</option></select></label>
+      <button class="btn text sm" id="progDefault" type="button"><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg><span>按风格推荐音色</span></button>
+    </div>
+  </div>
+  <span class="grow"></span>
+  <button class="btn filled t-gen" id="genM" aria-label="生成"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg><span>生成</span></button>
+</footer>
+
 <div class="scrim" id="scrim"></div>
-<div class="drawer" id="favDrawer" aria-label="收藏夹"><h2>★ 收藏夹 <button class="ib" data-close>✕</button></h2><div id="favList"></div></div>
-<div class="drawer" id="histDrawer" aria-label="历史"><h2>🕘 历史记录 <button class="ib" data-close>✕</button></h2><div id="histList"></div></div>
-<div class="drawer" id="helpDrawer" aria-label="快捷键"><h2>⌨ 快捷键 <button class="ib" data-close>✕</button></h2>
-  <div class="keys"><kbd>Space</kbd><span>播放 / 停止</span><kbd>Enter</kbd><span>按参数生成</span><kbd>R</kbd><span>重新生成未锁定和弦</span><kbd>A</kbd><span>全部随机</span><kbd>← →</kbd><span>选择上/下一个和弦</span><kbd>L</kbd><span>锁定/解锁选中和弦</span><kbd>[ ]</kbd><span>移调 −1 / +1 半音</span><kbd>Ctrl+Z</kbd><span>撤销</span><kbd>Ctrl+Shift+Z</kbd><span>重做</span><kbd>+ −</kbd><span>速度 ±2 BPM（按住 Shift 点按钮 ±10）</span><kbd>M</kbd><span>节拍器</span><kbd>D</kbd><span>鼓组</span><kbd>S</kbd><span>收藏</span><kbd>T</kbd><span>切换主题</span><kbd>/</kbd><span>全局搜索</span><kbd>Esc</kbd><span>关闭面板</span></div>
-  <p class="hint">术语下方带虚线的文字悬停可看解释。</p>
+<div class="drawer" id="favDrawer" aria-label="收藏夹"><div class="sheet-handle"></div><h2>收藏 <button class="icon-btn" data-close aria-label="关闭"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></h2><div id="favList"></div></div>
+<div class="drawer" id="histDrawer" aria-label="历史记录"><div class="sheet-handle"></div><h2>历史记录 <button class="icon-btn" data-close aria-label="关闭"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></h2><div id="histList"></div></div>
+<div class="drawer" id="helpDrawer" aria-label="快捷键"><div class="sheet-handle"></div><h2>快捷键 <button class="icon-btn" data-close aria-label="关闭"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></h2>
+  <div class="keys"><kbd>Space</kbd><span>播放 / 停止</span><kbd>Enter</kbd><span>按参数生成</span><kbd>R</kbd><span>重新生成未锁定和弦</span><kbd>A</kbd><span>全部随机</span><kbd>← →</kbd><span>选择上/下一个和弦</span><kbd>L</kbd><span>锁定/解锁选中和弦</span><kbd>[ ]</kbd><span>移调 −1 / +1 半音</span><kbd>Ctrl+Z</kbd><span>撤销</span><kbd>Ctrl+Shift+Z</kbd><span>重做</span><kbd>+ −</kbd><span>速度 ±2 BPM（Shift ±10）</span><kbd>M</kbd><span>节拍器</span><kbd>D</kbd><span>鼓组</span><kbd>S</kbd><span>收藏</span><kbd>T</kbd><span>切换主题</span><kbd>/</kbd><span>全局搜索</span><kbd>Esc</kbd><span>关闭面板</span></div>
+  <p class="help">带虚线的术语悬停可看解释。</p>
 </div>
-<div class="drawer wide" id="anaDrawer" aria-label="和弦分析"><h2>🔍 和弦分析 <button class="ib" data-close>✕</button></h2><div id="anaBody"></div></div>
+<div class="drawer wide" id="anaDrawer" aria-label="和弦分析"><div class="sheet-handle"></div><h2>和弦分析 <button class="icon-btn" data-close aria-label="关闭"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></h2><div id="anaBody"></div></div>
 <section id="dictPage" aria-label="和弦图鉴">
-  <div class="dHead"><h2>📖 和弦图鉴</h2><input type="search" id="dQ" placeholder="搜索：Cmaj7、F#m7b5、属七…" autocomplete="off" spellcheck="false"><select id="dRoot" aria-label="根音"></select><select id="dFam" aria-label="类型"></select><select id="dSty" aria-label="风格"></select><span class="hint" id="dCount"></span><button class="ib" id="dictClose" aria-label="关闭图鉴">✕</button></div>
-  <div class="dNotesRow"><span class="hint">按音反查：</span><div id="dNotes"></div><button class="chip" id="dClear">清除</button></div>
-  <div class="dBody"><div id="dList"></div><div id="dEntry" class="card"></div></div>
+  <div class="dHead"><h2>和弦图鉴</h2><div class="dsearch"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="dQ" placeholder="搜索：Cmaj7、CM7、F#m7b5、属七…" autocomplete="off" spellcheck="false" aria-label="搜索和弦"></div><select id="dRoot" aria-label="根音"></select><select id="dFam" aria-label="类型"></select><select id="dSty" aria-label="风格"></select><span class="help" id="dCount"></span><button class="icon-btn" id="dictClose" aria-label="关闭图鉴"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+  <div class="dNotesRow"><span class="help">按音反查</span><div id="dNotes"></div><button class="btn text sm" id="dClear">清除</button></div>
+  <div class="dBody"><div id="dList"></div><div id="dEntry"></div></div>
 </section>
 <div id="tip" role="tooltip"></div>
-<div class="toast" id="toast" role="status"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script>
 /*ENGINE*/
 </script>

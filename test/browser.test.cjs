@@ -14,6 +14,8 @@ const assert = (c, m) => { if (!c) throw new Error('✘ ' + m); console.log('✔
   p.on('dialog', (d) => { errs.push('dialog ' + d.message()); d.dismiss(); });
   await p.addInitScript(() => { if (!localStorage.getItem('cg.inst')) localStorage.setItem('cg.inst', 'piano'); });
   await p.goto(file); await p.waitForSelector('.ch');
+  const more = async (id) => { await p.click('#moreBtn'); await p.click('#' + id); };
+  const navSel = () => p.$$eval('#nav [aria-selected=true]', (x) => x.map((e) => e.id).join(','));
   const names = () => p.$$eval('.ch:not(.cont) .nm', (x) => x.map((e) => e.textContent));
   assert(await p.$('.onboard'), '首次使用引导');
   assert(!(await p.evaluate(() => document.body.classList.contains('has-insp'))), '未选和弦时隐藏详情栏');
@@ -39,7 +41,7 @@ const assert = (c, m) => { if (!c) throw new Error('✘ ' + m); console.log('✔
   const gm = await p.evaluate(() => ['#progChord', '#progBass', '#progMelody'].map((s) => [document.querySelectorAll(s + ' option').length, document.querySelectorAll(s + ' optgroup').length]));
   assert(gm.every(([o, g]) => o === 128 && g === 16), 'GM 音色选择 128 个 / 16 族 ' + JSON.stringify(gm));
   await p.click('#closeInsp'); assert(!(await p.evaluate(() => document.body.classList.contains('has-insp'))), '关闭详情栏');
-  await p.click('[data-swap="0"]'); await p.waitForSelector('.alt'); assert(await p.$('.ch.sel'), '⇄ 按钮打开替换列表');
+  await p.click('[data-swap="0"]'); await p.waitForSelector('.alt'); assert(await p.$('.ch.sel'), '卡片「替换」打开替换列表');
   const before = (await names())[0];
   await p.click('.alt >> nth=0');
   const after = (await names())[0];
@@ -56,10 +58,10 @@ const assert = (c, m) => { if (!c) throw new Error('✘ ' + m); console.log('✔
   await p.click('#play'); await p.waitForTimeout(1600);
   assert(await p.$('.ch.now'), '播放高亮当前和弦');
   const pfw = await p.evaluate(() => parseFloat(document.getElementById('progFill').style.width));
-  assert(pfw > 0 && (await p.textContent('#playIcon')) === '❚❚', '进度条与播放按钮状态 ' + pfw);
-  await p.click('#play'); assert(!(await p.$('.ch.now')) && (await p.textContent('#playIcon')) === '▶', '播放按钮切换为停止');
+  assert(pfw > 0 && (await p.getAttribute('#playIcon', 'data-s')) === 'pause', '进度条与播放按钮状态 ' + pfw);
+  await p.click('#play'); assert(!(await p.$('.ch.now')) && (await p.getAttribute('#playIcon', 'data-s')) === 'play', '播放按钮切换为停止');
   await p.click('#play'); await p.waitForTimeout(300); await p.click('#stop'); assert(!(await p.$('.ch.now')), '停止');
-  await p.click('#soundBtn'); await p.click('#loop'); await p.keyboard.press('Escape'); await p.click('[data-act=playsec]'); await p.waitForTimeout(600); await p.keyboard.press('Space'); await p.click('#soundBtn'); await p.click('#loop'); await p.keyboard.press('Escape');
+  await p.click('#loop'); assert((await p.getAttribute('#loop', 'aria-pressed')) === 'true', '运输栏：循环开关'); await p.click('#metro'); assert((await p.getAttribute('#metro', 'aria-pressed')) === 'true', '运输栏：节拍器开关'); await p.click('#metro'); await p.click('[data-act=playsec]'); await p.waitForTimeout(600); await p.keyboard.press('Space'); await p.click('#loop'); assert((await p.getAttribute('#loop', 'aria-pressed')) === 'false', '运输栏：关闭循环');
   for (const [id, ext] of [['midi', '.mid'], ['png', '.png'], ['txt', '.txt']]) {
     await p.click('#expBtn');
     const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#' + id)]);
@@ -77,7 +79,7 @@ const assert = (c, m) => { if (!c) throw new Error('✘ ' + m); console.log('✔
   assert(dz.suggestedFilename().endsWith('.zip') && +zl === 6, '全部分轨打包 zip 可解析（' + zl + ' 个文件）');
   const [dl2] = await Promise.all([p.waitForEvent('download'), p.click('[data-act=midisec]')]);
   assert(/\.mid$/.test(dl2.suggestedFilename()), '分段 MIDI ' + dl2.suggestedFilename());
-  await p.click('#expBtn'); await p.click('#save'); await p.click('#favBtn'); assert((await p.$$('#favList .li')).length >= 1, '收藏'); await p.keyboard.press('Escape');
+  await p.click('#expBtn'); await p.click('#save'); await p.click('#favBtn'); assert((await p.$$('#favList .li')).length >= 1 && (await navSel()) === 'favBtn', '收藏（导航高亮）'); await p.keyboard.press('Escape');
   await p.click('#expBtn'); await p.click('#share');
   const url = p.url(); assert(url.includes('#p='), '分享链接');
   const cur = await names();
@@ -97,13 +99,14 @@ const assert = (c, m) => { if (!c) throw new Error('✘ ' + m); console.log('✔
   await p.click('[data-act=regensec] >> nth=2'); assert(true, '分段重新生成');
   const [dzs] = await Promise.all([p.waitForEvent('download'), p.click('[data-act=zipsec] >> nth=3')]);
   assert(/副歌.*_分轨\.zip$/.test(dzs.suggestedFilename()), '歌曲模式分段分轨打包 ' + dzs.suggestedFilename());
-  await p.click('#theme');
-  await p.click('#tabRand'); await p.click('#gen');
+  assert((await navSel()) === 'tabSeed', '导航：歌曲扩展高亮');
+  const th0 = await p.getAttribute('html', 'data-theme'); await more('theme'); assert((await p.getAttribute('html', 'data-theme')) !== th0, '更多菜单：切换主题');
+  await p.click('#tabRand'); assert((await navSel()) === 'tabRand' && !(await p.isVisible('#seedBox')), '导航：生成'); await p.click('#gen');
   await p.click('.ch:not(.cont) >> nth=1');
   await p.evaluate(() => { document.documentElement.dataset.theme = 'dark'; }); await p.mouse.move(600, 900);
   await p.waitForTimeout(600);
   await p.screenshot({ path: path.resolve(__dirname, '..', 'screenshot.png') });
-  await p.click('#theme'); await p.mouse.move(600, 900); await p.waitForTimeout(400); await p.screenshot({ path: '/tmp/cg-light.png' }); await p.click('#theme');
+  await more('theme'); await p.mouse.move(600, 900); await p.waitForTimeout(400); await p.screenshot({ path: '/tmp/cg-light.png' }); await more('theme');
   // 分析该和弦
   await p.click('.ch:not(.cont) >> nth=1'); await p.click('#anaBtn'); await p.waitForSelector('#anaDrawer.open .nc');
   const cats = await p.$$eval('#anaBody .ngh', (x) => x.map((e) => e.firstChild.textContent.trim()));
@@ -119,7 +122,7 @@ const assert = (c, m) => { if (!c) throw new Error('✘ ' + m); console.log('✔
   assert((await names()).length === n0 + 1, '分析：插入和弦');
   await p.keyboard.press('Escape');
   // 和弦图鉴
-  await p.click('#dictBtn'); await p.waitForSelector('#dictPage.open .dItem');
+  await p.click('#dictBtn'); await p.waitForSelector('#dictPage.open .dItem'); assert((await navSel()) === 'dictBtn', '导航：和弦图鉴高亮');
   assert(/^456 /.test(await p.textContent('#dCount')), '图鉴：12 根音 × 38 种性质 = 456 ' + (await p.textContent('#dCount')));
   await p.fill('#dQ', 'Bb'); await p.selectOption('#dFam', '三和弦'); await p.click('.dItem >> nth=0');
   const bbFr = await p.textContent('#dEntry .gv small');
@@ -131,7 +134,11 @@ const assert = (c, m) => { if (!c) throw new Error('✘ ' + m); console.log('✔
   assert((await p.textContent('.dItem >> nth=0')).startsWith('Cmaj7'), '图鉴：按音反查 C E G B → Cmaj7');
   await p.click('.dItem >> nth=0'); await p.waitForTimeout(2300);
   await p.screenshot({ path: path.resolve(__dirname, '..', 'shot-dict.png') });
-  await p.click('#dClear'); await p.click('#dictClose'); assert(!(await p.isVisible('#dictPage')), '关闭图鉴');
+  await p.click('#dClear'); await p.click('#dictClose'); assert(!(await p.isVisible('#dictPage')) && (await navSel()) === 'tabRand', '关闭图鉴（导航恢复）');
+  await more('histBtn'); assert(await p.isVisible('#histDrawer.open') && (await p.$$('#histList .li')).length >= 2, '更多菜单：历史记录'); await p.click('#histList .li >> nth=1 >> .t'); await p.keyboard.press('Escape');
+  await more('help'); assert(await p.isVisible('#helpDrawer.open'), '更多菜单：快捷键'); await p.click('#helpDrawer [data-close]');
+  assert(await p.isVisible('#ctrl') && !(await p.isVisible('#openCtrl')) && !(await p.isVisible('#genM')), '桌面：三栏布局，参数栏常驻，唯一主按钮');
+  assert(!(await p.$eval('#transport', (e) => e.textContent)).match(/[▶❚🔁⏹]/) && !(await p.$eval('body', (e) => e.innerText)).match(/[\u{1F300}-\u{1FAFF}]/u), '界面无 emoji 图标');
   // 风格搜索：别名 / 大小写 / 连字符 / 中文 / 拼音，结果高亮
   for (const [q, re] of [['lofi', /Lo-fi/], ['LO-FI', /Lo-fi/], ['lo fi', /Lo-fi/], ['低保真', /Lo-fi|低保真/], ['dibaozhen', /Lo-fi/], ['edm', /House|Techno|Trance/], ['kpop', /K-pop/], ['古风', /古风/], ['爵士', /爵士/], ['shoegase', /Shoegaze/], ['抖音', /Douyin/]]) {
     if (!(await p.isVisible('#pickSearch'))) await p.click('#pickBtn'); await p.fill('#pickSearch', q); await p.waitForTimeout(50);
@@ -168,30 +175,36 @@ const assert = (c, m) => { if (!c) throw new Error('✘ ' + m); console.log('✔
   await p.click('#dAdd'); await p.waitForTimeout(150); assert((await p.evaluate(() => document.querySelectorAll('.ch:not(.cont)').length)) === nBefore + 3, '图鉴：加入进行');
   await p.click('#dictClose');
   // 进行中的和弦：卡片 🔍、详情栏 ▶ / 📖 / ➕ / 🗑、替换列表 ▶
-  await p.click('[data-ana="0"]'); await p.waitForSelector('#anaDrawer.open .nc'); assert(!(await p.$('#anaTonic')), '卡片 🔍 打开进行内分析'); await p.keyboard.press('Escape');
+  await p.click('[data-ana="0"]'); await p.waitForSelector('#anaDrawer.open .nc'); assert(!(await p.$('#anaTonic')), '卡片「分析」打开进行内分析'); await p.keyboard.press('Escape');
   await p.click('.ch:not(.cont) >> nth=0'); await p.click('#inspPlay'); await p.click('#insp [data-altplay] >> nth=0');
   await p.click('#inspDict'); await p.waitForSelector('#dictPage.open'); const n0name = (await names())[0];
-  assert((await p.textContent('#dEntry .cbig')).replace(/\/.*/, '') === n0name.replace(/\/.*/, ''), '详情栏 📖 打开对应图鉴条目 ' + n0name); await p.click('#dictClose');
+  assert((await p.textContent('#dEntry .cbig')).replace(/\/.*/, '') === n0name.replace(/\/.*/, ''), '详情栏「图鉴」打开对应条目 ' + n0name); await p.click('#dictClose');
   const cnt0 = (await names()).length; await p.click('.ch:not(.cont) >> nth=0'); await p.click('#inspIns'); await p.waitForSelector('#anaDrawer.open'); assert(await p.$('#anaBody [data-am=insert][aria-pressed=true]'), '详情栏 ➕ 以插入模式打开分析');
   await p.click('#anaBody .nc >> nth=0 >> [data-use]'); assert((await names()).length === cnt0 + 1, '插入成功'); await p.keyboard.press('Escape');
-  await p.click('.ch:not(.cont) >> nth=1'); await p.click('#inspDel'); assert((await names()).length === cnt0, '详情栏 🗑 删除');
+  await p.click('.ch:not(.cont) >> nth=1'); await p.click('#inspDel'); assert((await names()).length === cnt0, '详情栏「删除」');
   await p.keyboard.press('Control+z'); assert((await names()).length === cnt0 + 1, '删除可撤销');
   await p.keyboard.press('/'); assert(await p.evaluate(() => document.activeElement.id === 'gq'), '/ 聚焦全局搜索'); await p.keyboard.press('Escape');
   await p.fill('#gq', '导出'); await p.waitForSelector('#gres.open .gi'); assert((await p.textContent('#gres')).includes('导出 MIDI'), '全局搜索：功能'); await p.keyboard.press('Escape');
   // 风格搜索
   await p.click('#pickBtn'); await p.fill('#pickSearch', 'bossa'); const items = await p.$$('#pickList .it[data-s]:not([data-s=rand])');
   assert(items.length === 1, '风格搜索 bossa'); await items[0].click(); assert((await p.textContent('#pickLabel')).includes('Bossa'), '选择风格');
+  // 平板（两栏）
+  await p.setViewportSize({ width: 1024, height: 800 }); await p.waitForTimeout(400);
+  assert(!(await p.isVisible('#ctrl')) && (await p.isVisible('#openCtrl')) && (await p.isVisible('#insp')) && (await p.isVisible('#genM')), '平板：画布 + 详情两栏，参数为侧边面板');
+  await p.click('#openCtrl'); await p.waitForTimeout(350); assert(await p.isVisible('#ctrl'), '平板：打开参数面板');
+  await p.click('#gen'); await p.waitForTimeout(350); assert(!(await p.evaluate(() => document.getElementById('ctrl').classList.contains('open'))), '平板：生成后收起参数面板');
+  await p.click('#genM'); assert((await names()).length >= 2, '平板：运输栏生成按钮');
   // 移动端
   await p.setViewportSize({ width: 375, height: 812 }); await p.waitForTimeout(300);
   const ov = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   assert(ov <= 1, '移动端无横向溢出 (' + ov + ')');
-  assert(await p.isVisible('#openCtrl') && (await p.evaluate(() => getComputedStyle(document.getElementById('transport')).position)) === 'fixed', '移动端底部运输栏');
-  const tb = await p.evaluate(() => document.getElementById('transport').getBoundingClientRect().bottom);
-  assert(tb > 760 && tb <= 812, '运输栏在拇指区 ' + tb);
+  const nb = await p.evaluate(() => [document.getElementById('nav').getBoundingClientRect().top, document.getElementById('nav').getBoundingClientRect().bottom, document.getElementById('transport').getBoundingClientRect().bottom]);
+  assert(await p.isVisible('#openCtrl') && nb[1] === 812 && Math.abs(nb[2] - nb[0]) <= 1, '移动端：底部导航 + 其上运输栏 ' + nb);
+  assert((await p.evaluate(() => [...document.querySelectorAll('#nav .nav-i')].every((e) => e.getBoundingClientRect().height >= 44))), '底部导航触控目标 ≥ 44px');
   await p.click('#closeInsp').catch(() => {}); await p.keyboard.press('Escape');
   await p.click('#openCtrl'); await p.waitForTimeout(350);
   assert(await p.evaluate(() => document.getElementById('ctrl').getBoundingClientRect().top < 700), '参数底部抽屉打开');
-  await p.click('#genM'); await p.waitForTimeout(350);
+  await p.click('#gen'); await p.waitForTimeout(350);
   assert(await p.evaluate(() => document.getElementById('ctrl').getBoundingClientRect().top >= 812), '生成后抽屉收起');
   await p.evaluate(() => scrollTo(0, 0));
   await p.click('.ch:not(.cont) >> nth=0'); await p.waitForTimeout(350);
@@ -202,6 +215,10 @@ const assert = (c, m) => { if (!c) throw new Error('✘ ' + m); console.log('✔
   await p.click('#dictBtn'); await p.waitForSelector('#dictPage.open .dItem'); await p.click('.dItem >> nth=3'); await p.waitForTimeout(300);
   assert(await p.isVisible('#dEntry') && (await p.evaluate(() => document.documentElement.scrollWidth - innerWidth)) <= 1, '移动端图鉴：底部详情无溢出');
   await p.screenshot({ path: '/tmp/cg-dict-mobile.png' }); await p.click('#dBack'); await p.click('#dictClose');
+  await p.click('#favBtn'); assert(await p.isVisible('#favDrawer.open'), '移动端：底部导航 收藏'); await p.keyboard.press('Escape'); await p.waitForTimeout(350);
+  await p.click('#tabSeed'); assert(await p.isVisible('#openCtrl') && (await navSel()) === 'tabSeed', '移动端：底部导航 歌曲扩展'); await p.click('#tabRand');
+  await p.click('#soundBtn'); assert(await p.isVisible('#soundPop'), '移动端：声音底部面板'); await p.keyboard.press('Escape');
+  await p.click('#genM'); await p.waitForTimeout(300); assert((await names()).length >= 2, '移动端：悬浮生成按钮');
   await p.screenshot({ path: path.resolve(__dirname, '..', 'screenshot-mobile.png'), fullPage: false });
   // GM 采样：离线回退
   {

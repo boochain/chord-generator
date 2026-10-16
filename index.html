@@ -4,422 +4,685 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#111216">
 <title>和弦进行生成器 · Chord Progression Generator</title>
 <style>
-/* ===== 设计令牌 ===== */
+/* =====================================================================
+   和弦进行生成器 v3 · Design tokens
+   Spacing: 4/8pt grid (Fluent 2 ramp) · Type: 12/14/16/20/24/32
+   Touch targets ≥ 44px (Apple HIG, WCAG 2.5.5) · Contrast ≥ 4.5:1 (WCAG AA)
+   Window classes (Material 3): compact <600 · medium 600–839 · expanded 840–1199 · large ≥1200
+   ===================================================================== */
 :root{
-  --bg:#0c0f1e;--bg2:#11152b;--panel:#161a32;--panel2:#1d2242;--line:#2a3058;--line2:#363d6e;
-  --text:#eef0fb;--muted:#b0b5d8;--faint:#7c83b0;--acc:#8b93ff;--acc-strong:#6f78ff;--acc2:#ff6fae;--on-acc:#fff;
-  --T:#34d399;--S:#60a5fa;--D:#fb923c;--X:#c084fc;--danger:#f87171;
-  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--r-sm:8px;--r:12px;--r-lg:16px;
-  --fs-xs:11.5px;--fs-sm:12.5px;--fs:14px;--fs-lg:16px;--fs-xl:22px;
-  --shadow:0 10px 30px #0007;--shadow-sm:0 2px 8px #0004;--glass:rgba(16,19,38,.86);--ease:cubic-bezier(.2,.8,.2,1)
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",Roboto,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",system-ui,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:20px;--s6:24px;--s8:32px;--s10:40px;--s12:48px;
+  --fs-xs:12px;--fs-sm:14px;--fs-md:16px;--fs-lg:20px;--fs-xl:24px;--fs-2xl:32px;
+  --r-xs:6px;--r-sm:8px;--r-md:12px;--r-lg:16px;--r-full:999px;
+  --hit:44px;--ctl:36px;
+  --bar-h:56px;--tbar-h:64px;--nav-h:0px;
+  --rail-w:304px;--insp-w:360px;
+  --ease:cubic-bezier(.2,0,0,1);--ease-out:cubic-bezier(.05,.7,.1,1);
+  --d1:120ms;--d2:200ms;--d3:300ms;
 }
-[data-theme=light]{
-  --bg:#f4f5fb;--bg2:#eceef8;--panel:#fff;--panel2:#f3f4fb;--line:#dde0f0;--line2:#c9cde6;
-  --text:#171a2e;--muted:#4a5075;--faint:#767ca0;--acc:#5457e8;--acc-strong:#4346d6;--acc2:#d63a76;
-  --T:#047857;--S:#1d4ed8;--D:#c2410c;--X:#7e22ce;--danger:#dc2626;--shadow:0 8px 24px #2a2f6b1a;--shadow-sm:0 1px 4px #2a2f6b14;--glass:rgba(255,255,255,.9)
+/* Light (default token values) */
+:root,[data-theme=light]{
+  color-scheme:light;
+  --bg:#F6F7F9;--surface:#FFFFFF;--surface-2:#F0F1F4;--surface-3:#E7E9EE;
+  --line:#E1E4EA;--line-strong:#C9CED8;
+  --text:#16181D;--text-2:#555B68;--text-3:#6B7180;
+  --accent:#4F46E5;--accent-hover:#4338CA;--on-accent:#FFFFFF;
+  --accent-tint:color-mix(in srgb,var(--accent) 10%,var(--surface));
+  --T:#0E7C5A;--S:#1D5FD8;--D:#C2410C;--X:#9D3CC9;
+  --danger:#C62828;--success:#0E7C5A;
+  --key-w:#FBFBFD;--key-b:#2A2D35;--key-line:#B8BDC8;
+  --e1:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
+  --e2:0 4px 12px rgba(16,24,40,.08),0 2px 4px rgba(16,24,40,.06);
+  --e3:0 16px 40px rgba(16,24,40,.16),0 4px 12px rgba(16,24,40,.08);
+  --scrim:rgba(15,17,22,.36);
 }
-*{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--text);font:var(--fs)/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Segoe UI",sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
-body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;background:radial-gradient(900px 500px at 0% -10%,color-mix(in srgb,var(--acc) 18%,transparent),transparent 70%),radial-gradient(800px 500px at 100% 0%,color-mix(in srgb,var(--acc2) 12%,transparent),transparent 70%)}
-button,select,input{font:inherit;color:inherit}
-button{-webkit-tap-highlight-color:transparent}
-:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:6px}
-code{background:var(--panel2);border:1px solid var(--line);padding:0 5px;border-radius:6px;font-size:var(--fs-xs)}
-.num{font-variant-numeric:tabular-nums;font-weight:600;font-size:var(--fs-sm);min-width:56px;text-align:center}
-/* ===== 顶栏 ===== */
-header{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:var(--s3);justify-content:space-between;padding:10px 22px;background:var(--glass);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
-.brand{display:flex;align-items:center;gap:10px;min-width:0}
-.logo{flex:none;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;font-size:18px}
-h1{margin:0;font-size:var(--fs-lg);white-space:nowrap}
-h1 small{display:block;font-size:var(--fs-xs);color:var(--faint);font-weight:400}
-.tabs{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:3px}
-.tabs button{border:0;background:transparent;color:var(--muted);padding:6px 14px;border-radius:999px;cursor:pointer;transition:all .2s var(--ease);white-space:nowrap}
-.tabs button[aria-selected=true]{background:var(--panel);color:var(--text);box-shadow:var(--shadow-sm);font-weight:600}
-.hbtns{display:flex;gap:6px}
-/* ===== 按钮 ===== */
-.ib{border:1px solid var(--line);background:var(--panel);border-radius:10px;height:36px;min-width:36px;padding:0 10px;display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:transform .15s var(--ease),border-color .15s,background .15s;color:var(--text);white-space:nowrap}
-.ib:hover:not(:disabled){border-color:var(--acc)}
-.ib:active:not(:disabled){transform:scale(.97)}
-.ib:disabled{opacity:.4;cursor:not-allowed}
-.ib.sm{height:30px;min-width:30px;padding:0 6px;border-radius:8px}
-.ib.pri{background:linear-gradient(135deg,var(--acc-strong),var(--acc2));color:var(--on-acc);border:0;font-weight:700;padding:0 18px;box-shadow:0 6px 18px color-mix(in srgb,var(--acc) 35%,transparent)}
-.ib.big{height:42px;font-size:var(--fs)}
-.ib.wide{flex:1}
-.ib.busy{pointer-events:none;opacity:.75}
-.ib.busy::after{content:"";width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .6s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.chip{border:1px solid var(--line);background:var(--panel2);color:var(--muted);border-radius:999px;padding:6px 12px;font-size:var(--fs-sm);cursor:pointer;transition:all .15s;white-space:nowrap}
-.chip:hover{color:var(--text);border-color:var(--acc)}
-.chip.on{color:var(--text);border-color:var(--acc);background:color-mix(in srgb,var(--acc) 20%,var(--panel2));font-weight:600}
-kbd{font:11px ui-monospace,monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 4px;color:var(--muted);background:var(--panel2)}
-/* ===== 布局 ===== */
-main{display:grid;grid-template-columns:300px minmax(0,1fr);gap:var(--s4);padding:var(--s4) 22px 60px;max-width:1680px;margin:0 auto;align-items:start}
-body.has-insp main{grid-template-columns:300px minmax(0,1fr) 330px}
-#insp{display:none}
-body.has-insp #insp{display:block;animation:slidein .25s var(--ease)}
-@keyframes slidein{from{opacity:0;transform:translateX(10px)}to{opacity:1}}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--s4);box-shadow:var(--shadow-sm)}
-.panel{position:sticky;top:72px;max-height:calc(100vh - 88px);overflow:auto}
-.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--s2)}
-.card h2,.panel-head h2{font-size:var(--fs-sm);letter-spacing:.4px;margin:0;color:var(--muted);font-weight:700;display:flex;align-items:center;gap:8px}
-.group{padding:var(--s3) 0;border-top:1px solid var(--line)}
-.panel-head+.group,.panel-head+.group[hidden]+.group{border-top:0;padding-top:0}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.full{grid-column:1/-1}
-label.f,.f{display:flex;flex-direction:column;gap:4px;font-size:var(--fs-sm);color:var(--muted)}
-.flab{font-size:var(--fs-sm);color:var(--muted)}
-.hint-i{font-size:var(--fs-xs);color:var(--faint);font-weight:400}
-select,input[type=text],input[type=search]{width:100%;height:38px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:0 10px;outline:none;transition:border .15s;color:var(--text)}
-select:hover,input:hover{border-color:var(--line2)}
-select:focus,input:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 22%,transparent)}
-input[type=range]{width:100%;accent-color:var(--acc)}
-.row{display:flex;gap:6px;align-items:center}
-.wrap{flex-wrap:wrap;margin-top:6px}
-.err{color:var(--danger);font-size:var(--fs-sm);min-height:1em;margin-top:4px}
-details.adv summary{cursor:pointer;list-style:none;font-weight:600;font-size:var(--fs-sm);color:var(--text);display:flex;gap:8px;align-items:baseline;padding:2px 0}
-details.adv summary::-webkit-details-marker{display:none}
-details.adv summary::before{content:"▸";color:var(--acc);transition:transform .2s}
-details.adv[open] summary::before{transform:rotate(90deg)}
-details.adv[open] .grid{margin-top:10px;animation:fade .2s}
-.panel-foot{display:flex;gap:8px;padding-top:var(--s3);border-top:1px solid var(--line)}
-.only-m{display:none!important}
-.lbl{font-size:var(--fs-sm)}
-/* 风格选择器 */
-.picker{position:relative;margin-bottom:10px}
-.pickbtn{width:100%;height:42px;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:0 12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:6px;font-weight:600;color:var(--text)}
-.pickbtn:hover{border-color:var(--acc)}
-.pickbtn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pop{position:absolute;z-index:40;left:0;top:calc(100% + 6px);min-width:100%;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:8px;display:none}
-.pop.open{display:block;animation:pop .14s var(--ease)}
-.pop.right{left:auto;right:0}
-@keyframes pop{from{opacity:0;transform:translateY(-4px)}to{opacity:1}}
-.picker .pop{right:-60px}
-.plist{max-height:min(380px,60vh);overflow:auto;margin-top:6px}
-.plist .gh{position:sticky;top:0;background:var(--panel);font-size:var(--fs-xs);color:var(--acc);padding:6px 6px 3px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between}
-.plist .it{padding:6px 10px;border-radius:8px;cursor:pointer;font-size:13px}
-.plist .it:hover,.plist .it.sel{background:var(--panel2)}
-.plist .it.sel{color:var(--acc);font-weight:600}
-.menu{position:relative}
-.menu .pop{min-width:240px;max-height:72vh;overflow:auto}
-.menu .pop>button,.pop-row button{display:block;width:100%;text-align:left;border:0;background:transparent;padding:8px 10px;border-radius:8px;cursor:pointer;color:var(--text)}
-.menu .pop>button:hover,.pop-row button:hover{background:var(--panel2)}
-.pop-title{font-size:var(--fs-xs);color:var(--faint);font-weight:700;letter-spacing:.5px;padding:8px 10px 2px}
-.pop-row{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:2px 4px}
-.pop-row button{text-align:center;border:1px solid var(--line)!important;font-size:var(--fs-sm)}
-.chips{display:flex;flex-wrap:wrap;gap:6px;padding:4px 6px 10px}
-#soundPop .f{padding:0 6px 8px}
-/* ===== 运输栏 ===== */
-.workspace{min-width:0;display:flex;flex-direction:column;gap:var(--s3)}
-.transport{position:sticky;top:64px;z-index:20;display:flex;align-items:center;gap:var(--s2);padding:10px 12px;background:var(--glass);backdrop-filter:blur(14px);flex-wrap:nowrap}
-.playbtn{flex:none;width:46px;height:46px;border-radius:50%;border:0;cursor:pointer;background:var(--text);color:var(--bg);font-size:17px;display:grid;place-items:center;box-shadow:var(--shadow-sm);transition:transform .15s var(--ease)}
-.playbtn:hover{transform:scale(1.06)}
-.playbtn.playing{background:var(--acc2);color:#fff}
-.prog{flex:1;min-width:90px;display:flex;flex-direction:column;gap:3px}
-.prog-bar{height:6px;border-radius:99px;background:var(--panel2);overflow:hidden;border:1px solid var(--line)}
-.prog-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width .1s linear}
-.prog-t{font-size:var(--fs-xs);color:var(--faint);font-variant-numeric:tabular-nums}
-.stepper,.keygrp{display:flex;align-items:center;gap:2px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:2px}
-.stepper .ib,.keygrp .ib{border:0;background:transparent}
-.grow{flex:0}
-/* ===== 结果 ===== */
-.tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:var(--s2)}
-.tag{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:var(--fs-xs);color:var(--muted)}
-.tag b{color:var(--text);font-weight:600}
-.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:var(--fs-xs);color:var(--muted);margin:2px 0 var(--s2)}
-.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
-.section{margin:var(--s4) 0 var(--s1);animation:fade .35s var(--ease) both}
-@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
-.sh{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
-.sh h3{margin:0;font-size:var(--fs-lg)}
-.sh .k{font-size:var(--fs-sm);color:var(--muted)}
-.sh .mod{font-size:var(--fs-sm);color:var(--acc2);font-weight:700}
-.sh .sp{flex:1}
-.sh .ib{height:30px;font-size:var(--fs-sm);padding:0 8px;opacity:.75}
-.sh .ib:hover{opacity:1}
-.note{margin:0 0 10px;color:var(--muted);font-size:var(--fs-sm)}
-.bars{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-.bar{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:6px;display:flex;gap:6px;min-height:118px;position:relative}
-.bar .no{position:absolute;top:4px;left:9px;font-size:10px;color:var(--faint);font-variant-numeric:tabular-nums}
-.ch{flex:1;min-width:0;border-radius:11px;padding:22px 4px 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-align:center;background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--X);cursor:pointer;transition:transform .15s var(--ease),box-shadow .2s,background .2s;position:relative;animation:fade .3s var(--ease) both}
-.ch:hover{transform:translateY(-2px);box-shadow:var(--shadow-sm);border-color:var(--line2)}
-.ch.T{border-top-color:var(--T)}.ch.S{border-top-color:var(--S)}.ch.D{border-top-color:var(--D)}
-.ch .nm{font-size:22px;font-weight:800;word-break:break-word;line-height:1.15;letter-spacing:-.2px}
-.ch .rn{font-size:15px;color:var(--text);opacity:.85;font-family:"Times New Roman",Georgia,serif}
-.ch .fn{font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:99px;margin-top:2px}
-.ch.T .fn{color:var(--T);background:color-mix(in srgb,var(--T) 14%,transparent)}
-.ch.S .fn{color:var(--S);background:color-mix(in srgb,var(--S) 14%,transparent)}
-.ch.D .fn{color:var(--D);background:color-mix(in srgb,var(--D) 14%,transparent)}
-.ch .tg{font-size:10.5px;color:var(--acc2);font-weight:700}
-.ch.cont{opacity:.5;cursor:default}
-.ch.cont .nm{font-size:18px}
-.ch.sel{border-color:var(--acc);box-shadow:0 0 0 2px color-mix(in srgb,var(--acc) 55%,transparent)}
-.ch.now{background:color-mix(in srgb,var(--acc) 22%,var(--panel));box-shadow:0 0 0 2px var(--acc),0 0 24px color-mix(in srgb,var(--acc) 45%,transparent);transform:scale(1.03)}
-.ch.locked{background:repeating-linear-gradient(135deg,var(--panel),var(--panel) 8px,color-mix(in srgb,var(--acc) 9%,var(--panel)) 8px,color-mix(in srgb,var(--acc) 9%,var(--panel)) 16px)}
-.ch-tools{position:absolute;top:3px;left:3px;right:3px;display:flex;justify-content:space-between;opacity:.55;transition:opacity .15s}
-.ch:hover .ch-tools,.ch:focus-within .ch-tools,.ch.sel .ch-tools{opacity:1}
-.lk,.sw{border:0;background:transparent;cursor:pointer;font-size:12px;padding:2px 5px;border-radius:6px;color:var(--muted)}
-.lk:hover,.sw:hover{background:var(--panel2);color:var(--text)}
-.lk.on{opacity:1;color:var(--acc)}
-.ex{margin:var(--s2) 0 0;padding-left:18px;color:var(--muted)}
-.ex li{margin:5px 0}
-.term{border-bottom:1px dotted var(--acc);cursor:help;color:var(--text)}
-.empty{color:var(--muted);text-align:center;padding:56px 0}
-details.explain summary{cursor:pointer;font-weight:700;color:var(--muted);font-size:var(--fs-sm);margin-top:var(--s4)}
-/* 新手引导 */
-.onboard{display:flex;gap:var(--s3);align-items:flex-start;padding:var(--s3) var(--s4);margin-bottom:var(--s3);border-radius:var(--r);background:color-mix(in srgb,var(--acc) 12%,var(--panel));border:1px solid color-mix(in srgb,var(--acc) 40%,var(--line));animation:fade .3s}
-.onboard ol{margin:4px 0 0;padding-left:18px;color:var(--muted);font-size:var(--fs-sm)}
-.onboard b{color:var(--text)}
-.onboard .x{margin-left:auto}
-/* ===== 详情 ===== */
-.cbig{font-size:34px;font-weight:800;line-height:1.1}
-.sub{color:var(--muted);font-family:"Times New Roman",Georgia,serif;font-size:17px}
-.badges{display:flex;gap:6px;flex-wrap:wrap;margin:var(--s2) 0}
-.badge{font-size:var(--fs-xs);border-radius:999px;padding:3px 10px;border:1px solid var(--line);background:var(--panel2);color:var(--text)}
-.badge.T{color:var(--T)}.badge.S{color:var(--S)}.badge.D{color:var(--D)}.badge.x{color:var(--acc2)}
-.viz{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:8px;margin:8px 0;overflow:hidden}
-.viz svg{display:block;width:100%;height:auto}
-.alts{display:flex;flex-direction:column;gap:6px;margin-top:6px}
-.altg{font-size:var(--fs-xs);color:var(--muted);margin:8px 0 2px;font-weight:700}
-.alt{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:8px 12px;cursor:pointer;transition:all .15s var(--ease);text-align:left;width:100%;color:var(--text)}
-.alt:hover{border-color:var(--acc);transform:translateX(2px)}
-.alt b{font-size:15px}
-.alt small{color:var(--muted);font-family:"Times New Roman",serif;font-size:13px}
-/* ===== 抽屉 / 提示 ===== */
-.drawer{position:fixed;top:0;right:0;bottom:0;width:min(380px,92vw);background:var(--panel);border-left:1px solid var(--line);box-shadow:var(--shadow);z-index:60;transform:translateX(105%);transition:transform .25s var(--ease);padding:var(--s4);overflow:auto}
-.drawer.open{transform:none}
-.drawer h2{margin:0 0 10px;font-size:var(--fs-lg);display:flex;justify-content:space-between;align-items:center;color:var(--text)}
-.li{display:flex;gap:8px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:6px 0;background:var(--panel2)}
-.li .t{flex:1;min-width:0;cursor:pointer}
-.li .t div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.li .t small{color:var(--muted)}
-.li.cur{border-color:var(--acc)}
-.scrim{position:fixed;inset:0;background:#0007;z-index:55;display:none;animation:fade .2s}
-.scrim.open{display:block}
-#tip{position:fixed;z-index:80;max-width:280px;background:var(--text);color:var(--bg);font-size:12px;padding:7px 10px;border-radius:9px;pointer-events:none;opacity:0;transition:opacity .12s;box-shadow:var(--shadow)}
-#tip.on{opacity:1}
-.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(10px);background:var(--text);color:var(--bg);padding:10px 18px;border-radius:999px;opacity:0;transition:all .2s var(--ease);pointer-events:none;z-index:90;font-weight:600;box-shadow:var(--shadow);display:flex;gap:8px;align-items:center}
-.toast.on{opacity:1;transform:translateX(-50%)}
-.toast.err{background:var(--danger);color:#fff}
-.keys{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:13px}
-.hint{font-size:var(--fs-sm);color:var(--faint);margin:10px 0 0}
-/* ===== 响应式 ===== */
-@media(max-width:1280px){body.has-insp main{grid-template-columns:280px minmax(0,1fr)}body.has-insp #insp{grid-column:1/-1;position:static;max-height:none}}
-@media(max-width:1100px){.lbl{display:none}.transport .ib.pri .lbl{display:inline}}
-@media(max-width:1600px){body.has-insp .transport .lbl{display:none}body.has-insp .transport .ib.pri .lbl{display:inline}body.has-insp .keygrp .num{min-width:44px;font-size:11.5px}}
-.prog{min-width:40px}.transport>*{flex-shrink:0}.transport .prog{flex-shrink:1}
-@media(max-width:880px){
-  header{padding:8px 10px;gap:8px}h1,.hbtns #histBtn,.hbtns #help{display:none}.hbtns{gap:4px}.hbtns .ib{min-width:34px;height:34px;padding:0 6px}
-  .tabs button{padding:5px 10px;font-size:13px}
-  main,body.has-insp main{grid-template-columns:1fr;padding:10px 10px 110px}
-  .only-m{display:inline-flex!important}.dsk{display:none!important}
-  /* 参数面板与和弦详情改为底部抽屉 */
-  .panel{position:fixed!important;left:0;right:0;bottom:0;top:auto;max-height:82vh;z-index:58;border-radius:20px 20px 0 0;transform:translateY(105%);transition:transform .28s var(--ease);padding-bottom:calc(16px + env(safe-area-inset-bottom))}
-  .panel::before{content:"";display:block;width:40px;height:4px;border-radius:9px;background:var(--line2);margin:-6px auto 10px}
-  .panel.open{transform:none}
-  #insp,body.has-insp #insp{display:block;grid-column:auto}
-  /* 运输栏固定在底部，便于拇指操作 */
-  .transport{position:fixed;left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));top:auto;z-index:50;border-radius:18px;box-shadow:var(--shadow);gap:6px;padding:8px}
-  .transport .lbl{display:none}
-  .stepper .num{min-width:30px;font-size:12px;line-height:1.1}.stepper .ib.sm{min-width:24px;padding:0 2px}.transport .ib.pri{padding:0 14px}.transport .prog{min-width:20px}.prog-t{display:none}
-  .pop.sheet{position:fixed;left:8px;right:8px;bottom:84px;top:auto;max-height:65vh}
-  .picker .pop{right:0}
-  .bars{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-  .ch .nm{font-size:19px}.bar{min-height:104px}
-  .toast{bottom:96px}
+[data-theme=dark]{
+  color-scheme:dark;
+  --bg:#111216;--surface:#17191E;--surface-2:#1F2128;--surface-3:#282B33;
+  --line:#2A2D35;--line-strong:#3A3E48;
+  --text:#ECEDF0;--text-2:#A6ABB6;--text-3:#7E8490;
+  --accent:#8B87FF;--accent-hover:#A29FFF;--on-accent:#0E0F1A;
+  --accent-tint:color-mix(in srgb,var(--accent) 14%,var(--surface));
+  --T:#3DD68C;--S:#6AA8FF;--D:#FF9A57;--X:#D69CFF;
+  --danger:#FF6B6B;--success:#3DD68C;
+  --key-w:#E9EAEE;--key-b:#0B0C0F;--key-line:#5A5F6B;
+  --e1:0 1px 2px rgba(0,0,0,.4);
+  --e2:0 4px 14px rgba(0,0,0,.45);
+  --e3:0 18px 48px rgba(0,0,0,.6);
+  --scrim:rgba(0,0,0,.55);
 }
-@media(max-width:380px){.prog-t{display:none}.stepper .num{min-width:38px}}
-@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-@media(max-width:880px){.transport .lbl,.transport .ib.pri .lbl{display:none!important}.logo,#redo{display:none!important}.tabs button{padding:5px 9px;font-size:12.5px}header{justify-content:space-between}}
-@media(max-width:880px){.transport{gap:5px;justify-content:space-between}.transport .prog{position:absolute;left:18px;right:18px;top:3px;min-width:0}.transport .prog-bar{height:3px;border:0}.transport .grow{display:none}}
+/* legacy aliases used by canvas export & SVG helpers */
+:root,[data-theme]{--panel:var(--surface);--panel2:var(--surface-2);--muted:var(--text-2);--faint:var(--text-3);--acc:var(--accent);--acc2:var(--X)}
 
-.bpmin{width:58px;height:30px;border:1px solid transparent;background:transparent;color:var(--text);font:600 13px/1 inherit;font-variant-numeric:tabular-nums;text-align:center;border-radius:8px;padding:0 2px;-moz-appearance:textfield}
-.bpmin::-webkit-inner-spin-button,.bpmin::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
-.bpmin:focus{border-color:var(--acc);background:var(--panel);outline:none}
-.bpmin.bad{border-color:var(--danger)}
-.bpmin.wide{flex:1;width:auto;height:38px;background:var(--panel2);border:1px solid var(--line);font-size:15px}
-.stepper .u{font-size:10.5px;color:var(--faint);margin-right:4px}
-#tap{font-size:10.5px;font-weight:700;letter-spacing:.5px}
-#soundPop{min-width:300px}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font:400 var(--fs-sm)/1.5 var(--font);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;
+  display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:var(--bar-h) minmax(0,1fr) var(--tbar-h) var(--nav-h);height:100dvh;overflow:hidden}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+button:disabled{cursor:not-allowed;opacity:.4}
+h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.01em}
+kbd{font:500 11px/1 var(--mono);padding:3px 6px;border-radius:var(--r-xs);border:1px solid var(--line-strong);border-bottom-width:2px;background:var(--surface-2);color:var(--text-2)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.skip{position:fixed;left:8px;top:-60px;z-index:200;background:var(--accent);color:var(--on-accent);padding:8px 12px;border-radius:var(--r-sm)}.skip:focus{top:8px}
+.ic{width:20px;height:20px;flex:none;display:inline-block;vertical-align:middle}
+.ic.sm{width:16px;height:16px}
+.grow{flex:1}
+.hint,.help{color:var(--text-2);font-size:var(--fs-xs);line-height:1.45}
+.term{border-bottom:1px dashed var(--text-3);cursor:help}
+mark{background:color-mix(in srgb,var(--accent) 28%,transparent);color:inherit;border-radius:3px;padding:0 1px}
+[hidden]{display:none!important}
+
+/* ---------- Buttons (M3: filled / tonal / outlined / text) ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--s2);min-height:var(--ctl);padding:0 var(--s4);border-radius:var(--r-sm);border:1px solid transparent;background:transparent;font-weight:600;font-size:var(--fs-sm);white-space:nowrap;transition:background var(--d1) var(--ease),border-color var(--d1),transform var(--d1)}
+.btn .ic{width:18px;height:18px}
+.btn:active:not(:disabled){transform:scale(.98)}
+.btn.filled{background:var(--accent);color:var(--on-accent);box-shadow:var(--e1)}
+.btn.filled:hover:not(:disabled){background:var(--accent-hover)}
+.btn.tonal{background:var(--accent-tint);color:var(--accent)}
+.btn.tonal:hover:not(:disabled){background:color-mix(in srgb,var(--accent) 20%,var(--surface))}
+.btn.outlined{border-color:var(--line-strong);background:var(--surface)}
+.btn.outlined:hover:not(:disabled){background:var(--surface-2)}
+.btn.text{color:var(--text-2);padding:0 var(--s3)}
+.btn.text:hover:not(:disabled){background:var(--surface-2);color:var(--text)}
+.btn.danger{color:var(--danger)}
+.btn.sm{min-height:32px;padding:0 var(--s3);font-size:var(--fs-xs)}
+.btn:not(.filled):not(.tonal):not(.outlined):not(.text){border-color:var(--line-strong);background:var(--surface)}
+.btn.busy{pointer-events:none;opacity:.7}
+.btn.busy .ic{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.icon-btn,.ib{display:inline-grid;place-items:center;width:var(--ctl);height:var(--ctl);border-radius:var(--r-sm);border:0;background:transparent;color:var(--text-2);position:relative;flex:none;transition:background var(--d1),color var(--d1)}
+.icon-btn::after,.ib::after{content:"";position:absolute;inset:-4px}/* 44px hit area */
+.icon-btn:hover:not(:disabled),.ib:hover:not(:disabled){background:var(--surface-2);color:var(--text)}
+.icon-btn:active:not(:disabled),.ib:active:not(:disabled){background:var(--surface-3)}
+.icon-btn.tog[aria-pressed=true],.icon-btn.on{background:var(--accent-tint);color:var(--accent)}
+.chip{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 var(--s3);border-radius:var(--r-sm);border:1px solid var(--line-strong);background:var(--surface);font-size:var(--fs-xs);font-weight:600;color:var(--text-2)}
+.chip .ic{width:16px;height:16px}
+.chip.on,.chip[aria-pressed=true]{background:var(--accent-tint);border-color:color-mix(in srgb,var(--accent) 45%,transparent);color:var(--accent)}
+.chips{display:flex;gap:var(--s2);flex-wrap:wrap}
+
+/* ---------- Inputs ---------- */
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field.full{grid-column:1/-1}
+.lab{font-size:var(--fs-xs);font-weight:600;color:var(--text-2);display:flex;gap:6px;align-items:center}
+.lab b{color:var(--accent);font-variant-numeric:tabular-nums}
+input[type=text],input[type=search],input[type=number],select,.select-btn{height:var(--ctl);width:100%;padding:0 var(--s3);border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:var(--fs-sm);transition:border-color var(--d1),box-shadow var(--d1)}
+select{appearance:none;padding-right:32px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%237A808C' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+input:hover,select:hover,.select-btn:hover{border-color:var(--text-3)}
+input:focus,select:focus,.select-btn:focus-visible{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
+input.bad,.num-in.bad{border-color:var(--danger);box-shadow:0 0 0 3px color-mix(in srgb,var(--danger) 20%,transparent)}
+.num-in{font-variant-numeric:tabular-nums;text-align:center;-moz-appearance:textfield}
+.num-in::-webkit-inner-spin-button{opacity:.5}
+.row{display:flex;gap:var(--s2);align-items:center}
+.row .num-in{width:96px}
+.select-btn{display:flex;align-items:center;justify-content:space-between;gap:var(--s2);text-align:left;font-weight:500}
+.select-btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.err{color:var(--danger);font-size:var(--fs-xs)}.err:empty{display:none}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:var(--s3) var(--s3)}
+
+/* ---------- App bar ---------- */
+.appbar{display:flex;align-items:center;gap:var(--s4);padding:0 var(--s4);background:var(--surface);border-bottom:1px solid var(--line);position:relative;z-index:30}
+.brand{display:flex;align-items:center;gap:var(--s2);min-width:0}
+.logo{width:32px;height:32px;border-radius:var(--r-sm);display:grid;place-items:center;background:var(--accent);color:var(--on-accent)}
+.logo .ic{width:18px;height:18px}
+.brand-t{display:flex;flex-direction:column;line-height:1.2}
+.brand-t b{font-size:var(--fs-md)}
+.brand-t small{font-size:11px;color:var(--text-3);white-space:nowrap}
+.nav{display:flex;gap:2px;padding:3px;background:var(--surface-2);border-radius:10px}
+.nav-i{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 var(--s3);border:0;border-radius:var(--r-sm);background:transparent;color:var(--text-2);font-weight:600;font-size:var(--fs-sm);white-space:nowrap;transition:background var(--d1),color var(--d1)}
+.nav-i .ic{width:18px;height:18px}
+.nav-i:hover{color:var(--text)}
+.nav-i[aria-selected=true]{background:var(--surface);color:var(--text);box-shadow:var(--e1)}
+.nav-i[aria-selected=true] .ic{color:var(--accent)}
+.gsearch{position:relative;flex:1;max-width:420px;margin-left:auto}
+.gsearch input{padding-left:36px;padding-right:36px;background:var(--surface-2);border-color:transparent}
+.gsearch input:focus{background:var(--surface)}
+.gs-ic{position:absolute;left:10px;top:8px;color:var(--text-3);pointer-events:none}
+.gs-k{position:absolute;right:8px;top:8px;pointer-events:none}
+.gsearch:focus-within .gs-k{display:none}
+#gres{display:none;position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--e3);padding:6px;max-height:60vh;overflow:auto;z-index:60}
+#gres.open{display:block}
+.gi{display:grid;grid-template-columns:auto auto 1fr;gap:var(--s2);align-items:center;min-height:40px;padding:6px 10px;border-radius:var(--r-sm);cursor:pointer}
+.gi.on,.gi:hover{background:var(--accent-tint)}
+.gi small{color:var(--text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-xs)}
+.gk{font-size:11px;border-radius:var(--r-xs);padding:1px 6px;background:var(--surface-2);color:var(--text-2);font-weight:600}
+.bar-actions{display:flex;gap:2px;align-items:center}
+
+/* ---------- Menus ---------- */
+.menu{position:relative}
+.pop{display:none;position:absolute;top:calc(100% + 6px);left:0;min-width:240px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--e3);padding:6px;z-index:60;transform-origin:top;animation:pop var(--d2) var(--ease-out)}
+.pop.open{display:block}
+.pop.right{left:auto;right:0}
+.pop.up{top:auto;bottom:calc(100% + 10px);transform-origin:bottom}
+@keyframes pop{from{opacity:0;transform:scale(.97) translateY(-4px)}}
+.pop>button,.pop-row button{display:flex;align-items:center;gap:var(--s3);width:100%;min-height:40px;padding:0 var(--s3);border:0;background:transparent;border-radius:var(--r-sm);text-align:left;font-size:var(--fs-sm);color:var(--text)}
+.pop>button .ic{color:var(--text-2);width:18px;height:18px}
+.pop>button span{flex:1}
+.pop>button:hover,.pop-row button:hover{background:var(--surface-2)}
+.pop-title{font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;padding:var(--s2) var(--s3) var(--s1);display:flex;gap:8px;align-items:center}
+.pop-title .help{text-transform:none;letter-spacing:0;font-weight:500}
+.pop-sep{height:1px;background:var(--line);margin:6px 4px}
+.pop-row{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:0 4px 4px}
+.pop-row button{justify-content:center;min-height:32px;font-size:var(--fs-xs);border:1px solid var(--line);color:var(--text-2)}
+#soundPop{width:320px;padding:var(--s3)}
+#soundPop .field{margin-top:var(--s3)}
+#soundPop .chips{padding:0 var(--s1)}
 .sf-loading{animation:pulse 1s ease-in-out infinite}
 @keyframes pulse{50%{opacity:.4}}
-@media(max-width:880px){.stepper .u{display:none!important}.bpmin{width:44px}#tap{display:none}}
+[data-theme=dark] .th-d,[data-theme=light] .th-l{display:none}
 
-/* v2.4 分析与图鉴 */
-.anaBtn{width:100%;margin:8px 0}
-.drawer.wide{width:min(560px,96vw)}
-.anaHead{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px}.anaHead .cbig{margin:0}.anaHead .btn{margin-left:auto}
-.anaT{border-collapse:collapse;width:100%;font-size:var(--fs-sm);margin:4px 0}.anaT th{text-align:left;color:var(--muted);font-weight:500;padding:3px 6px;white-space:nowrap}.anaT td{padding:3px 6px;border-bottom:1px solid var(--line);text-align:center}
-#anaBody h3{font-size:var(--fs-md,14px);margin:14px 0 6px;color:var(--text);display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
-.interp{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0}.ip{font:inherit;font-size:var(--fs-sm);padding:3px 8px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--text);cursor:pointer}.ip.cur{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 18%,transparent)}.ip small{color:var(--muted)}
-.seg{display:flex;gap:4px;margin:6px 0 10px}.seg button{flex:1;font:inherit;font-size:var(--fs-sm);padding:6px;border:1px solid var(--line);background:transparent;color:var(--text);border-radius:8px;cursor:pointer}.seg button[aria-pressed=true]{background:var(--acc);color:#fff;border-color:var(--acc)}
-.ng{margin-bottom:10px}.ngh{font-weight:700;font-size:var(--fs-sm);color:var(--acc);margin:6px 0 4px}.ngh small{color:var(--muted);font-weight:400}
-.nc{display:grid;grid-template-columns:auto 1fr 90px auto;gap:8px;align-items:center;padding:6px;border:1px solid var(--line);border-radius:10px;margin-bottom:4px}
-.nc .nm small{color:var(--muted)}.nc .why{font-size:12px;color:var(--muted);line-height:1.35}.nc .why em{color:var(--D);font-style:normal}
-.pb{position:relative;height:18px;background:color-mix(in srgb,var(--line) 60%,transparent);border-radius:9px;overflow:hidden}.pb i{position:absolute;inset:0 auto 0 0;background:color-mix(in srgb,var(--acc) 55%,transparent)}.pb span{position:relative;font-size:11px;padding-left:6px;line-height:18px}
-.btn.sm{padding:4px 10px;font-size:var(--fs-sm)}
-#dictPage{position:fixed;inset:0;z-index:70;background:var(--bg);display:none;flex-direction:column;padding:var(--s4);gap:10px;overflow:hidden}
-#dictPage.open{display:flex}
-.dHead{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.dHead h2{margin:0 8px 0 0;font-size:var(--fs-lg)}.dHead input{flex:1;min-width:180px}.dHead #dictClose{margin-left:auto}
-.dNotesRow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}#dNotes{display:flex;gap:3px;flex-wrap:wrap}
-.nk{font:inherit;font-size:12px;min-width:34px;height:30px;border:1px solid var(--line);border-radius:6px;background:#f4f5fb;color:#222;cursor:pointer}.nk.blk{background:#20243a;color:#eee}.nk[aria-pressed=true]{background:var(--acc);color:#fff;border-color:var(--acc)}
-.dBody{flex:1;display:grid;grid-template-columns:minmax(260px,1fr) minmax(320px,1.3fr);gap:12px;min-height:0}
-#dList{overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;align-content:start;padding-right:4px}
-.dItem{font:inherit;text-align:left;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--text);cursor:pointer;display:flex;flex-direction:column}.dItem small{color:var(--muted);font-size:11px}.dItem.sel{border-color:var(--acc);box-shadow:0 0 0 2px color-mix(in srgb,var(--acc) 40%,transparent)}
-#dEntry{overflow:auto;padding:var(--s4)}
-.gvs{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-top:8px;color:var(--text)}.gv{display:flex;flex-direction:column;align-items:center;text-align:center}.gv small{color:var(--muted);font-size:11px}
-body.dict-open{overflow:hidden}
-@media (max-width:760px){
-  #dictPage{padding:10px}.dHead h2{font-size:16px}.dHead input{min-width:0;width:100%;order:5;flex-basis:100%}
-  .dBody{grid-template-columns:1fr}#dEntry{display:none}#dictPage.show-entry #dEntry{display:block;position:fixed;inset:auto 0 0 0;max-height:82vh;z-index:75;border-radius:16px 16px 0 0;box-shadow:var(--shadow)}
-  .nk{min-width:28px;height:28px;font-size:11px}
-  .nc{grid-template-columns:auto 1fr auto}.nc .pb{grid-column:2;grid-row:2}
-}
-.btn{border:1px solid var(--acc);background:color-mix(in srgb,var(--acc) 22%,var(--panel2));color:var(--text);border-radius:999px;padding:7px 14px;font:inherit;font-size:var(--fs-sm);font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s}
-.btn:hover{background:var(--acc);color:#fff}
-.dHead select{width:auto;min-width:120px}.dHead input{width:auto}
-@media (max-width:760px){.dHead select{flex:1}}
+/* ---------- Main layout ---------- */
+#main{display:grid;grid-template-columns:var(--rail-w) minmax(0,1fr) var(--insp-w);min-height:0}
+.pane{display:flex;flex-direction:column;min-height:0;background:var(--surface)}
+.pane-head{display:flex;align-items:center;gap:var(--s1);min-height:52px;padding:var(--s2) var(--s3) var(--s2) var(--s5);border-bottom:1px solid var(--line)}
+.pane-head h2{font-size:var(--fs-md);flex:1}
+.pane-body{flex:1;overflow:auto;padding:var(--s5)}
+.pane-foot{display:grid;grid-template-columns:auto 1fr;gap:var(--s2);padding:var(--s3) var(--s5) var(--s4);border-top:1px solid var(--line)}
+.pane-foot .btn{min-height:var(--hit)}
+.rail{border-right:1px solid var(--line)}
+.insp{border-left:1px solid var(--line)}
+.group{display:flex;flex-direction:column;gap:var(--s3);padding-bottom:var(--s5);margin-bottom:var(--s5);border-bottom:1px solid var(--line)}
+.group:last-child{border-bottom:0;margin-bottom:0}
+.adv summary{list-style:none;display:grid;grid-template-columns:1fr auto;align-items:center;cursor:pointer;font-weight:600;min-height:var(--hit);margin:-8px 0}
+.adv summary::-webkit-details-marker{display:none}
+.adv summary .help{grid-column:1;font-weight:400}
+.adv summary .chev{grid-row:1/3;grid-column:2;color:var(--text-3);transition:transform var(--d2) var(--ease)}
+.adv[open] summary .chev{transform:rotate(180deg)}
+.adv[open] summary{margin-bottom:var(--s3)}
+.only-sheet,.only-m,.t-gen{display:none}
+.only-sheet-rail{display:none}
+.picker{position:relative}
+.picker-pop{width:100%;min-width:0;padding:0;max-height:min(440px,60vh);flex-direction:column}
+.picker-pop.open{display:flex}
+.pop-search{position:relative;padding:var(--s2);border-bottom:1px solid var(--line)}
+.pop-search .ic{position:absolute;left:18px;top:16px;color:var(--text-3);width:18px;height:18px}
+.pop-search input{padding-left:34px}
+.plist{overflow:auto;padding:6px}
+.plist .gh{position:sticky;top:-6px;background:var(--surface);font-size:11px;letter-spacing:.04em;color:var(--text-3);padding:10px 8px 4px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center;z-index:1}
+.plist .gh:hover{color:var(--accent)}
+.gh-r .ic{width:16px;height:16px}
+.plist .it{display:flex;align-items:center;gap:8px;min-height:36px;padding:6px 10px;border-radius:var(--r-sm);cursor:pointer;font-size:var(--fs-sm)}
+.plist .it .ic{width:16px;height:16px;color:var(--text-3)}
+.plist .it:hover{background:var(--surface-2)}
+.plist .it.sel{background:var(--accent-tint);color:var(--accent);font-weight:600}
+#pickList .via{color:var(--text-3);font-size:11px;margin-left:auto}
+#inferBox:empty{display:none}
 
-/* v2.5 搜索与一致的和弦操作 */
-mark{background:color-mix(in srgb,var(--acc) 45%,transparent);color:inherit;border-radius:3px;padding:0 1px}
-#pickList .via{color:var(--muted);font-size:11px}
-.actrow{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.actrow .btn{padding:6px 10px}
-.btn[disabled]{opacity:.45;cursor:not-allowed}
-.altw{display:inline-flex;align-items:stretch}.altw .alt{border-top-right-radius:0;border-bottom-right-radius:0}.ap{border:1px solid var(--line);border-left:0;background:var(--panel2);color:var(--muted);border-radius:0 10px 10px 0;padding:0 7px;cursor:pointer;font-size:11px}.ap:hover{color:var(--text);border-color:var(--acc)}
+/* ---------- Canvas ---------- */
+.canvas{background:var(--bg)}
+.toolbar{display:flex;align-items:center;gap:var(--s2);min-height:64px;padding:var(--s3) var(--s6);border-bottom:1px solid var(--line);background:var(--bg)}
+.tb-title{display:flex;flex-direction:column;min-width:0}
+.tb-title h1{font-size:var(--fs-lg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-sub{font-size:var(--fs-xs);color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.canvas-body{flex:1;overflow:auto;padding:var(--s6);scroll-padding:var(--s6)}
+#result{display:flex;flex-direction:column;gap:var(--s6);max-width:1100px}
+.empty{color:var(--text-3);padding:var(--s8);text-align:center}
+.meta-row{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s4);align-items:center;justify-content:space-between}
+.tags{display:flex;gap:var(--s2);flex-wrap:wrap}
+.tag{font-size:var(--fs-xs);color:var(--text-2);padding:2px 0}
+.tag b{color:var(--text);font-weight:600}
+.tag+.tag::before{content:"·";margin-right:var(--s2);color:var(--text-3)}
+.legend{display:flex;gap:var(--s4);flex-wrap:wrap;font-size:var(--fs-xs);color:var(--text-2)}
+.legend>span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.legend i.lg-x{background:color-mix(in srgb,var(--X) 18%,transparent);border:1px solid var(--X)}
+.onboard{display:grid;grid-template-columns:auto 1fr auto;gap:var(--s3);align-items:start;padding:var(--s4);margin-bottom:var(--s6);border-radius:var(--r-md);background:var(--accent-tint);border:1px solid color-mix(in srgb,var(--accent) 25%,transparent);max-width:1100px}
+.ob-ic{color:var(--accent);padding-top:1px}
+.onboard ol{margin:var(--s1) 0 0;padding-left:18px;color:var(--text-2)}
+.onboard li{margin:2px 0}
+.onboard b{color:var(--text)}
+.section{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s4) var(--s5) var(--s5);box-shadow:var(--e1);animation:rise var(--d3) var(--ease-out) both}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}}
+.sh{display:flex;align-items:center;gap:var(--s2);margin-bottom:var(--s3);min-height:var(--ctl)}
+.sh h3{font-size:var(--fs-md)}
+.sh .k{font-size:var(--fs-xs);color:var(--text-2);padding:2px 8px;border-radius:var(--r-xs);background:var(--surface-2);font-weight:600}
+.sh .mod{font-size:var(--fs-xs);color:var(--X);font-weight:600}
+.sh .sp{flex:1}
+.sh .ib{width:32px;height:32px;color:var(--text-3)}
+.sh .ib .ic{width:18px;height:18px}
+.section .note{margin:-4px 0 var(--s3);color:var(--text-2);font-size:var(--fs-xs)}
+.bars{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:var(--s3)}
+.bar{display:flex;gap:6px;position:relative;padding-top:18px}
+.bar .no{position:absolute;top:0;left:2px;font:600 11px/1 var(--mono);color:var(--text-3)}
+.ch{position:relative;flex:1;min-width:0;min-height:96px;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;padding:var(--s3) var(--s3) 10px;border-radius:var(--r-md);background:var(--surface);border:1px solid var(--line);cursor:pointer;overflow:hidden;
+  transition:border-color var(--d1),box-shadow var(--d1),transform var(--d2) var(--ease),background var(--d1);animation:rise var(--d3) var(--ease-out) both}
+.ch::before{content:"";position:absolute;left:0;top:0;right:0;height:3px;background:var(--fc,var(--line-strong))}
+.ch.T{--fc:var(--T)}.ch.S{--fc:var(--S)}.ch.D{--fc:var(--D)}
+.ch:hover{border-color:var(--line-strong);box-shadow:var(--e2)}
+.ch:active{transform:scale(.985)}
+.ch.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),var(--e2)}
+.ch.now{background:color-mix(in srgb,var(--fc) 12%,var(--surface));border-color:var(--fc);box-shadow:0 0 0 1px var(--fc),var(--e2)}
+.ch.locked{background:color-mix(in srgb,var(--surface-2) 70%,var(--surface))}
+.ch .nm{font-size:var(--fs-lg);font-weight:700;letter-spacing:-.01em;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ch .rn{font:500 var(--fs-xs)/1.3 var(--mono);color:var(--text-2)}
+.ch .fn{font-size:11px;font-weight:600;color:var(--fc)}
+.ch .tg{position:absolute;left:var(--s3);top:var(--s3);font-size:11px;font-weight:600;color:var(--X);background:color-mix(in srgb,var(--X) 12%,transparent);padding:1px 6px;border-radius:var(--r-xs);max-width:calc(100% - 70px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ch.cont{background:transparent;border-style:dashed;box-shadow:none;cursor:default;justify-content:center;align-items:center}
+.ch.cont::before{opacity:.35}
+.ch.cont .nm{color:var(--text-3);font-size:var(--fs-md)}
+.ch.cont .fn{color:var(--text-3);font-weight:400}
+.ch-tools{position:absolute;top:6px;right:4px;display:flex;gap:0;opacity:0;transition:opacity var(--d1)}
+.ch:hover .ch-tools,.ch:focus-within .ch-tools,.ch.sel .ch-tools{opacity:1}
+.ch-tools button{width:28px;height:28px;border:0;border-radius:var(--r-xs);background:transparent;color:var(--text-2);display:grid;place-items:center}
+.ch-tools button .ic{width:16px;height:16px}
+.ch-tools button:hover{background:var(--surface-3);color:var(--text)}
+.lk.on{color:var(--accent)!important}
+.ch.locked .ch-tools{opacity:1}
+.ch.locked .ch-tools .sw{opacity:0}
+.ch.locked:hover .ch-tools .sw,.ch.locked.sel .ch-tools .sw{opacity:1}
+.explain{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s3) var(--s5)}
+.explain summary{font-weight:600;cursor:pointer;min-height:32px;display:flex;align-items:center}
+.ex{margin:var(--s2) 0 var(--s1);padding-left:18px;color:var(--text-2)}
+.ex li{margin:4px 0}
+
+/* ---------- Inspector ---------- */
+.empty-state{display:flex;flex-direction:column;align-items:center;text-align:center;gap:var(--s2);padding:var(--s12) var(--s6);color:var(--text-2)}
+.empty-state .es-ic{width:40px;height:40px;color:var(--text-3);stroke-width:1.5;margin-bottom:var(--s2)}
+.empty-state b{color:var(--text);font-size:var(--fs-md)}
+.empty-state p{margin:0;max-width:260px;font-size:var(--fs-sm)}
+.insp-hero{display:flex;align-items:center;justify-content:space-between;padding:var(--s4);border-radius:var(--r-md);background:color-mix(in srgb,var(--fc,var(--accent)) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--fc,var(--accent)) 30%,transparent);margin-bottom:var(--s3)}
+.insp-hero.T{--fc:var(--T)}.insp-hero.S{--fc:var(--S)}.insp-hero.D{--fc:var(--D)}
+.cbig{font-size:var(--fs-2xl);font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.sub{font:500 var(--fs-sm)/1.4 var(--mono);color:var(--text-2)}
+.play-sm{width:var(--hit)!important;height:var(--hit)!important;border-radius:50%!important;background:var(--accent)!important;color:var(--on-accent)!important;box-shadow:var(--e1)}
+.play-sm .ic{width:18px;height:18px;margin-left:2px}
+.badges{display:flex;gap:6px;flex-wrap:wrap;margin:var(--s3) 0 var(--s2)}
+.badge{display:inline-flex;align-items:center;font-size:var(--fs-xs);font-weight:600;border-radius:var(--r-xs);padding:2px 8px;background:var(--surface-2);color:var(--text-2);border:0}
+.badge.T{color:var(--T);background:color-mix(in srgb,var(--T) 12%,transparent)}
+.badge.S{color:var(--S);background:color-mix(in srgb,var(--S) 12%,transparent)}
+.badge.D{color:var(--D);background:color-mix(in srgb,var(--D) 12%,transparent)}
+.badge.x{color:var(--X);background:color-mix(in srgb,var(--X) 12%,transparent)}
+.actrow{display:grid;grid-template-columns:1fr 1fr;gap:var(--s2);margin-top:var(--s4)}
+.actrow .btn{min-height:40px}
+.actrow.sec{grid-template-columns:repeat(3,1fr);margin-top:var(--s1);gap:2px}
+.actrow.sec .btn{padding:0 6px;font-size:var(--fs-xs)}
+span.actrow{display:flex;flex-wrap:wrap;margin:0}
+.sec-t{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--text-3);margin:var(--s6) 0 var(--s2);display:flex;gap:8px;align-items:baseline}
+.sec-t .hint{letter-spacing:0;font-weight:400}
+.viz{background:var(--surface-2);border-radius:var(--r-md);padding:var(--s3);margin-bottom:var(--s2)}
+.viz svg{display:block;width:100%;height:auto}
+.alts{display:flex;flex-wrap:wrap;gap:6px}
+.altg{flex-basis:100%;font-size:var(--fs-xs);color:var(--text-2);font-weight:600;margin-top:var(--s2)}
+.altw{display:inline-flex;border:1px solid var(--line-strong);border-radius:var(--r-sm);overflow:hidden;background:var(--surface)}
+.alt{display:flex;flex-direction:column;align-items:flex-start;border:0;background:transparent;padding:6px 10px;min-height:var(--hit);justify-content:center}
+.alt b{font-size:var(--fs-sm)}.alt small{font:11px var(--mono);color:var(--text-3)}
+.alt:hover{background:var(--accent-tint)}
+.ap{border:0;border-left:1px solid var(--line);background:transparent;width:36px;color:var(--text-2);display:grid;place-items:center}
+.ap .ic{width:14px;height:14px}
+.ap:hover{background:var(--surface-2);color:var(--accent)}
+
+/* ---------- Transport (bottom, DAW-like) ---------- */
+.transport{display:flex;align-items:center;gap:var(--s3);padding:0 var(--s4);background:var(--surface);border-top:1px solid var(--line);z-index:30;position:relative}
+.t-group{display:flex;align-items:center;gap:var(--s1)}
+.play-btn{width:var(--hit);height:var(--hit);border-radius:50%;border:0;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;box-shadow:var(--e2);transition:transform var(--d1),background var(--d1)}
+.play-btn:hover{background:var(--accent-hover)}
+.play-btn:active{transform:scale(.94)}
+#playIcon{display:grid;place-items:center}
+#playIcon .ic{width:20px;height:20px}
+.pi-play{margin-left:2px}
+.pi-pause,#playIcon[data-s=pause] .pi-play{display:none}
+#playIcon[data-s=pause] .pi-pause{display:inline-block}
+.prog{flex:1;min-width:120px;max-width:520px;display:flex;align-items:center;gap:var(--s3)}
+.prog-t{font:500 var(--fs-xs)/1 var(--mono);color:var(--text-2);white-space:nowrap;font-variant-numeric:tabular-nums}
+.prog-bar{flex:1;height:4px;border-radius:2px;background:var(--surface-3);overflow:hidden}
+.prog-bar i{display:block;height:100%;width:0;background:var(--accent);border-radius:2px;transition:width .1s linear}
+.lcd{padding:2px 4px;border-radius:10px;background:var(--surface-2)}
+.bpm-box{display:flex;align-items:baseline;gap:4px;padding:0 6px}
+.bpm-box .num-in{width:52px;height:32px;padding:0 2px;border:1px solid transparent;background:transparent;font:700 var(--fs-md)/1 var(--mono)}
+.bpm-box .num-in:hover{border-color:var(--line-strong)}
+.bpm-box .u{font-size:10px;font-weight:700;color:var(--text-3);letter-spacing:.06em}
+.meter-now{font:700 var(--fs-sm)/1 var(--mono);color:var(--text-2);padding:0 6px;border-left:1px solid var(--line-strong);border-right:1px solid var(--line-strong);min-width:40px;text-align:center}
+.key-now{font-weight:700;font-size:var(--fs-sm);min-width:64px;text-align:center;white-space:nowrap}
+.transport .icon-btn .ic{width:18px;height:18px}
+.transport .icon-btn{width:40px;height:40px}
+
+/* ---------- Sheets / drawers / scrim ---------- */
+.scrim{position:fixed;inset:0;background:var(--scrim);opacity:0;pointer-events:none;transition:opacity var(--d2) var(--ease);z-index:80}
+.scrim.open{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:8px;right:8px;bottom:8px;width:min(400px,calc(100vw - 16px));background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--e3);z-index:90;display:flex;flex-direction:column;transform:translateX(calc(100% + 16px));transition:transform var(--d3) var(--ease);visibility:hidden}
+.drawer.wide{width:min(600px,calc(100vw - 16px))}
+.drawer.open{transform:none;visibility:visible}
+.drawer>h2{display:flex;align-items:center;justify-content:space-between;font-size:var(--fs-md);padding:var(--s2) var(--s3) var(--s2) var(--s5);min-height:56px;border-bottom:1px solid var(--line)}
+.drawer>div:not(.sheet-handle),.drawer>p{padding:var(--s4) var(--s5)}
+.drawer>#favList,.drawer>#histList,.drawer>#anaBody{flex:1;overflow:auto}
+.sheet-handle{display:none}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:10px var(--s4);align-items:center}
+.keys kbd{justify-self:start}
+.li{display:flex;align-items:center;gap:var(--s2);padding:var(--s2) var(--s2) var(--s2) var(--s3);border-radius:var(--r-sm);min-height:52px}
+.li:hover{background:var(--surface-2)}
+.li.cur{background:var(--accent-tint)}
+.li .t{flex:1;cursor:pointer;min-width:0}
+.li .t>div{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li small{color:var(--text-3);font-size:var(--fs-xs);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Analysis */
+.anaKey{display:flex;gap:var(--s2);flex-wrap:wrap;margin-bottom:var(--s4);padding:var(--s3);border-radius:var(--r-md);background:var(--surface-2)}
+.anaKey label{display:flex;align-items:center;gap:6px;font-size:var(--fs-xs);color:var(--text-2);font-weight:600}
+.anaKey select{width:auto;min-width:72px}
+.anaHead{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;margin-bottom:var(--s3)}
+.anaHead>div:nth-child(2){flex:1;min-width:120px}
+.anaHead .badge{margin:4px 4px 0 0}
+.anaT{width:100%;border-collapse:collapse;font-size:var(--fs-sm);margin:var(--s2) 0}
+.anaT th{text-align:left;color:var(--text-3);font-weight:600;font-size:var(--fs-xs);padding:6px 8px 6px 0;width:56px}
+.anaT td{padding:6px 8px;border-top:1px solid var(--line);text-align:center}
+#anaBody h3,#dEntry h3{font-size:var(--fs-sm);margin:var(--s5) 0 var(--s2)}
+#anaBody h3 .hint{font-weight:400}
+.interp{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:var(--s2) 0;font-size:var(--fs-xs);color:var(--text-2)}
+.ip{font-size:var(--fs-xs);padding:4px 10px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--surface);color:var(--text)}
+.ip small{color:var(--text-3)}
+.ip.cur{border-color:var(--accent);background:var(--accent-tint);color:var(--accent)}
+button.ip{min-height:32px}
+.seg{display:inline-flex;padding:3px;border-radius:10px;background:var(--surface-2);margin-bottom:var(--s3);gap:2px}
+.seg button{border:0;background:transparent;min-height:32px;padding:0 var(--s3);border-radius:var(--r-sm);font-weight:600;font-size:var(--fs-xs);color:var(--text-2)}
+.seg button[aria-pressed=true]{background:var(--surface);color:var(--text);box-shadow:var(--e1)}
+.ng{margin-bottom:var(--s3)}
+.ngh{font-size:var(--fs-xs);font-weight:700;color:var(--text-2);padding:var(--s2) 0 6px;display:flex;gap:6px}
+.ngh small{color:var(--text-3);font-weight:500}
+.nc{display:grid;grid-template-columns:auto 1fr 96px auto;gap:var(--s3);align-items:center;padding:var(--s2);border-radius:var(--r-sm);border:1px solid var(--line);margin-bottom:6px;background:var(--surface)}
+.nc:hover{border-color:var(--line-strong)}
+.nc .nm small{color:var(--text-3);font-family:var(--mono)}
+.nc .why{font-size:var(--fs-xs);color:var(--text-2);line-height:1.4}
+.nc .why em{color:var(--D);font-style:normal}
+.np{background:var(--accent-tint)!important;color:var(--accent)!important;border-radius:50%!important}
+.np .ic{width:14px;height:14px}
+.pb{position:relative;height:20px;background:var(--surface-2);border-radius:var(--r-xs);overflow:hidden}
+.pb i{position:absolute;inset:0 auto 0 0;background:color-mix(in srgb,var(--accent) 30%,transparent)}
+.pb span{position:relative;font:600 11px/20px var(--mono);padding-left:6px}
 .ncb{display:flex;gap:4px;align-items:center}
-.anaKey{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}.anaKey label{display:flex;gap:4px;align-items:center;font-size:var(--fs-sm);color:var(--muted)}.anaKey select{width:auto;height:32px}
-#anaDrawer{z-index:85}
-.gsearch{position:relative;flex:1;max-width:340px;min-width:140px}.gsearch input{height:34px}
-#gres{position:absolute;top:calc(100% + 6px);left:0;right:0;min-width:300px;max-height:60vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);z-index:90;display:none;padding:4px}
-#gres.open{display:block}
-.gi{display:grid;grid-template-columns:auto auto 1fr;gap:8px;align-items:baseline;padding:7px 9px;border-radius:8px;cursor:pointer}.gi.on,.gi:hover{background:color-mix(in srgb,var(--acc) 18%,transparent)}.gi small{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.gk{font-size:11px;border:1px solid var(--line);border-radius:6px;padding:0 5px;color:var(--muted)}
-@media (max-width:760px){.gsearch{order:5;flex-basis:100%;max-width:none}#gres{min-width:0}.ch-tools .sw[data-ana]{display:inline-flex}}
-@media (max-width:760px){header{flex-wrap:wrap}.gsearch{min-width:0}.tabs{min-width:0}}
+.ncb .ib .ic{width:18px;height:18px}
+
+/* ---------- 和弦图鉴 (view) ---------- */
+#dictPage{position:fixed;left:0;right:0;top:var(--bar-h);bottom:calc(var(--tbar-h) + var(--nav-h));z-index:25;background:var(--bg);display:none;flex-direction:column;gap:var(--s3);padding:var(--s5) var(--s6);overflow:hidden}
+#dictPage.open{display:flex;animation:fade var(--d2) var(--ease)}
+@keyframes fade{from{opacity:0}}
+.dHead{display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap}
+.dHead h2{font-size:var(--fs-xl);margin-right:var(--s3)}
+.dsearch{position:relative;flex:1;min-width:220px;max-width:380px}
+.dsearch .ic{position:absolute;left:10px;top:8px;color:var(--text-3)}
+.dsearch input{padding-left:36px}
+.dHead select{width:auto;min-width:110px}
+#dictClose{margin-left:auto}
+.dNotesRow{display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap}
+#dNotes{display:flex;gap:4px;flex-wrap:wrap}
+.nk{min-width:36px;height:32px;border:1px solid var(--line-strong);border-radius:var(--r-xs);background:var(--surface);color:var(--text);font-size:var(--fs-xs);font-weight:600}
+.nk.blk{background:var(--surface-3)}
+.nk:hover{border-color:var(--accent)}
+.nk[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.dBody{flex:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(360px,460px);gap:var(--s4);min-height:0}
+#dList{overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:var(--s2);align-content:start;padding:2px}
+.dItem{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:2px;padding:10px var(--s3);border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);min-height:56px}
+.dItem b{font-size:var(--fs-md)}
+.dItem small{font-size:11px;color:var(--text-3)}
+.dItem:hover{border-color:var(--line-strong);box-shadow:var(--e1)}
+.dItem.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+#dEntry{overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--s5)}
+#dEntry:empty::before{content:"从左侧选择一个和弦，查看拼写、转位与指法";display:block;color:var(--text-3);text-align:center;padding:var(--s12) var(--s4)}
+#dEntry .anaHead .actrow{flex-basis:100%}
+.gvs{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:var(--s2);margin-top:var(--s3);color:var(--text)}
+.gv{display:flex;flex-direction:column;align-items:center;text-align:center;padding:var(--s2);background:var(--surface-2);border-radius:var(--r-md)}
+.gv small{color:var(--text-2);font-size:11px;font-family:var(--mono)}
+
+/* ---------- Tooltip & toast ---------- */
+#tip{position:fixed;z-index:120;max-width:280px;background:var(--text);color:var(--bg);font-size:var(--fs-xs);line-height:1.45;padding:6px 10px;border-radius:var(--r-sm);pointer-events:none;opacity:0;transition:opacity var(--d1);box-shadow:var(--e2)}
+#tip.on{opacity:1}
+.toast{position:fixed;left:50%;bottom:calc(var(--tbar-h) + var(--nav-h) + 16px);transform:translate(-50%,8px);display:flex;align-items:center;gap:var(--s2);background:var(--text);color:var(--bg);padding:10px var(--s4);border-radius:var(--r-sm);opacity:0;transition:opacity var(--d2) var(--ease),transform var(--d2) var(--ease);pointer-events:none;z-index:130;font-weight:500;box-shadow:var(--e3);max-width:calc(100vw - 32px)}
+.toast .ic{width:18px;height:18px;color:var(--success)}
+[data-theme=dark] .toast .ic{color:#0E7C5A}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.toast.err{background:var(--danger);color:#fff}.toast.err .ic{color:#fff}
+
+/* ---------- Responsive ---------- */
+/* Large → 3 panes (default above). */
+@media (max-width:1439px){:root{--rail-w:288px;--insp-w:340px}}
+/* Expanded 840–1199: canvas + inspector; settings become a modal side sheet */
+@media (max-width:1199px){
+  #main{grid-template-columns:minmax(0,1fr) var(--insp-w)}
+  .rail{position:fixed;z-index:90;top:8px;left:8px;bottom:8px;width:min(360px,calc(100vw - 16px));border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--e3);transform:translateX(calc(-100% - 16px));visibility:hidden;transition:transform var(--d3) var(--ease),visibility 0s var(--d3)}
+  .rail.open{transform:none;visibility:visible;transition:transform var(--d3) var(--ease)}
+  .rail .only-sheet,.only-sheet-rail{display:inline-flex}
+  .t-gen{display:inline-flex}
+  .gsearch{max-width:300px}
+  .brand-t small{display:none}
+}
+/* Medium 600–839: single pane; inspector becomes right side sheet */
+@media (max-width:839px){
+  #main{grid-template-columns:minmax(0,1fr)}
+  .insp{position:fixed;z-index:90;top:8px;right:8px;bottom:8px;width:min(400px,calc(100vw - 16px));border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--e3);transform:translateX(calc(100% + 16px));visibility:hidden;transition:transform var(--d3) var(--ease),visibility 0s var(--d3)}
+  .insp.open{transform:none;visibility:visible;transition:transform var(--d3) var(--ease)}
+  .insp .only-sheet{display:inline-flex}
+  .nav-i span{display:none}.nav-i{padding:0 10px}
+  .toolbar{padding:var(--s3) var(--s4)}.canvas-body{padding:var(--s4)}
+  .meter-now,#tap{display:none}
+  .dBody{grid-template-columns:1fr}
+  #dEntry{display:none}
+  #dictPage.show-entry #dEntry{display:block;position:fixed;left:8px;right:8px;bottom:calc(var(--tbar-h) + var(--nav-h) + 8px);max-height:78dvh;z-index:40;box-shadow:var(--e3)}
+  .only-m{display:inline-grid}
+}
+/* Compact <600: bottom navigation bar + bottom sheets (M3 / HIG tab bar) */
+@media (max-width:599px){
+  :root{--bar-h:56px;--tbar-h:60px;--nav-h:calc(64px + env(safe-area-inset-bottom))}
+  .appbar{gap:var(--s2);padding:0 var(--s2) 0 var(--s3)}
+  .brand-t{display:none}
+  .gsearch{max-width:none;margin-left:0}
+  .gs-k{display:none}
+  .nav{position:fixed;left:0;right:0;bottom:0;height:var(--nav-h);padding:0 0 env(safe-area-inset-bottom);border-radius:0;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);gap:0;z-index:35}
+  .nav-i{flex-direction:column;justify-content:center;gap:4px;height:64px;padding:0;border-radius:0;font-size:11px;font-weight:600;background:transparent!important;box-shadow:none!important}
+  .nav-i span{display:block}
+  .nav-i .ic{width:56px;height:30px;padding:5px 18px;border-radius:15px;transition:background var(--d2) var(--ease)}
+  .nav-i[aria-selected=true]{color:var(--text)}
+  .nav-i[aria-selected=true] .ic{background:var(--accent-tint)}
+  .transport{position:relative;gap:6px;padding:0 var(--s2) 0 var(--s3)}
+  .prog{position:absolute;left:0;right:0;top:-1px;min-width:0;max-width:none;gap:0}
+  .prog-t{display:none}
+  .prog-bar{height:3px;border-radius:0;background:transparent}
+  #stop{display:none}
+  .transport .icon-btn{width:38px;height:38px}
+  .lcd{gap:0;padding:2px}
+  .bpm-box{padding:0 2px}
+  .bpm-box .num-in{width:44px}
+  .bpm-box .u{display:none}
+  .key-now{min-width:48px;font-size:var(--fs-xs)}
+  .keygrp .icon-btn{width:32px}
+  .t-gen{position:fixed;right:var(--s4);bottom:calc(var(--tbar-h) + var(--nav-h) + var(--s4));min-height:56px;padding:0 var(--s5);border-radius:var(--r-lg);box-shadow:var(--e3);z-index:34;font-size:var(--fs-md)}
+  body.dict-open .t-gen{display:none}
+  .canvas-body{padding:var(--s3) var(--s3) 96px}
+  .toolbar{min-height:56px;padding:var(--s2) var(--s3);gap:4px}
+  .toolbar .btn span{display:none}.toolbar .btn{padding:0 10px}.toolbar .btn .ic.sm{display:none}
+  .tb-title h1{font-size:var(--fs-md)}
+  .section{padding:var(--s3)}
+  .bars{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s2)}
+  .ch{min-height:80px;padding:10px 8px 8px}
+  .ch .nm{font-size:var(--fs-md)}
+  .ch-tools{display:none}
+  .ch .tg{left:8px;top:8px;max-width:calc(100% - 16px)}
+  .legend{display:none}
+  .rail,.insp,.drawer,#soundPop{position:fixed;left:0;right:0;top:auto;bottom:0;width:auto;max-height:88dvh;border-radius:var(--r-lg) var(--r-lg) 0 0;transform:translateY(100%);border:0;border-top:1px solid var(--line)}
+  .rail.open,.insp.open,.drawer.open{transform:none}
+  .rail,.insp{height:88dvh}
+  #soundPop{width:auto;max-height:80dvh;overflow:auto;z-index:95;animation:sheet var(--d3) var(--ease-out);transform:none;padding-bottom:calc(var(--s4) + env(safe-area-inset-bottom))}
+  @keyframes sheet{from{transform:translateY(100%)}}
+  .sheet-handle{display:block;width:36px;height:4px;border-radius:2px;background:var(--line-strong);margin:8px auto 0;flex:none;padding:0!important}
+  .pop.right:not(#soundPop){max-width:calc(100vw - 16px)}
+  .actrow.sec .btn span{display:inline}
+  #dictPage{padding:var(--s3)}
+  .dHead h2{font-size:var(--fs-lg)}
+  .dsearch{order:5;flex-basis:100%;max-width:none}
+  .dHead select{flex:1;min-width:0}
+  .nk{min-width:0;flex:1 0 13%;height:36px}
+  #dList{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
+  .nc{grid-template-columns:auto 1fr auto}.nc .pb{grid-column:2;grid-row:2}
+  .toast{bottom:calc(var(--tbar-h) + var(--nav-h) + 88px)}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:1ms!important;transition-duration:1ms!important;scroll-behavior:auto!important}}
+@media (forced-colors:active){.ch::before{background:CanvasText}.btn.filled,.play-btn{border:1px solid ButtonText}}
+@media print{.appbar,.transport,.rail,.insp,.toolbar,.nav{display:none!important}body{display:block;height:auto;overflow:visible}}
+.bpm-box .num-in::-webkit-inner-spin-button,.bpm-box .num-in::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.sh h3{white-space:nowrap}
+.sh .k{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+@media (max-width:599px){.sh .ib{width:30px}.sh{gap:4px}}
+@media (max-width:359px){.transport{overflow-x:auto;scrollbar-width:none}.transport .menu{position:static}.key-now{min-width:40px}}
+.ch .tg{position:static;order:-1;align-self:flex-start;margin-bottom:auto;max-width:100%}
+.ch:has(.tg){justify-content:flex-start}
+.ch .tg~.nm{margin-top:6px}
+#dBack{position:absolute;top:12px;right:12px}
+@media (max-width:599px){.ch .tg{max-width:100%}}
 
 </style>
 </head>
 <body>
-<header>
-  <div class="brand"><div class="logo" aria-hidden="true">♪</div><h1>和弦进行生成器<small id="brandSub">符合乐理 · 153 种风格</small></h1></div>
-  <div class="tabs" role="tablist" aria-label="模式">
-    <button role="tab" id="tabRand" aria-selected="true">随机生成</button>
-    <button role="tab" id="tabSeed" aria-selected="false">根据和弦扩展</button>
-  </div>
-  <div class="gsearch" id="gs" role="search"><input type="search" id="gq" placeholder="搜索风格、和弦、功能…（/）" autocomplete="off" spellcheck="false" aria-label="全局搜索"><div id="gres" role="listbox"></div></div>
-  <div class="hbtns">
-    <button class="ib" id="undo" data-tip="撤销 (Ctrl+Z)" aria-label="撤销" disabled>↶</button>
-    <button class="ib" id="redo" data-tip="重做 (Ctrl+Shift+Z)" aria-label="重做" disabled>↷</button>
-    <button class="ib" id="dictBtn" data-tip="和弦图鉴" aria-label="和弦图鉴">📖<span class="lbl">图鉴</span></button>
-    <button class="ib" id="histBtn" data-tip="历史记录 (H)" aria-label="历史记录">🕘<span class="lbl">历史</span></button>
-    <button class="ib" id="favBtn" data-tip="收藏夹 (F)" aria-label="收藏夹">★<span class="lbl">收藏</span></button>
-    <button class="ib" id="theme" data-tip="切换深色/浅色 (T)" aria-label="切换主题">◐</button>
-    <button class="ib" id="help" data-tip="快捷键 (?)" aria-label="快捷键">⌨</button>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5v15l12-7.5z" fill="currentColor" stroke="none"/></symbol><symbol id="i-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none"/></symbol><symbol id="i-stop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none"/></symbol><symbol id="i-repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></symbol><symbol id="i-metronome" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 3h5l4 18h-13z"/><path d="m12 15 6-9"/></symbol><symbol id="i-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol><symbol id="i-sparkles" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></symbol><symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/></symbol><symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></symbol><symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></symbol><symbol id="i-redo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></symbol><symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol><symbol id="i-more" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="19" r="1.4" fill="currentColor"/></symbol><symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol><symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></symbol><symbol id="i-chevL" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></symbol><symbol id="i-chevR" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></symbol><symbol id="i-chevD" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></symbol><symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol><symbol id="i-unlock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.8-1.2"/></symbol><symbol id="i-swap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/></symbol><symbol id="i-scan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6M11 8v6"/></symbol><symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h14v16H6.5A2.5 2.5 0 0 0 4 21.5"/><path d="M20 19v3H6.5"/></symbol><symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></symbol><symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/></symbol><symbol id="i-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></symbol><symbol id="i-history" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 3"/></symbol><symbol id="i-keyboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></symbol><symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol><symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol><symbol id="i-dice" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.3" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.3" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1.3" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1.3" fill="currentColor"/></symbol><symbol id="i-wand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 4 5 5L9 20H4v-5z"/><path d="M13 6l5 5"/></symbol><symbol id="i-music" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol><symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></symbol><symbol id="i-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></symbol><symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></symbol><symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></symbol><symbol id="i-archive" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v11h14V9"/><path d="M10 13h4"/></symbol><symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol><symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 10 5-10 5L2 7z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></symbol><symbol id="i-tune" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol><symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol><symbol id="i-sharp" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 7 20M17 4l-2 16M5 9h15M4 15h15"/></symbol><symbol id="i-flat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v17c4-1 9-3 9-7 0-3-3-4-6-2"/></symbol><symbol id="i-tap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V5a2 2 0 0 1 4 0v6"/><path d="M13 10a2 2 0 0 1 4 0v3a7 7 0 0 1-7 7 6 6 0 0 1-5-3l-2-4a2 2 0 0 1 3-2l2 2"/></symbol><symbol id="i-drum" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="8" rx="8" ry="3"/><path d="M4 8v8c0 1.7 3.6 3 8 3s8-1.3 8-3V8"/></symbol></svg>
+<a class="skip" href="#canvas">跳到和弦进行</a>
+<header class="appbar">
+  <div class="brand"><span class="logo" aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#i-music"/></svg></span><div class="brand-t"><b>和弦进行</b><small id="brandSub">符合乐理 · 153 种风格</small></div></div>
+  <nav class="nav" id="nav" aria-label="主导航">
+    <button class="nav-i" id="tabRand" aria-current="page" aria-selected="true"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg><span>生成</span></button>
+    <button class="nav-i" id="tabSeed" aria-selected="false"><svg class="ic" aria-hidden="true"><use href="#i-layers"/></svg><span>歌曲扩展</span></button>
+    <button class="nav-i" id="dictBtn" aria-selected="false"><svg class="ic" aria-hidden="true"><use href="#i-book"/></svg><span>和弦图鉴</span></button>
+    <button class="nav-i" id="favBtn" aria-selected="false"><svg class="ic" aria-hidden="true"><use href="#i-star"/></svg><span>收藏</span></button>
+  </nav>
+  <div class="gsearch" id="gs" role="search"><svg class="ic gs-ic" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="gq" placeholder="搜索风格、和弦、功能" autocomplete="off" spellcheck="false" aria-label="全局搜索（快捷键 /）"><kbd class="gs-k">/</kbd><div id="gres" role="listbox"></div></div>
+  <div class="bar-actions">
+    <button class="icon-btn" id="undo" data-tip="撤销 (Ctrl+Z)" aria-label="撤销" disabled><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg></button>
+    <button class="icon-btn" id="redo" data-tip="重做 (Ctrl+Shift+Z)" aria-label="重做" disabled><svg class="ic" aria-hidden="true"><use href="#i-redo"/></svg></button>
+    <div class="menu"><button class="icon-btn" id="moreBtn" aria-haspopup="menu" aria-expanded="false" aria-label="更多" data-tip="更多"><svg class="ic" aria-hidden="true"><use href="#i-more"/></svg></button>
+      <div class="pop right" id="morePop" role="menu">
+        <button id="histBtn" role="menuitem"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg><span>历史记录</span><kbd>H</kbd></button>
+        <button id="theme" role="menuitem"><svg class="ic th-d" aria-hidden="true"><use href="#i-moon"/></svg><svg class="ic th-l" aria-hidden="true"><use href="#i-sun"/></svg><span>切换深色 / 浅色</span><kbd>T</kbd></button>
+        <button id="help" role="menuitem"><svg class="ic" aria-hidden="true"><use href="#i-keyboard"/></svg><span>快捷键</span><kbd>?</kbd></button>
+      </div>
+    </div>
   </div>
 </header>
+
 <main id="main">
-  <section class="card panel" id="ctrl" aria-label="生成参数">
-    <div class="panel-head"><h2>生成参数</h2><button class="ib only-m" data-close-ctrl aria-label="关闭参数">✕</button></div>
-    <div class="group" id="seedBox" hidden>
-      <label class="f">种子和弦 <span class="hint-i">空格 / 逗号 / ｜ / - 分隔，如 <code>Am F C G</code>、<code>Dm7</code>、<code>C/E</code></span>
-        <input type="text" id="seeds" value="Am F C G" placeholder="Am F C G" autocomplete="off" spellcheck="false" aria-describedby="seedErr">
-      </label>
-      <div class="row wrap" id="inferBox"></div>
-      <div class="err" id="seedErr" role="alert"></div>
-      <div class="grid">
-        <label class="f">歌曲长度<select id="songLen"><option>短</option><option selected>标准</option><option>长</option></select></label>
-        <label class="f">转调<select id="modulate"><option value="1">最后副歌 +全音</option><option value="0">不转调</option></select></label>
-      </div>
-    </div>
-    <div class="group">
-      <div class="f picker" id="picker"><span class="flab">风格</span>
-        <button class="pickbtn" id="pickBtn" aria-haspopup="listbox" aria-expanded="false"><span id="pickLabel">🎲 全部随机</span><span aria-hidden="true">▾</span></button>
-        <div class="pop" id="pickPop"><input type="search" id="pickSearch" placeholder="搜索风格：jazz / 国风 / lo-fi…" aria-label="搜索风格"><div class="plist" id="pickList" role="listbox"></div></div>
-      </div>
-      <div class="grid">
-        <label class="f">情绪<select id="mood"></select></label>
-        <label class="f"><span id="barsLabel">小节数</span><select id="bars"></select></label>
-        <label class="f">调性<select id="key"></select></label>
-        <label class="f">调式<select id="mode"></select></label>
-      </div>
-    </div>
-    <details class="group adv" id="adv">
-      <summary>高级设置 <span class="hint-i">拍号、速度、复杂度、和声节奏</span></summary>
-      <div class="grid">
-        <label class="f">拍号<select id="meter"></select></label>
-        <label class="f">速度感<select id="feel"><option value="rand">🎲 随机</option><option>快</option><option>中</option><option>慢</option></select></label>
-        <label class="f full"><span>速度 BPM <b id="bpmVal"></b></span>
-          <span class="row"><input type="number" id="bpm" class="bpmin wide" min="20" max="300" step="1" value="100" inputmode="numeric" aria-label="速度 BPM（20–300）"><button class="chip on" id="bpmRand" type="button" aria-pressed="true">🎲 随机</button></span>
+  <aside class="pane rail" id="ctrl" aria-label="生成参数">
+    <div class="pane-head"><h2 id="ctrlTitle">生成参数</h2><button class="icon-btn only-sheet" data-close-ctrl aria-label="关闭参数"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+    <div class="pane-body">
+      <section class="group" id="seedBox" hidden>
+        <label class="field"><span class="lab">种子和弦</span>
+          <input type="text" id="seeds" value="Am F C G" placeholder="Am F C G" autocomplete="off" spellcheck="false" aria-describedby="seedHelp seedErr">
+          <span class="help" id="seedHelp">用空格、逗号或 | 分隔，如 Am F C G、Dm7、C/E</span>
         </label>
-        <label class="f"><span><span class="term" data-tip="每小节放几个和弦。数字越大和弦变化越快。">和声节奏</span></span><select id="hr"></select></label>
-        <label class="f"><span><span class="term" data-tip="三和弦最朴素；七和弦更丰富；九/十一/十三增加延伸音；变化和弦在属和弦上加入 ♭9、♯9、♯11、♭13 等张力。">复杂度</span></span><select id="complexity"></select></label>
-      </div>
-    </details>
-    <div class="panel-foot">
-      <button class="ib big wide" id="allRand" data-tip="所有参数设为随机并生成 (A)">🎲 全部随机</button>
-      <button class="ib pri big wide only-m" id="genM">✨ 生成</button>
-    </div>
-  </section>
-
-  <section class="workspace" aria-label="结果">
-    <div class="transport card" id="transport" role="toolbar" aria-label="播放与操作">
-      <button class="playbtn" id="play" aria-label="播放 (空格)" data-tip="播放 / 停止 (空格)"><span id="playIcon">▶</span></button>
-      <button class="ib dsk" id="stop" aria-label="停止" disabled>■</button>
-      <div class="prog" aria-hidden="true"><div class="prog-bar"><i id="progFill"></i></div><span class="prog-t" id="progT">0:00 / 0:00</span></div>
-      <div class="stepper" role="group" aria-label="速度"><input type="number" id="bpmNow" class="bpmin" min="20" max="300" step="1" inputmode="numeric" aria-label="速度 BPM（20–300，回车确认）" data-tip="输入 BPM（20–300），回车/失焦生效；↑↓ 或滚轮微调，Shift ±10"><span class="u">BPM</span><button class="ib sm" id="tap" aria-label="点按测速" data-tip="连续点按测速 Tap tempo">TAP</button></div>
-      <div class="menu"><button class="ib" id="soundBtn" aria-haspopup="true" aria-expanded="false" data-tip="循环 / 节拍器 / 鼓 / 旋律 / 音色">🎚<span class="lbl">声音</span></button>
-        <div class="pop sheet" id="soundPop">
-          <div class="pop-title">播放</div>
-          <div class="chips"><button class="chip" id="loop" aria-pressed="false">🔁 循环</button><button class="chip" id="metro" aria-pressed="false">🥁 节拍器</button><button class="chip on" id="drums" aria-pressed="true">🪘 鼓组</button><button class="chip" id="melody" aria-pressed="false">🎵 旋律提示</button></div>
-          <div class="pop-title">音色 <span class="hint-i" id="sfStatus" role="status"></span></div>
-          <label class="f">音源<select id="inst"><option value="gm">🎼 GM 采样音色（FluidR3，在线加载）</option><optgroup label="内置合成器（离线）"><option value="piano">🎹 合成钢琴</option><option value="epiano">🎛 合成电钢琴</option><option value="pad">🌫 合成铺底</option><option value="guitar">🎸 合成吉他扫弦</option></optgroup></select></label>
-          <label class="f">和弦音色<select id="progChord" class="gmsel"></select></label>
-          <label class="f">低音音色<select id="progBass" class="gmsel"></select></label>
-          <label class="f">旋律音色<select id="progMelody" class="gmsel"></select></label>
-          <label class="f">鼓组<select id="drumKit"><option value="gm">🥁 GM 标准鼓组（采样）</option><option value="synth">内置合成鼓</option></select></label>
-          <div class="chips"><button class="chip" id="progDefault" type="button">↺ 按风格推荐音色</button></div>
-          <label class="f">伴奏节奏型<select id="pattern"></select></label>
+        <div class="chips" id="inferBox"></div>
+        <div class="err" id="seedErr" role="alert"></div>
+        <div class="grid2">
+          <label class="field"><span class="lab">歌曲长度</span><select id="songLen"><option>短</option><option selected>标准</option><option>长</option></select></label>
+          <label class="field"><span class="lab">转调</span><select id="modulate"><option value="1">最后副歌 +全音</option><option value="0">不转调</option></select></label>
         </div>
-      </div>
-      <div class="keygrp dsk" role="group" aria-label="移调"><button class="ib sm" id="tDown" data-tip="降半音 ([)" aria-label="降半音">♭</button><span class="num" id="keyNow">—</span><button class="ib sm" id="tUp" data-tip="升半音 (])" aria-label="升半音">♯</button></div>
+      </section>
+      <section class="group">
+        <div class="field picker" id="picker"><span class="lab">风格</span>
+          <button class="select-btn" id="pickBtn" aria-haspopup="listbox" aria-expanded="false"><span id="pickLabel">全部随机</span><svg class="ic" aria-hidden="true"><use href="#i-chevD"/></svg></button>
+          <div class="pop picker-pop" id="pickPop"><div class="pop-search"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="pickSearch" placeholder="搜索：lofi、爵士、kpop、古风…" aria-label="搜索风格"></div><div class="plist" id="pickList" role="listbox"></div></div>
+        </div>
+        <div class="grid2">
+          <label class="field"><span class="lab">情绪</span><select id="mood"></select></label>
+          <label class="field"><span class="lab" id="barsLabel">小节数</span><select id="bars"></select></label>
+          <label class="field"><span class="lab">调性</span><select id="key"></select></label>
+          <label class="field"><span class="lab">调式</span><select id="mode"></select></label>
+        </div>
+      </section>
+      <details class="group adv" id="adv">
+        <summary><span>高级设置</span><span class="help">拍号、速度、复杂度、和声节奏</span><svg class="ic chev" aria-hidden="true"><use href="#i-chevD"/></svg></summary>
+        <div class="grid2">
+          <label class="field"><span class="lab">拍号</span><select id="meter"></select></label>
+          <label class="field"><span class="lab">速度感</span><select id="feel"><option value="rand">随机</option><option>快</option><option>中</option><option>慢</option></select></label>
+          <div class="field full"><span class="lab">速度 BPM <b id="bpmVal"></b></span>
+            <span class="row"><input type="number" id="bpm" class="num-in" min="20" max="300" step="1" value="100" inputmode="numeric" aria-label="速度 BPM（20–300）"><button class="chip on" id="bpmRand" type="button" aria-pressed="true"><svg class="ic" aria-hidden="true"><use href="#i-dice"/></svg>随机</button></span>
+          </div>
+          <label class="field"><span class="lab"><span class="term" data-tip="每小节放几个和弦。数字越大和弦变化越快。">和声节奏</span></span><select id="hr"></select></label>
+          <label class="field"><span class="lab"><span class="term" data-tip="三和弦最朴素；七和弦更丰富；九/十一/十三增加延伸音；变化和弦在属和弦上加入 ♭9、♯9、♯11、♭13 等张力。">复杂度</span></span><select id="complexity"></select></label>
+        </div>
+      </details>
+    </div>
+    <div class="pane-foot">
+      <button class="btn tonal" id="allRand" data-tip="所有参数设为随机并生成 (A)"><svg class="ic" aria-hidden="true"><use href="#i-dice"/></svg><span>全部随机</span></button>
+      <button class="btn filled" id="gen" data-tip="按当前参数生成 (Enter)"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg><span>生成</span></button>
+    </div>
+  </aside>
+
+  <section class="pane canvas" id="canvas" aria-label="和弦进行" tabindex="-1">
+    <div class="toolbar" role="toolbar" aria-label="进行操作">
+      <button class="btn outlined only-sheet-rail" id="openCtrl" aria-label="打开生成参数"><svg class="ic" aria-hidden="true"><use href="#i-tune"/></svg><span>参数</span></button>
+      <div class="tb-title"><h1 id="cvTitle">和弦进行</h1><span class="tb-sub" id="cvSub"></span></div>
       <span class="grow"></span>
-      <button class="ib only-m" id="openCtrl" aria-label="打开参数">⚙<span class="lbl">参数</span></button>
-      <button class="ib dsk" id="regen" data-tip="重新生成未锁定的和弦 (R)">↻<span class="lbl">重生成</span></button>
-      <button class="ib pri" id="gen" data-tip="按当前参数生成 (Enter)">✨<span class="lbl">生成</span></button>
-      <div class="menu"><button class="ib" id="expBtn" aria-haspopup="menu" aria-expanded="false">⬇<span class="lbl">导出</span></button>
-        <div class="pop sheet right" id="expPop" role="menu">
+      <button class="btn text" id="regen" data-tip="重新生成未锁定的和弦 (R)"><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg><span>重新生成</span></button>
+      <div class="menu"><button class="btn outlined" id="expBtn" aria-haspopup="menu" aria-expanded="false"><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg><span>导出</span><svg class="ic sm" aria-hidden="true"><use href="#i-chevD"/></svg></button>
+        <div class="pop right" id="expPop" role="menu">
           <div class="pop-title">MIDI</div>
-          <button id="midi" role="menuitem">🎼 多轨 MIDI（全曲）</button>
-          <button id="zipAll" role="menuitem">📦 全部分轨打包 .zip</button>
+          <button id="midi" role="menuitem"><svg class="ic" aria-hidden="true"><use href="#i-music"/></svg><span>多轨 MIDI（全曲）</span></button>
+          <button id="zipAll" role="menuitem"><svg class="ic" aria-hidden="true"><use href="#i-archive"/></svg><span>全部分轨打包 .zip</span></button>
           <div class="pop-row"><button data-part="chord" role="menuitem">和弦</button><button data-part="bass" role="menuitem">低音</button><button data-part="melody" role="menuitem">旋律</button><button data-part="drum" role="menuitem">鼓</button></div>
-          <div class="pop-title">其他</div>
-          <button id="png" role="menuitem">🖼 PNG 和弦谱</button><button id="txt" role="menuitem">📄 文本文件</button><button id="copy" role="menuitem">📋 复制文本</button>
-          <div class="pop-title">保存</div>
-          <button id="save" role="menuitem">☆ 收藏当前进行 (S)</button><button id="share" role="menuitem">🔗 复制分享链接</button>
+          <div class="pop-sep"></div>
+          <button id="png" role="menuitem"><svg class="ic" aria-hidden="true"><use href="#i-image"/></svg><span>PNG 和弦谱</span></button>
+          <button id="txt" role="menuitem"><svg class="ic" aria-hidden="true"><use href="#i-file"/></svg><span>文本文件 .txt</span></button>
+          <button id="copy" role="menuitem"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg><span>复制和弦谱</span></button>
+          <div class="pop-sep"></div>
+          <button id="save" role="menuitem"><svg class="ic" aria-hidden="true"><use href="#i-star"/></svg><span>收藏当前进行</span><kbd>S</kbd></button>
+          <button id="share" role="menuitem"><svg class="ic" aria-hidden="true"><use href="#i-link"/></svg><span>复制分享链接</span></button>
         </div>
       </div>
     </div>
-    <div class="card" id="out" aria-live="polite"><div id="onboard"></div><div id="result"><div class="empty">正在生成…</div></div></div>
+    <div class="canvas-body" id="out" aria-live="polite"><div id="onboard"></div><div id="result"><div class="empty">正在生成…</div></div></div>
   </section>
 
-  <aside class="card panel" id="insp" aria-label="和弦详情"></aside>
+  <aside class="pane insp" id="insp" aria-label="和弦详情"></aside>
 </main>
+
+<footer class="transport" id="transport" role="toolbar" aria-label="播放控制">
+  <div class="t-group">
+    <button class="play-btn" id="play" aria-label="播放 (空格)" data-tip="播放 / 停止 (空格)"><span id="playIcon"><svg class="ic pi-play" aria-hidden="true"><use href="#i-play"/></svg><svg class="ic pi-pause" aria-hidden="true"><use href="#i-pause"/></svg></span></button>
+    <button class="icon-btn" id="stop" aria-label="停止" data-tip="停止" disabled><svg class="ic" aria-hidden="true"><use href="#i-stop"/></svg></button>
+    <button class="icon-btn tog" id="loop" aria-pressed="false" aria-label="循环播放" data-tip="循环播放"><svg class="ic" aria-hidden="true"><use href="#i-repeat"/></svg></button>
+  </div>
+  <div class="prog" aria-hidden="true"><span class="prog-t" id="progT">0:00 / 0:00</span><div class="prog-bar"><i id="progFill"></i></div></div>
+  <div class="t-group lcd" role="group" aria-label="速度与拍号">
+    <label class="bpm-box"><input type="number" id="bpmNow" class="num-in" min="20" max="300" step="1" inputmode="numeric" aria-label="速度 BPM（20–300，回车确认）" data-tip="输入 BPM（20–300），回车/失焦生效；Shift+↑↓ 或滚轮微调"><span class="u">BPM</span></label>
+    <button class="icon-btn" id="tap" aria-label="点按测速" data-tip="连续点按测速 Tap tempo"><svg class="ic" aria-hidden="true"><use href="#i-tap"/></svg></button>
+    <span class="meter-now" id="meterNow" data-tip="拍号">4/4</span>
+    <button class="icon-btn tog" id="metro" aria-pressed="false" aria-label="节拍器" data-tip="节拍器 (M)"><svg class="ic" aria-hidden="true"><use href="#i-metronome"/></svg></button>
+  </div>
+  <div class="t-group keygrp" role="group" aria-label="移调">
+    <button class="icon-btn" id="tDown" data-tip="降半音 ([)" aria-label="降半音"><svg class="ic" aria-hidden="true"><use href="#i-flat"/></svg></button><span class="key-now" id="keyNow">—</span><button class="icon-btn" id="tUp" data-tip="升半音 (])" aria-label="升半音"><svg class="ic" aria-hidden="true"><use href="#i-sharp"/></svg></button>
+  </div>
+  <div class="menu"><button class="icon-btn" id="soundBtn" aria-haspopup="true" aria-expanded="false" aria-label="声音设置" data-tip="鼓组 / 旋律 / 音色 / 节奏型"><svg class="ic" aria-hidden="true"><use href="#i-sliders"/></svg></button>
+    <div class="pop up right sheet" id="soundPop">
+      <div class="pop-title">伴奏</div>
+      <div class="chips"><button class="chip on" id="drums" aria-pressed="true"><svg class="ic" aria-hidden="true"><use href="#i-drum"/></svg>鼓组</button><button class="chip" id="melody" aria-pressed="false"><svg class="ic" aria-hidden="true"><use href="#i-music"/></svg>旋律提示</button></div>
+      <label class="field"><span class="lab">伴奏节奏型</span><select id="pattern"></select></label>
+      <div class="pop-title">音色 <span class="help" id="sfStatus" role="status"></span></div>
+      <label class="field"><span class="lab">音源</span><select id="inst"><option value="gm">GM 采样音色（FluidR3，在线加载）</option><optgroup label="内置合成器（离线）"><option value="piano">合成钢琴</option><option value="epiano">合成电钢琴</option><option value="pad">合成铺底</option><option value="guitar">合成吉他扫弦</option></optgroup></select></label>
+      <label class="field"><span class="lab">和弦音色</span><select id="progChord" class="gmsel"></select></label>
+      <label class="field"><span class="lab">低音音色</span><select id="progBass" class="gmsel"></select></label>
+      <label class="field"><span class="lab">旋律音色</span><select id="progMelody" class="gmsel"></select></label>
+      <label class="field"><span class="lab">鼓组</span><select id="drumKit"><option value="gm">GM 标准鼓组（采样）</option><option value="synth">内置合成鼓</option></select></label>
+      <button class="btn text sm" id="progDefault" type="button"><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg><span>按风格推荐音色</span></button>
+    </div>
+  </div>
+  <span class="grow"></span>
+  <button class="btn filled t-gen" id="genM" aria-label="生成"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg><span>生成</span></button>
+</footer>
+
 <div class="scrim" id="scrim"></div>
-<div class="drawer" id="favDrawer" aria-label="收藏夹"><h2>★ 收藏夹 <button class="ib" data-close>✕</button></h2><div id="favList"></div></div>
-<div class="drawer" id="histDrawer" aria-label="历史"><h2>🕘 历史记录 <button class="ib" data-close>✕</button></h2><div id="histList"></div></div>
-<div class="drawer" id="helpDrawer" aria-label="快捷键"><h2>⌨ 快捷键 <button class="ib" data-close>✕</button></h2>
-  <div class="keys"><kbd>Space</kbd><span>播放 / 停止</span><kbd>Enter</kbd><span>按参数生成</span><kbd>R</kbd><span>重新生成未锁定和弦</span><kbd>A</kbd><span>全部随机</span><kbd>← →</kbd><span>选择上/下一个和弦</span><kbd>L</kbd><span>锁定/解锁选中和弦</span><kbd>[ ]</kbd><span>移调 −1 / +1 半音</span><kbd>Ctrl+Z</kbd><span>撤销</span><kbd>Ctrl+Shift+Z</kbd><span>重做</span><kbd>+ −</kbd><span>速度 ±2 BPM（按住 Shift 点按钮 ±10）</span><kbd>M</kbd><span>节拍器</span><kbd>D</kbd><span>鼓组</span><kbd>S</kbd><span>收藏</span><kbd>T</kbd><span>切换主题</span><kbd>/</kbd><span>全局搜索</span><kbd>Esc</kbd><span>关闭面板</span></div>
-  <p class="hint">术语下方带虚线的文字悬停可看解释。</p>
+<div class="drawer" id="favDrawer" aria-label="收藏夹"><div class="sheet-handle"></div><h2>收藏 <button class="icon-btn" data-close aria-label="关闭"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></h2><div id="favList"></div></div>
+<div class="drawer" id="histDrawer" aria-label="历史记录"><div class="sheet-handle"></div><h2>历史记录 <button class="icon-btn" data-close aria-label="关闭"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></h2><div id="histList"></div></div>
+<div class="drawer" id="helpDrawer" aria-label="快捷键"><div class="sheet-handle"></div><h2>快捷键 <button class="icon-btn" data-close aria-label="关闭"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></h2>
+  <div class="keys"><kbd>Space</kbd><span>播放 / 停止</span><kbd>Enter</kbd><span>按参数生成</span><kbd>R</kbd><span>重新生成未锁定和弦</span><kbd>A</kbd><span>全部随机</span><kbd>← →</kbd><span>选择上/下一个和弦</span><kbd>L</kbd><span>锁定/解锁选中和弦</span><kbd>[ ]</kbd><span>移调 −1 / +1 半音</span><kbd>Ctrl+Z</kbd><span>撤销</span><kbd>Ctrl+Shift+Z</kbd><span>重做</span><kbd>+ −</kbd><span>速度 ±2 BPM（Shift ±10）</span><kbd>M</kbd><span>节拍器</span><kbd>D</kbd><span>鼓组</span><kbd>S</kbd><span>收藏</span><kbd>T</kbd><span>切换主题</span><kbd>/</kbd><span>全局搜索</span><kbd>Esc</kbd><span>关闭面板</span></div>
+  <p class="help">带虚线的术语悬停可看解释。</p>
 </div>
-<div class="drawer wide" id="anaDrawer" aria-label="和弦分析"><h2>🔍 和弦分析 <button class="ib" data-close>✕</button></h2><div id="anaBody"></div></div>
+<div class="drawer wide" id="anaDrawer" aria-label="和弦分析"><div class="sheet-handle"></div><h2>和弦分析 <button class="icon-btn" data-close aria-label="关闭"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></h2><div id="anaBody"></div></div>
 <section id="dictPage" aria-label="和弦图鉴">
-  <div class="dHead"><h2>📖 和弦图鉴</h2><input type="search" id="dQ" placeholder="搜索：Cmaj7、F#m7b5、属七…" autocomplete="off" spellcheck="false"><select id="dRoot" aria-label="根音"></select><select id="dFam" aria-label="类型"></select><select id="dSty" aria-label="风格"></select><span class="hint" id="dCount"></span><button class="ib" id="dictClose" aria-label="关闭图鉴">✕</button></div>
-  <div class="dNotesRow"><span class="hint">按音反查：</span><div id="dNotes"></div><button class="chip" id="dClear">清除</button></div>
-  <div class="dBody"><div id="dList"></div><div id="dEntry" class="card"></div></div>
+  <div class="dHead"><h2>和弦图鉴</h2><div class="dsearch"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="dQ" placeholder="搜索：Cmaj7、CM7、F#m7b5、属七…" autocomplete="off" spellcheck="false" aria-label="搜索和弦"></div><select id="dRoot" aria-label="根音"></select><select id="dFam" aria-label="类型"></select><select id="dSty" aria-label="风格"></select><span class="help" id="dCount"></span><button class="icon-btn" id="dictClose" aria-label="关闭图鉴"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+  <div class="dNotesRow"><span class="help">按音反查</span><div id="dNotes"></div><button class="btn text sm" id="dClear">清除</button></div>
+  <div class="dBody"><div id="dList"></div><div id="dEntry"></div></div>
 </section>
 <div id="tip" role="tooltip"></div>
-<div class="toast" id="toast" role="status"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script>
 /* 和弦进行生成引擎 — 纯函数，无 DOM 依赖（浏览器与 Node 通用） */
 'use strict';
@@ -2371,13 +2634,14 @@ if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
   const E = window.ChordEngine;
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const RAND = '<option value="rand">🎲 随机</option>';
+  const RAND = '<option value="rand">随机</option>';
+  const ic = (n, c) => `<svg class="ic${c ? ' ' + c : ''}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
   const LS = { get: (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* 存储已满或被禁用 */ } } };
   let mode = 'rand', song = null, sel = -1;
   const state = { genre: 'rand', style: 'rand' };
 
   /* ---------- 主题 ---------- */
-  const setTheme = (t) => { document.documentElement.dataset.theme = t; LS.set('cg.theme', t); };
+  const setTheme = (t) => { document.documentElement.dataset.theme = t; LS.set('cg.theme', t); const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = t === 'dark' ? '#111216' : '#F6F7F9'; };
   setTheme(LS.get('cg.theme', matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'));
   $('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
 
@@ -2409,7 +2673,7 @@ if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
   $('meter').innerHTML = RAND + Object.keys(E.METERS).map((m) => `<option>${m}</option>`).join('');
   const SH = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   function fillKeyMode() {
-    const first = mode === 'seed' ? '<option value="auto">🔍 自动推断</option>' : RAND;
+    const first = mode === 'seed' ? '<option value="auto">自动推断</option>' : RAND;
     const kv = $('key').value, mv = $('mode').value;
     $('key').innerHTML = first + E.KEYS_M.map((k, i) => `<option value="${i}">${k}${k !== SH[i] ? ' / ' + SH[i] : ''}</option>`).join('');
     $('mode').innerHTML = first + Object.entries(E.MODES).map(([k, v]) => `<option value="${k}">${v.n}</option>`).join('');
@@ -2485,7 +2749,7 @@ if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
   const genres = [...new Set(E.STYLES.map((s) => s.genre))];
   function pickLabel() {
     if (state.style !== 'rand') { const s = E.STYLES[+state.style]; return s.genre.split(' ')[0] + ' › ' + s.name; }
-    return state.genre === 'rand' ? '🎲 全部随机' : '🎲 ' + state.genre + '（大类内随机）';
+    return state.genre === 'rand' ? '全部随机' : state.genre + '（大类内随机）';
   }
   function hl(text, q) { // 高亮：忽略大小写/空格/连字符匹配查询
     const t = String(text); if (!q) return esc(t);
@@ -2498,18 +2762,18 @@ if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
   }
   function renderPick() {
     const q = $('pickSearch').value.trim();
-    let h = q ? '' : `<div class="it${state.genre === 'rand' && state.style === 'rand' ? ' sel' : ''}" data-g="rand" data-s="rand">🎲 全部随机</div>`;
+    let h = q ? '' : `<div class="it${state.genre === 'rand' && state.style === 'rand' ? ' sel' : ''}" data-g="rand" data-s="rand">${ic('dice')}全部随机</div>`;
     if (q) {
       const res = E.searchStyles(q);
       if (!res.length) h += `<div class="empty" style="padding:12px">没有找到「${esc(q)}」。试试：lofi、edm、kpop、古风、爵士、说唱</div>`;
       const byG = new Map(); res.forEach((r) => { const st = E.STYLES[r.id]; if (!byG.has(st.genre)) byG.set(st.genre, []); byG.get(st.genre).push(r); });
       for (const [g, items] of byG) {
-        h += `<div class="gh" data-g="${esc(g)}" data-s="rand" title="此大类内随机"><span>${hl(g, q)}</span><span>🎲</span></div>`;
+        h += `<div class="gh" data-g="${esc(g)}" data-s="rand" title="此大类内随机"><span>${hl(g, q)}</span><span class="gh-r">${ic('dice')}</span></div>`;
         h += items.map((r) => { const s = E.STYLES[r.id]; const viaShown = r.via && E.nrm(s.name).indexOf(E.nrm(q)) < 0 && r.via !== s.genre; return `<div class="it${String(s.id) === String(state.style) ? ' sel' : ''}" role="option" data-g="${esc(g)}" data-s="${s.id}">${hl(s.name, q)}${viaShown ? ` <small class="via">≈ ${hl(r.via, q)}</small>` : ''}</div>`; }).join('');
       }
     } else for (const g of genres) {
       const items = E.STYLES.filter((s) => s.genre === g);
-      h += `<div class="gh" data-g="${esc(g)}" data-s="rand" title="此大类内随机"><span>${esc(g)}</span><span>🎲</span></div>`;
+      h += `<div class="gh" data-g="${esc(g)}" data-s="rand" title="此大类内随机"><span>${esc(g)}</span><span class="gh-r">${ic('dice')}</span></div>`;
       h += items.map((s) => `<div class="it${String(s.id) === String(state.style) ? ' sel' : ''}" role="option" data-g="${esc(g)}" data-s="${s.id}">${esc(s.name)}</div>`).join('');
     }
     $('pickList').innerHTML = h;
@@ -2523,10 +2787,15 @@ if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
   document.addEventListener('click', (e) => { if (!e.target.closest('#picker')) $('pickPop').classList.remove('open'); document.querySelectorAll('.menu').forEach((m) => { if (!m.contains(e.target)) { const pp = m.querySelector('.pop'); pp.classList.remove('open'); m.querySelector('button').setAttribute('aria-expanded', 'false'); } }); });
   renderPick();
 
+  /* ---------- 导航 ---------- */
+  const NAV = ['tabRand', 'tabSeed', 'dictBtn', 'favBtn'];
+  function setNav(id) { NAV.forEach((n) => { const on = n === id; $(n).setAttribute('aria-selected', on); if (on) $(n).setAttribute('aria-current', 'page'); else $(n).removeAttribute('aria-current'); }); }
+  const modeNav = () => (mode === 'seed' ? 'tabSeed' : 'tabRand');
   /* ---------- 模式 ---------- */
   function setMode(m) {
     mode = m;
-    $('tabRand').setAttribute('aria-selected', m === 'rand'); $('tabSeed').setAttribute('aria-selected', m === 'seed');
+    closeDict(true); setNav(m === 'seed' ? 'tabSeed' : 'tabRand');
+    $('ctrlTitle').textContent = m === 'seed' ? '歌曲扩展' : '生成参数';
     $('seedBox').hidden = m !== 'seed';
     $('barsLabel').textContent = m === 'seed' ? '段落小节数' : '小节数';
     fillKeyMode(); if (m === 'seed') updateInfer();
@@ -2574,7 +2843,7 @@ if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
   function generate() {
     $('gen').classList.add('busy'); requestAnimationFrame(() => requestAnimationFrame(() => $('gen').classList.remove('busy')));
     stop();
-    try { song = mode === 'seed' ? E.expand(opts()) : E.generate(opts()); $('seedErr').textContent = ''; } catch (e) { $('seedErr').textContent = e.message; toast(e.message, true); if (isMobile()) openSheetEl('ctrl'); return; }
+    try { song = mode === 'seed' ? E.expand(opts()) : E.generate(opts()); $('seedErr').textContent = ''; } catch (e) { $('seedErr').textContent = e.message; toast(e.message, true); if (railSheet()) openSheetEl('ctrl'); return; }
     sel = -1; afterNew('生成：' + song.settings.style + ' · ' + song.settings.key);
   }
   function afterNew(label) {
@@ -2588,7 +2857,8 @@ if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
     commit(section === undefined ? '重新生成（保留锁定）' : '重新生成：' + song.sections[section].name);
     toast(song.flat.some((c) => c.lock) ? '已重新生成未锁定的和弦' : '已重新生成');
   }
-  $('gen').onclick = generate;
+  const railSheet = () => matchMedia('(max-width: 1199px)').matches;
+  $('gen').onclick = () => { generate(); if (railSheet() && $('ctrl').classList.contains('open') && !$('seedErr').textContent) closeDrawers(); };
   $('regen').onclick = () => regen();
   $('allRand').onclick = () => {
     ['mood', 'meter', 'bars', 'complexity', 'hr', 'feel'].forEach((id) => ($(id).value = 'rand'));
@@ -2607,7 +2877,7 @@ if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
   }
   function renderOnboard() {
     if (LS.get('cg.onboarded', false)) { $('onboard').innerHTML = ''; return; }
-    $('onboard').innerHTML = `<div class="onboard" role="note"><div style="font-size:22px">👋</div><div><b>三步上手</b><ol><li>在左侧选好<b>风格</b>和情绪（不选就全部随机）</li><li>点 <b>✨ 生成</b>，再点 <b>▶</b> 或按 <kbd>空格</kbd> 试听</li><li>点任意和弦查看指法与<b>可替换和弦</b>；🔒 锁定喜欢的，按 <kbd>R</kbd> 重生成其余</li></ol></div><button class="ib sm x" id="obClose" aria-label="关闭引导">✕</button></div>`;
+    $('onboard').innerHTML = `<div class="onboard" role="note"><span class="ob-ic">${ic('info')}</span><div><b>三步上手</b><ol><li>在「生成参数」中选择<b>风格</b>与情绪，不选则全部随机</li><li>点击<b>生成</b>，再按底部播放键或 <kbd>空格</kbd> 试听</li><li>点任意和弦查看指法与<b>可替换和弦</b>；锁定喜欢的和弦后按 <kbd>R</kbd> 重新生成其余</li></ol></div><button class="ib x" id="obClose" aria-label="关闭引导">${ic('x')}</button></div>`;
     $('obClose').onclick = () => { LS.set('cg.onboarded', true); renderOnboard(); };
   }
   renderOnboard();
@@ -2622,22 +2892,25 @@ if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
     $('keyNow').textContent = s.key + ' ' + (E.MODES[s.mode].n.split(' ')[0]);
     if (document.activeElement !== $('bpmNow')) $('bpmNow').value = song.bpm;
     if (!playing) { const b0 = E.buildEvents(song, {}), tot = b0.totalUnits * b0.unitSec; $('progT').textContent = '0:00 / ' + fmtT(tot); $('progFill').style.width = '0'; }
+    $('meterNow').textContent = s.meter;
+    $('cvTitle').textContent = s.genre.split(' ')[0] + ' › ' + s.style;
+    $('cvSub').textContent = `${s.key} ${s.modeName} · ${s.mood} · ${song.bpm} BPM`;
     const t = document.getElementById('tagline'); if (!t) return;
-    t.innerHTML = [['风格', s.genre.split(' ')[0] + ' › ' + s.style], ['情绪', s.mood], ['调', s.key + ' ' + s.modeName], ['拍号', s.meter], ['速度', song.bpm + ' BPM'], ['复杂度', s.complexityName], ['和声节奏', s.hr + '/小节']].map(([k, v]) => `<span class="tag">${k} <b>${esc(v)}</b></span>`).join('');
+    t.innerHTML = [['拍号', s.meter], ['复杂度', s.complexityName], ['和声节奏', s.hr + '/小节']].map(([k, v]) => `<span class="tag">${k} <b>${esc(v)}</b></span>`).join('');
   }
   function render() {
-    let h = '<div class="tags" id="tagline"></div><div class="legend"><span><i style="background:var(--T)"></i><span class="term" data-tip="' + esc(GLOSS.主功能) + '">主功能 T</span></span><span><i style="background:var(--S)"></i><span class="term" data-tip="' + esc(GLOSS.下属功能) + '">下属 S</span></span><span><i style="background:var(--D)"></i><span class="term" data-tip="' + esc(GLOSS.属功能) + '">属 D</span></span><span style="color:var(--acc2)">粉字 = 借用 / 副属 / 替代 / 转调</span></div>';
+    let h = '<div class="meta-row"><div class="tags" id="tagline"></div><div class="legend"><span><i style="background:var(--T)"></i><span class="term" data-tip="' + esc(GLOSS.主功能) + '">主功能 T</span></span><span><i style="background:var(--S)"></i><span class="term" data-tip="' + esc(GLOSS.下属功能) + '">下属 S</span></span><span><i style="background:var(--D)"></i><span class="term" data-tip="' + esc(GLOSS.属功能) + '">属 D</span></span><span><i class="lg-x"></i>标签 = 借用 / 副属 / 替代 / 转调</span></div></div>';
     let barNo = 1;
     song.sections.forEach((sec, si) => {
-      h += `<div class="section" style="animation-delay:${si * 40}ms"><div class="sh"><h3>${esc(sec.name)}</h3><span class="k">${esc(sec.keyLabel)}</span>${sec.modulated ? '<span class="mod">⤴ 转调 +全音</span>' : ''}<span class="sp"></span>
-        <button class="ib" data-act="playsec" data-si="${si}" data-tip="只播放本段">▶</button><button class="ib" data-act="regensec" data-si="${si}" data-tip="重新生成本段（保留锁定）">↻</button><button class="ib" data-act="midisec" data-si="${si}" data-tip="导出本段多轨 MIDI">⬇ MIDI</button><button class="ib" data-act="zipsec" data-si="${si}" data-tip="本段分轨打包 .zip（和弦/低音/旋律/鼓）">📦</button></div>${sec.note ? `<p class="note">${termify(esc(sec.note))}</p>` : ''}<div class="bars">`;
+      h += `<div class="section" style="animation-delay:${si * 40}ms"><div class="sh"><h3>${esc(sec.name)}</h3><span class="k">${esc(sec.keyLabel)}</span>${sec.modulated ? '<span class="mod">转调 +全音</span>' : ''}<span class="sp"></span>
+        <button class="ib" data-act="playsec" data-si="${si}" data-tip="只播放本段" aria-label="播放本段">${ic('play')}</button><button class="ib" data-act="regensec" data-si="${si}" data-tip="重新生成本段（保留锁定）" aria-label="重新生成本段">${ic('refresh')}</button><button class="ib" data-act="midisec" data-si="${si}" data-tip="导出本段多轨 MIDI" aria-label="导出本段 MIDI">${ic('download')}</button><button class="ib" data-act="zipsec" data-si="${si}" data-tip="本段分轨打包 .zip（和弦/低音/旋律/鼓）" aria-label="本段分轨打包">${ic('archive')}</button></div>${sec.note ? `<p class="note">${termify(esc(sec.note))}</p>` : ''}<div class="bars">`;
       for (const bar of sec.bars) {
         h += `<div class="bar"><span class="no">${barNo++}</span>`;
         for (const cell of bar) {
           const c = song.flat[cell.ci];
           if (cell.cont) h += `<div class="ch cont ${c.func}" data-ci="${cell.ci}" data-cont="1"><div class="nm">%</div><div class="fn">延续 ${esc(c.name)}</div></div>`;
           else h += `<div class="ch ${c.func}${c.lock ? ' locked' : ''}${cell.ci === sel ? ' sel' : ''}" data-ci="${cell.ci}" style="flex:${cell.dur};animation-delay:${Math.min(cell.ci * 12, 400)}ms" tabindex="0" role="button" aria-label="${esc(c.name)} ${esc(c.roman)}">
-            <span class="ch-tools"><button class="lk${c.lock ? ' on' : ''}" data-lock="${cell.ci}" aria-label="${c.lock ? '解锁' : '锁定'} ${esc(c.name)}" aria-pressed="${!!c.lock}" data-tip="${c.lock ? '已锁定：重新生成时保留 (L)' : '锁定此和弦 (L)'}">${c.lock ? '🔒' : '🔓'}</button><button class="sw" data-swap="${cell.ci}" aria-label="替换 ${esc(c.name)}" data-tip="查看可替换和弦">⇄</button><button class="sw" data-ana="${cell.ci}" aria-label="分析 ${esc(c.name)}" data-tip="分析该和弦：所有合规的下一个和弦">🔍</button></span>
+            <span class="ch-tools"><button class="lk${c.lock ? ' on' : ''}" data-lock="${cell.ci}" aria-label="${c.lock ? '解锁' : '锁定'} ${esc(c.name)}" aria-pressed="${!!c.lock}" data-tip="${c.lock ? '已锁定：重新生成时保留 (L)' : '锁定此和弦 (L)'}">${ic(c.lock ? 'lock' : 'unlock')}</button><button class="sw" data-swap="${cell.ci}" aria-label="替换 ${esc(c.name)}" data-tip="查看可替换和弦">${ic('swap')}</button><button class="sw" data-ana="${cell.ci}" aria-label="分析 ${esc(c.name)}" data-tip="分析该和弦：所有合规的下一个和弦">${ic('scan')}</button></span>
             <div class="nm">${esc(c.name)}</div><div class="rn">${esc(c.roman)}</div><div class="fn">${FN[c.func] || esc(c.func)}</div>${c.tag ? `<div class="tg" data-tip="${esc(GLOSS[c.tag] || c.tag)}">${esc(c.tag)}</div>` : ''}</div>`;
         }
         h += '</div>';
@@ -2662,7 +2935,7 @@ if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
   });
   $('result').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.classList.contains('ch')) { e.stopPropagation(); select(+e.target.dataset.ci, true); } });
   function toggleLock(ci) { E.toggleLock(song, ci); render(); commit((song.flat[ci].lock ? '锁定 ' : '解锁 ') + song.flat[ci].name); }
-  const isMobile = () => matchMedia('(max-width: 880px)').matches;
+  const isMobile = () => matchMedia('(max-width: 839px)').matches;
   function select(ci, sound, openSheet) {
     if (!song || ci < 0 || ci >= song.flat.length) return;
     sel = ci;
@@ -2680,8 +2953,8 @@ if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
     for (let n = lo; n <= hi; n++) { if (!isB(n)) { white.push({ n, x }); x += W; } else black.push({ n, x: x - 4 }); }
     const col = (n) => (n === bass ? 'var(--D)' : on.has(n) ? 'var(--acc)' : null);
     let s = `<svg viewBox="0 0 ${x} 60" role="img" aria-label="钢琴键盘：${esc(c.name)}">`;
-    for (const k of white) s += `<rect x="${k.x}" y="0" width="${W - 1}" height="58" rx="2" fill="${col(k.n) || '#f4f5fb'}" stroke="#8890b0" stroke-width=".5"/>${k.n % 12 === 0 ? `<text x="${k.x + 2}" y="55" font-size="6" fill="#666">C${k.n / 12 - 1}</text>` : ''}`;
-    for (const k of black) s += `<rect x="${k.x}" y="0" width="8" height="36" rx="1.5" fill="${col(k.n) || '#20243a'}"/>`;
+    for (const k of white) s += `<rect x="${k.x}" y="0" width="${W - 1}" height="58" rx="2" fill="${col(k.n) || 'var(--key-w)'}" stroke="var(--key-line)" stroke-width=".5"/>${k.n % 12 === 0 ? `<text x="${k.x + 2}" y="55" font-size="6" fill="var(--text-3)">C${k.n / 12 - 1}</text>` : ''}`;
+    for (const k of black) s += `<rect x="${k.x}" y="0" width="8" height="36" rx="1.5" fill="${col(k.n) || 'var(--key-b)'}"/>`;
     return s + '</svg>';
   }
   function guitarSVG(c) {
@@ -2713,21 +2986,22 @@ if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
   }
   function renderInsp() {
     document.body.classList.toggle('has-insp', !!song && sel >= 0 && sel < song.flat.length);
-    if (!song || sel < 0 || sel >= song.flat.length) { $('insp').innerHTML = ''; $('insp').classList.remove('open'); return; }
+    if (!song || sel < 0 || sel >= song.flat.length) { $('insp').innerHTML = `<div class="empty-state">${ic('grid', 'es-ic')}<b>未选择和弦</b><p>点击任意和弦，查看组成音、钢琴与吉他指法，以及可替换的和弦。</p></div>`; $('insp').classList.remove('open'); return; }
     const c = song.flat[sel], alts = E.alternatives(song, sel);
     const groups = {}; alts.forEach((a, i) => { (groups[a.kind] = groups[a.kind] || []).push([a, i]); });
-    let h = `<h2>和弦详情 <span style="flex:1"></span><button class="ib" id="prevC" aria-label="上一个">‹</button><button class="ib" id="nextC" aria-label="下一个">›</button><button class="ib" id="closeInsp" aria-label="关闭详情">✕</button></h2>
-      <div class="cbig">${esc(c.name)}</div><div class="sub">${esc(c.roman)}</div>
-      <div class="badges"><span class="badge ${c.func}" data-tip="${esc(GLOSS[{ T: '主功能', S: '下属功能', D: '属功能' }[c.func]] || '')}">${FN[c.func] || esc(c.func)}</span>${c.tag ? `<span class="badge x" data-tip="${esc(GLOSS[c.tag] || '')}">${esc(c.tag)}</span>` : ''}${c.bass > 0 || c.xb ? '<span class="badge" data-tip="' + esc(GLOSS.转位) + '">转位/斜线</span>' : ''}<button class="badge" id="lockSel" style="cursor:pointer">${c.lock ? '🔒 已锁定' : '🔓 锁定'}</button></div>
-      <div class="hint" style="margin:0">组成音：${[c.bassNote, ...c.upper].map((n) => noteName(c, n)).join(' · ')}</div>
-      <div class="actrow"><button class="btn" id="inspPlay">▶ 试听</button><button class="btn" id="anaBtn">🔍 分析该和弦</button><button class="btn" id="inspDict">📖 图鉴</button><button class="btn" id="inspIns">➕ 后面插入</button><button class="btn" id="inspDel" ${song.flat.length <= 1 ? 'disabled' : ''}>🗑 删除</button></div>
-      <div class="viz">${pianoSVG(c)}</div><div class="viz" style="color:var(--text)">${guitarSVG(c)}</div>
-      <h2 style="margin-top:12px">可替换和弦 <span class="hint" style="margin:0;text-transform:none">点击替换并试听</span></h2><div class="alts">`;
+    let h = `<div class="pane-head"><h2>和弦详情</h2><span class="grow"></span><button class="ib" id="prevC" aria-label="上一个" data-tip="上一个 (←)">${ic('chevL')}</button><button class="ib" id="nextC" aria-label="下一个" data-tip="下一个 (→)">${ic('chevR')}</button><button class="ib" id="closeInsp" data-tip="取消选择" aria-label="关闭详情">${ic('x')}</button></div><div class="pane-body">
+      <div class="insp-hero ${c.func}"><div><div class="cbig">${esc(c.name)}</div><div class="sub">${esc(c.roman)}</div></div><button class="ib play-sm" id="inspPlay" aria-label="试听 ${esc(c.name)}" data-tip="试听">${ic('play')}</button></div>
+      <div class="badges"><span class="badge ${c.func}" data-tip="${esc(GLOSS[{ T: '主功能', S: '下属功能', D: '属功能' }[c.func]] || '')}">${FN[c.func] || esc(c.func)}</span>${c.tag ? `<span class="badge x" data-tip="${esc(GLOSS[c.tag] || '')}">${esc(c.tag)}</span>` : ''}${c.bass > 0 || c.xb ? '<span class="badge" data-tip="' + esc(GLOSS.转位) + '">转位/斜线</span>' : ''}</div>
+      <div class="hint">组成音：${[c.bassNote, ...c.upper].map((n) => noteName(c, n)).join(' · ')}</div>
+      <div class="actrow"><button class="btn tonal" id="anaBtn">${ic('scan')}<span>分析该和弦</span></button><button class="btn outlined" id="lockSel" aria-pressed="${!!c.lock}">${ic(c.lock ? 'lock' : 'unlock')}<span>${c.lock ? '已锁定' : '锁定'}</span></button></div>
+      <div class="actrow sec"><button class="btn text" id="inspDict">${ic('book')}<span>图鉴</span></button><button class="btn text" id="inspIns">${ic('plus')}<span>后面插入</span></button><button class="btn text danger" id="inspDel" ${song.flat.length <= 1 ? 'disabled' : ''}>${ic('trash')}<span>删除</span></button></div>
+      <h3 class="sec-t">指法</h3><div class="viz">${pianoSVG(c)}</div><div class="viz" style="color:var(--text)">${guitarSVG(c)}</div>
+      <h3 class="sec-t">可替换和弦 <span class="hint">点击替换并试听</span></h3><div class="alts">`;
     for (const [k, list] of Object.entries(groups)) {
       h += `<div class="altg"><span class="term" data-tip="${esc(E.ALT_TIPS[k] || '')}">${esc(k)}</span></div>`;
-      h += list.map(([a, i]) => `<span class="altw"><button class="alt" data-alt="${i}" data-tip="${esc(a.why)}"><b>${esc(a.name)}</b><small>${esc(a.roman)}</small></button><button class="ap" data-altplay="${i}" aria-label="试听 ${esc(a.name)}">▶</button></span>`).join('');
+      h += list.map(([a, i]) => `<span class="altw"><button class="alt" data-alt="${i}" data-tip="${esc(a.why)}"><b>${esc(a.name)}</b><small>${esc(a.roman)}</small></button><button class="ap" data-altplay="${i}" aria-label="试听 ${esc(a.name)}">${ic('play')}</button></span>`).join('');
     }
-    $('insp').innerHTML = h + '</div>';
+    $('insp').innerHTML = h + '</div></div>';
     $('insp').querySelectorAll('[data-alt]').forEach((b) => (b.onclick = () => {
       const a = alts[+b.dataset.alt], old = c.name;
       E.replaceChord(song, sel, a.chord); render(); preview(song.flat[sel]); commit(`替换 ${old} → ${song.flat[sel].name}`);
@@ -2891,7 +3165,7 @@ if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
     if (useGM()) {
       const req = ++playReq;
       const ev = E.buildEvents(song, { metronome: toggles.metro, drums: toggles.drums, melody: toggles.melody, pattern: $('pattern').value, section: typeof section === 'number' ? section : undefined });
-      $('play').classList.add('playing'); $('playIcon').textContent = '❚❚';
+      $('play').classList.add('playing'); $('playIcon').dataset.s = 'pause';
       prepareGM(ev).then(() => { settle(SF.bufs); settle(SF.drums); setTimeout(() => { if (req === playReq) playNow(section); }, 0); });
       return;
     }
@@ -2899,7 +3173,7 @@ if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
   }
   function playNow(section) {
     stopAudio(); newMaster(); playing = true; playSec = typeof section === 'number' ? section : undefined;
-    $('play').classList.add('playing'); $('playIcon').textContent = '❚❚'; $('play').setAttribute('aria-label', '停止 (空格)'); $('stop').disabled = false;
+    $('play').classList.add('playing'); $('playIcon').dataset.s = 'pause'; $('play').setAttribute('aria-label', '停止 (空格)'); $('stop').disabled = false;
     const inst = $('inst').value;
     const ev = E.buildEvents(song, { metronome: toggles.metro, drums: toggles.drums, melody: toggles.melody, pattern: $('pattern').value, section: playSec });
     const us = ev.unitSec, total = ev.totalUnits * us;
@@ -2946,14 +3220,14 @@ if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
   function stop() {
     stopAudio();
     document.querySelectorAll('.ch.now').forEach((el) => el.classList.remove('now'));
-    $('play').classList.remove('playing'); $('playIcon').textContent = '▶'; $('play').setAttribute('aria-label', '播放 (空格)'); $('stop').disabled = true;
+    $('play').classList.remove('playing'); $('playIcon').dataset.s = 'play'; $('play').setAttribute('aria-label', '播放 (空格)'); $('stop').disabled = true;
     $('progFill').style.width = '0';
   }
   $('play').onclick = () => (playing || $('play').classList.contains('playing') ? stop() : play());
   $('stop').onclick = stop;
 
   /* ---------- 导出 / 分享 / 收藏 ---------- */
-  function toast(t, err) { const el = $('toast'); el.textContent = (err ? '⚠ ' : '✓ ') + t; el.classList.toggle('err', !!err); el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 2000); }
+  function toast(t, err) { const el = $('toast'); el.innerHTML = ic(err ? 'info' : 'check') + '<span>' + esc(t) + '</span>'; el.classList.toggle('err', !!err); el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 2000); }
   const fileBase = () => { const s = song.settings; return `chords_${s.key}_${s.mode}_${song.bpm}bpm`.replace(/#/g, 's'); };
   function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }
   function exportMidi(section) {
@@ -2983,8 +3257,9 @@ if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
   document.querySelectorAll('#expPop [data-part]').forEach((b) => (b.onclick = () => exportPart(b.dataset.part)));
   $('zipAll').onclick = () => exportZip();
   const menuBtn = (btn, pop) => ($(btn).onclick = (e) => { e.stopPropagation(); document.querySelectorAll('.menu .pop.open').forEach((x) => x !== $(pop) && x.classList.remove('open')); const o = $(pop).classList.toggle('open'); $(btn).setAttribute('aria-expanded', o); });
-  menuBtn('expBtn', 'expPop'); menuBtn('soundBtn', 'soundPop');
+  menuBtn('expBtn', 'expPop'); menuBtn('soundBtn', 'soundPop'); menuBtn('moreBtn', 'morePop');
   $('expPop').addEventListener('click', () => $('expPop').classList.remove('open'));
+  $('morePop').addEventListener('click', () => { $('morePop').classList.remove('open'); $('moreBtn').setAttribute('aria-expanded', 'false'); });
   $('midi').onclick = () => exportMidi();
   $('txt').onclick = () => { if (song) download(new Blob([E.toText(song)], { type: 'text/plain;charset=utf-8' }), fileBase() + '.txt'); };
   async function copyText(txt) {
@@ -3036,12 +3311,12 @@ if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
   $('png').onclick = pngExport;
   let favs = LS.get('cg.favs', []);
   function renderFavs() {
-    $('favList').innerHTML = favs.length ? favs.map((f, i) => `<div class="li"><div class="t" data-load="${i}"><div>${esc(f.name)}</div><small>${new Date(f.time).toLocaleString()} · ${esc(f.preview)}</small></div><button class="ib" data-del="${i}" aria-label="删除">🗑</button></div>`).join('') : '<p class="hint">还没有收藏。生成后按 ☆ 或 <kbd>S</kbd> 收藏。</p>';
+    $('favList').innerHTML = favs.length ? favs.map((f, i) => `<div class="li"><div class="t" data-load="${i}"><div>${esc(f.name)}</div><small>${new Date(f.time).toLocaleString()} · ${esc(f.preview)}</small></div><button class="ib" data-del="${i}" aria-label="删除">${ic('trash')}</button></div>`).join('') : `<div class="empty-state">${ic('star', 'es-ic')}<b>还没有收藏</b><p>生成满意的进行后，在「导出」菜单中收藏，或按 <kbd>S</kbd>。</p></div>`;
   }
   function saveFav() {
     if (!song) return; const s = song.settings;
     favs.unshift({ name: `${s.style} · ${s.key} ${s.modeName.split(' ')[0]} · ${s.mood}`, time: Date.now(), preview: song.flat.slice(0, 6).map((c) => c.name).join(' '), data: E.serialize(song) });
-    favs = favs.slice(0, 100); LS.set('cg.favs', favs); renderFavs(); toast('已收藏 ★');
+    favs = favs.slice(0, 100); LS.set('cg.favs', favs); renderFavs(); toast('已收藏');
   }
   $('save').onclick = saveFav;
   $('favList').onclick = (e) => {
@@ -3051,13 +3326,13 @@ if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
   };
   renderFavs();
   const drawers = { favBtn: 'favDrawer', histBtn: 'histDrawer', help: 'helpDrawer' };
-  function closeDrawers() { document.querySelectorAll('.drawer.open,.panel.open').forEach((d) => d.classList.remove('open')); $('scrim').classList.remove('open'); }
+  function closeDrawers() { const fav = $('favDrawer').classList.contains('open'); document.querySelectorAll('.drawer.open,.pane.open').forEach((d) => d.classList.remove('open')); $('scrim').classList.remove('open'); if (fav) setNav(document.body.classList.contains('dict-open') ? 'dictBtn' : modeNav()); }
   function closeSheets() { closeDrawers(); }
   function openSheetEl(id) { closeDrawers(); $(id).classList.add('open'); $('scrim').classList.add('open'); }
   $('openCtrl').onclick = () => openSheetEl('ctrl');
   document.querySelectorAll('[data-close-ctrl]').forEach((b) => (b.onclick = closeDrawers));
   $('genM').onclick = () => { closeDrawers(); generate(); };
-  function openDrawer(id) { closeDrawers(); $(id).classList.add('open'); $('scrim').classList.add('open'); }
+  function openDrawer(id) { closeDrawers(); $(id).classList.add('open'); $('scrim').classList.add('open'); $('morePop').classList.remove('open'); if (id === 'favDrawer') setNav('favBtn'); }
   Object.entries(drawers).forEach(([b, d]) => ($(b).onclick = () => openDrawer(d)));
   $('scrim').onclick = closeDrawers;
   document.querySelectorAll('[data-close]').forEach((b) => (b.onclick = closeDrawers));
@@ -3090,17 +3365,17 @@ if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
     }
     const nx = a.next, max = Math.max(...nx.all.map((x) => x.p));
     const isDict = anaCtx.type === 'dict';
-    let h = head + `<div class="anaHead"><div class="cbig">${esc(a.name)}</div><div><div class="sub">${esc(a.roman)} · ${esc(nx.key)}</div><span class="badge ${a.func}">${esc(a.funcCn)}</span>${a.tag ? `<span class="badge x">${esc(a.tag)}</span>` : ''}<span class="badge">${esc(a.quality)}</span></div><button class="ib" id="anaPlay" aria-label="试听 ${esc(a.name)}">▶</button><button class="ib" id="anaDict" aria-label="在图鉴中查看">📖</button></div>
+    let h = head + `<div class="anaHead"><div class="cbig">${esc(a.name)}</div><div><div class="sub">${esc(a.roman)} · ${esc(nx.key)}</div><span class="badge ${a.func}">${esc(a.funcCn)}</span>${a.tag ? `<span class="badge x">${esc(a.tag)}</span>` : ''}<span class="badge">${esc(a.quality)}</span></div><button class="ib" id="anaPlay" aria-label="试听 ${esc(a.name)}" data-tip="试听">${ic('play')}</button><button class="ib" id="anaDict" aria-label="在图鉴中查看" data-tip="在图鉴中查看">${ic('book')}</button></div>
       <table class="anaT"><tr><th>音名</th>${a.notes.map((n) => `<td><b>${esc(n.name)}</b></td>`).join('')}</tr><tr><th>级数</th>${a.notes.map((n) => `<td>${esc(n.deg)}</td>`).join('')}</tr><tr><th>音程</th>${a.notes.map((n) => `<td>${esc(n.ivName)}</td>`).join('')}</tr></table>
       <div class="hint" style="margin:6px 0">公式：${esc(a.formula)}</div>
       <h3>在其他调中的解释</h3><div class="interp">${a.interp.map((x) => `<span class="ip${x.same ? ' cur' : ''}"><b>${esc(x.key)}</b> ${esc(x.roman)} <small>${esc(x.func)}</small></span>`).join('') || '<span class="hint">—</span>'}</div>
       <h3>下一个和弦 <span class="hint" style="margin:0">全部通过乐理校验 · 概率按语料统计</span></h3>`;
-    if (isDict) h += `<p class="hint" style="margin:0 0 8px">「加入进行」会把 ${esc(a.name)} 和所选的下一个和弦一起插入到当前进行${song && sel >= 0 ? '的选中和弦之后' : '末尾'}。</p><button class="btn" id="anaAddSelf">➕ 只加入 ${esc(a.name)}</button>`;
+    if (isDict) h += `<p class="hint" style="margin:0 0 8px">「加入进行」会把 ${esc(a.name)} 和所选的下一个和弦一起插入到当前进行${song && sel >= 0 ? '的选中和弦之后' : '末尾'}。</p><button class="btn tonal" id="anaAddSelf">${ic('plus')}只加入 ${esc(a.name)}</button>`;
     else h += `<div class="seg" role="radiogroup" aria-label="操作"><button data-am="replace" aria-pressed="${anaMode === 'replace'}">${nextName ? '替换下一个（' + esc(nextName) + '）' : '追加'}</button><button data-am="insert" aria-pressed="${anaMode === 'insert'}">插入到后面</button></div>`;
     const useLbl = isDict ? '加入进行' : anaMode === 'insert' ? '插入' : '使用';
     nx.groups.forEach((g, gi) => {
       h += `<div class="ng"><div class="ngh">${esc(g.cat)} <small>${g.items.length}</small></div>`;
-      h += g.items.map((x, i) => `<div class="nc" data-g="${gi}" data-i="${i}"><button class="ib np" data-play aria-label="试听 ${esc(a.name)} → ${esc(x.name)}">▶</button><div class="nm"><b>${esc(x.name)}</b> <small>${esc(x.roman)}</small><div class="why">${esc(x.why)}${x.need ? ' <em>' + esc(x.need) + '</em>' : ''}</div></div><div class="pb" title="语料概率"><i style="width:${Math.max(4, (x.p / max) * 100).toFixed(0)}%"></i><span>${pct(x.p)}</span></div><span class="ncb"><button class="ib" data-dict aria-label="图鉴：${esc(x.name)}">📖</button><button class="btn sm" data-use>${useLbl}</button></span></div>`).join('');
+      h += g.items.map((x, i) => `<div class="nc" data-g="${gi}" data-i="${i}"><button class="ib np" data-play aria-label="试听 ${esc(a.name)} → ${esc(x.name)}">${ic('play')}</button><div class="nm"><b>${esc(x.name)}</b> <small>${esc(x.roman)}</small><div class="why">${esc(x.why)}${x.need ? ' <em>' + esc(x.need) + '</em>' : ''}</div></div><div class="pb" title="语料概率"><i style="width:${Math.max(4, (x.p / max) * 100).toFixed(0)}%"></i><span>${pct(x.p)}</span></div><span class="ncb"><button class="ib" data-dict aria-label="图鉴：${esc(x.name)}">${ic('book')}</button><button class="btn sm" data-use>${useLbl}</button></span></div>`).join('');
       h += '</div>';
     });
     $('anaBody').innerHTML = h;
@@ -3128,11 +3403,12 @@ if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
   /* ---------- 和弦图鉴 ---------- */
   const dictState = { root: '', family: '', style: '', q: '', notes: new Set(), cur: null, inv: 0 };
   function openDict(ref) {
+    closeDrawers(); setNav('dictBtn');
     $('dictPage').classList.remove('show-entry'); $('dictPage').classList.add('open'); document.body.classList.add('dict-open'); renderDictFilters();
     if (ref && ref.rootIdx !== undefined) { const d = E.DICT.find((x) => x[0] === ref.id) || E.DICT[0]; dictState.cur = { rootIdx: ref.rootIdx, id: d[0], name: E.ROOTS[ref.rootIdx][0] + d[1], cn: d[2] }; dictState.inv = ref.inv || 0; dictState.q = E.ROOTS[ref.rootIdx][0]; dictState.root = ''; dictState.family = ''; dictState.style = ''; dictState.notes.clear(); $('dQ').value = dictState.q; $('dRoot').value = ''; $('dFam').value = ''; $('dSty').value = ''; $('dNotes').querySelectorAll('[data-pc]').forEach((b) => b.setAttribute('aria-pressed', 'false')); renderDict(); renderDictEntry(false); $('dictPage').classList.add('show-entry'); return; }
     renderDict();
   }
-  function closeDict() { $('dictPage').classList.remove('open', 'show-entry'); document.body.classList.remove('dict-open'); }
+  function closeDict(silent) { const was = document.body.classList.contains('dict-open'); $('dictPage').classList.remove('open', 'show-entry'); document.body.classList.remove('dict-open'); if (was && silent !== true) setNav(modeNav()); }
   function renderDictFilters() {
     if ($('dRoot').options.length) return;
     $('dRoot').innerHTML = '<option value="">全部根音</option>' + E.ROOTS.map((r, i) => `<option value="${i}">${r[0]}</option>`).join('');
@@ -3164,7 +3440,7 @@ if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
   function renderDictEntry(play) {
     const x = dictState.cur; if (!x) { $('dEntry').innerHTML = ''; return; }
     const e = E.dictEntry(x.rootIdx, x.id, dictState.inv);
-    $('dEntry').innerHTML = `<div class="anaHead"><div class="cbig">${esc(e.name)}</div><div><div class="sub">${esc(e.cn)}</div><span class="badge">${esc(e.family)}</span></div><span class="actrow"><button class="btn" id="dPlay">▶ 试听</button><button class="btn" id="dAna">🔍 分析该和弦</button><button class="btn" id="dAdd">➕ 加入进行</button></span><button class="ib only-m" id="dBack" aria-label="返回列表">✕</button></div>
+    $('dEntry').innerHTML = `<div class="anaHead"><div class="cbig">${esc(e.name)}</div><div><div class="sub">${esc(e.cn)}</div><span class="badge">${esc(e.family)}</span></div><span class="actrow"><button class="btn filled" id="dPlay">${ic('play')}<span>试听</span></button><button class="btn tonal" id="dAna">${ic('scan')}<span>分析该和弦</span></button><button class="btn outlined" id="dAdd">${ic('plus')}<span>加入进行</span></button></span><button class="ib only-m" id="dBack" aria-label="返回列表">${ic('chevL')}</button></div>
       <table class="anaT"><tr><th>拼写</th>${e.notes.map((n) => `<td><b>${esc(n.name)}</b></td>`).join('')}</tr><tr><th>公式</th>${e.notes.map((n) => `<td>${esc(n.deg)}</td>`).join('')}</tr><tr><th>音程</th>${e.notes.map((n) => `<td>${esc(n.ivName)}</td>`).join('')}</tr></table>
       <div class="hint">公式：${esc(e.formula)}　常见风格：${e.styles.map((s) => `<span class="badge">${esc(s)}</span>`).join('')}</div>
       <div class="interp">转位 / 斜线：<button class="ip${dictState.inv ? '' : ' cur'}" data-inv="0">${esc(e.root + e.sym)}</button>${e.inversions.map((v) => `<button class="ip${dictState.inv === v.inv ? ' cur' : ''}" data-inv="${v.inv}">${esc(v.name)}</button>`).join('')}</div>
@@ -3179,7 +3455,7 @@ if (typeof window !== 'undefined') window.ChordEngine = ChordEngine;
   }
   const f10 = (g) => g.frets.some((f) => f >= 10);
   $('dictBtn').onclick = () => openDict();
-  $('dictClose').onclick = closeDict;
+  $('dictClose').onclick = () => closeDict();
 
   $('brandSub').textContent = `符合乐理 · ${E.STYLES.length} 种风格`;
   /* ---------- 全局搜索：风格 / 和弦 / 功能 ---------- */
