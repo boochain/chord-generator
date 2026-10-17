@@ -494,71 +494,119 @@ function cadence(ctx, style, rng, type) {
   const c = dia(ctx, cs); c.tag = '调式特征';
   return { type: 'modal', ch: [c, T], n: '调式终止 ' + romanOf(ctx, c.rel, c.step, c.q) + '→' + romanOf(ctx, 0, 0, T.q) };
 }
-/* ---------- 精选进行库（真实常用进行，罗马数字以大调为参照） ---------- */
-const PROG_LIB = {
+/* ---------- 进行语料库 v4（真实歌曲 / 教材常见进行，罗马数字以大调或自然小调为参照） ----------
+   依据：Hooktheory Trends 与 TheoryTab 高频进行、de Clercq & Temperley (2011) 摇滚语料、
+   Biamonte (2010) 摇滚中的调式/五声进行、Open Music Theory 图式（卡农、王道、安达卢西亚、Royal Road 等）、
+   Mark Levine《爵士理论》与 Real Book 常见和声单元、日系/华语流行常见套路。注释为代表曲目或图式名。 */
+const CORPUS = {
   M: {
-    _: ['I V vi IV', 'I vi IV V', 'vi IV I V', 'I IV vi V', 'I IV V IV', 'IV V iii vi', 'I iii IV V', 'I V vi iii IV I IV V', 'I IV I V'],
-    '流行': ['I V vi IV', 'vi IV I V', 'I vi IV V', 'IV V iii vi', 'I V vi iii IV I IV V', 'I IV vi V', 'IV I V vi'],
-    '摇滚': ['I IV V IV', 'I V IV IV', 'I bVII IV I', 'I IV I V', 'I V vi IV', 'IV I V V'],
-    '爵士': ['ii7 V7 Imaj7 Imaj7', 'Imaj7 vi7 ii7 V7', 'iii7 vi7 ii7 V7', 'Imaj7 IVmaj7 iii7 vi7 ii7 V7 Imaj7 Imaj7', 'Imaj7 V/2 ii7 V7'],
-    'R&B': ['ii7 V7 Imaj7 vi7', 'IVmaj7 V7 iii7 vi7', 'IVmaj7 iii7 ii7 Imaj7', 'Imaj7 iii7 IVmaj7 V7'],
-    '放克': ['I7 IV7 I7 IV7', 'I7 I7 IV7 I7', 'ii7 V7 ii7 V7'],
-    'Lo-fi': ['ii7 V7 Imaj7 Imaj7', 'IVmaj7 iii7 vi7 vi7', 'IVmaj7 V7 iii7 vi7', 'Imaj7 vi7 ii7 V7', 'IVmaj7 iii7 ii7 Imaj7', 'ii7 V7 iii7 vi7', 'Imaj7 IVmaj7 Imaj7 IVmaj7'],
-    '嘻哈': ['ii7 V7 Imaj7 vi7', 'IVmaj7 iii7 vi7 vi7', 'Imaj7 vi7 IVmaj7 V7'],
-    '电子': ['vi IV I V', 'IV V vi vi', 'I V vi IV', 'IV I V vi'],
-    '古典': ['I IV V I', 'I vi ii V', 'I IV ii V', 'I V vi iii IV I IV V', 'I ii V I', 'I vi IV V'],
-    '民谣': ['I IV I V', 'I V IV I', 'I IV V I', 'I vi IV V', 'I V vi IV'],
-    '拉丁': ['ii7 V7 Imaj7 Imaj7', 'I IV V IV', 'Imaj7 vi7 ii7 V7'],
-    '配乐': ['I V vi IV', 'vi IV I V', 'I iii IV iv', 'IV V vi vi'],
-    '国风': ['I V vi iii', 'IV V iii vi', 'vi iii IV I', 'I vi ii V', 'IV V vi vi'],
-    '福音': ['I IV I V', 'I iii IV V', 'IVmaj7 V7 iii7 vi7', 'I I7 IV iv'],
-    '雷鬼': ['I IV V IV', 'I V vi IV', 'I IV I V'],
-    '氛围': ['I IV I IV', 'I vi IV I', 'IV I IV I', 'I iii vi IV'],
+    _: [
+      'I V vi IV', 'I vi IV V', 'vi IV I V', 'I IV vi V', 'I IV V IV', 'IV V iii vi', 'I iii IV V', 'I V vi iii IV I IV V', 'I IV I V',
+      'I V IV I', 'I IV V V', 'I vi ii V', 'IV I V vi', 'I ii IV V', 'I IV ii V', 'ii IV I V', 'vi V IV V', 'I V IV V',
+    ],
+    '流行': [
+      'I V vi IV', // Let It Be / Someone Like You（Axis 进行）
+      'vi IV I V', // Zombie / Apologize
+      'I vi IV V', // Stand by Me（'50s 进行）
+      'IV V iii vi', // 王道进行
+      'I V vi iii IV I IV V', // 卡农进行
+      'I IV vi V', 'IV I V vi', 'I V vi V IV I IV V', 'I iii vi IV',
+      'I IV I V', 'vi IV V I', 'I V IV V', 'IV vi V I', 'I ii vi IV', 'I V ii IV', 'vi V IV I',
+      'I IV iv I', // 借用小 iv
+      'I V/6 IV iv', // Creep（I–III–IV–iv）
+      'I bVII IV I', // 混合利底亚色彩
+      'I vi iii IV', 'IV I vi V', 'ii IV I V', 'I V vi IV I V IV IV', 'vi IV I V vi IV V V',
+      'I iii IV iv', 'IV V vi I', 'I IV vi IV', 'I V IV vi',
+    ],
+    '摇滚': [
+      'I IV V IV', 'I V IV IV', 'I bVII IV I', 'I IV I V', 'I V vi IV', 'IV I V V',
+      'I bVII IV IV', // Sympathy for the Devil 型双下属
+      'I bIII IV I', // 布鲁斯摇滚 I–♭III–IV
+      'I bVI bVII I', // ♭VI–♭VII–I
+      'I IV bVII IV', 'I V IV I', 'IV I IV V', 'I bVII bVI bVII', 'I IV bIII IV',
+      'I bIII bVII IV', 'vi IV I V', 'I iii IV IV', 'I V bVII IV', // Hey Jude 尾声
+      'I IV vi V', 'bVI bVII I I', 'IV bVII I I',
+    ],
+    '爵士': [
+      'ii7 V7 Imaj7 Imaj7', 'Imaj7 vi7 ii7 V7', 'iii7 vi7 ii7 V7', 'Imaj7 IVmaj7 iii7 vi7 ii7 V7 Imaj7 Imaj7', 'Imaj7 V/2 ii7 V7',
+      'Imaj7 V/6 vi7 V/5', 'ii7 V7 iii7 vi7', 'Imaj7 V/2 ii7 V7 iii7 V/2 ii7 V7', 'IVmaj7 iv7 iii7 vi7', // Misty 型下属小调化
+      'ii7 V7 Imaj7 vi7', 'Imaj7 I7 IVmaj7 iv7', 'iii7 V/2 ii7 V7', 'Imaj7 ii7 iii7 IVmaj7', 'IVmaj7 V7 iii7 vi7',
+      'Imaj7 iv7 bVII7 Imaj7', // 后门 ii–V
+      'iiø V/2 ii7 V7', 'Imaj7 vi7 ii7 bVII7', 'ii7 V7 V/2 V/5',
+    ],
+    'R&B': [
+      'ii7 V7 Imaj7 vi7', 'IVmaj7 V7 iii7 vi7', 'IVmaj7 iii7 ii7 Imaj7', 'Imaj7 iii7 IVmaj7 V7',
+      'IVmaj7 V/6 vi7 vi7', // Just the Two of Us
+      'IVmaj7 iii7 vi7 V7', 'ii7 iii7 IVmaj7 V7', 'Imaj7 vi7 IVmaj7 V7', 'vi7 ii7 V7 Imaj7', 'IVmaj7 Imaj7 ii7 V7',
+      'Imaj7 V/6 vi7 IVmaj7', 'ii7 V7 iii7 vi7', 'IVmaj7 iv7 iii7 vi7', 'Imaj7 bVII7 IVmaj7 iv7',
+    ],
+    '放克': ['I7 IV7 I7 IV7', 'I7 I7 IV7 I7', 'ii7 V7 ii7 V7', 'I7 bVII7 I7 bVII7', 'I7 IV7 bVII7 IV7', 'I7 I7 bVII7 IV7', 'ii7 ii7 V7 V7'],
+    'Lo-fi': [
+      'ii7 V7 Imaj7 Imaj7', 'IVmaj7 iii7 vi7 vi7', 'IVmaj7 V7 iii7 vi7', 'Imaj7 vi7 ii7 V7', 'IVmaj7 iii7 ii7 Imaj7', 'ii7 V7 iii7 vi7', 'Imaj7 IVmaj7 Imaj7 IVmaj7',
+      'IVmaj7 V/6 vi7 vi7', 'ii7 iii7 IVmaj7 V7', 'Imaj7 iii7 IVmaj7 iv7', 'IVmaj7 iv7 Imaj7 Imaj7', 'vi7 ii7 V7 Imaj7', 'Imaj7 V/6 vi7 V/5',
+      'IVmaj7 Imaj7 iii7 vi7', 'ii7 V7 Imaj7 vi7', 'iii7 vi7 ii7 V7', 'IVmaj7 V7 Imaj7 vi7', 'Imaj7 bVII7 IVmaj7 IVmaj7',
+    ],
+    '嘻哈': ['ii7 V7 Imaj7 vi7', 'IVmaj7 iii7 vi7 vi7', 'Imaj7 vi7 IVmaj7 V7', 'vi7 IVmaj7 Imaj7 V7', 'Imaj7 IVmaj7 vi7 V7', 'IVmaj7 V7 vi7 vi7', 'ii7 Imaj7 ii7 Imaj7', 'vi IV I V', 'I iii IV iv'],
+    '电子': [
+      'vi IV I V', 'IV V vi vi', 'I V vi IV', 'IV I V vi',
+      'vi IV V I', 'IV V vi I', 'vi V IV V', 'I V IV IV', 'IV vi V I', 'vi IV I iii', 'IV I vi V', 'I vi V IV', 'vi iii IV V', 'IV V iii vi',
+    ],
+    '古典': [
+      'I IV V I', 'I vi ii V', 'I IV ii V', 'I V vi iii IV I IV V', 'I ii V I', 'I vi IV V',
+      'I V vi iii IV I ii V', 'I IV vii° iii vi ii V I', // 五度循环
+      'I ii V/5 V', 'I vi ii V/5 V I', 'I V vi IV ii V', 'I iii vi IV V I', 'I IV I V', 'I V/5 V I', 'I vi IV ii V', 'I ii vi V',
+    ],
+    '民谣': [
+      'I IV I V', 'I V IV I', 'I IV V I', 'I vi IV V', 'I V vi IV',
+      'I I IV I', 'I IV I IV', 'I V/5 V I', // 乡村常见 II7→V
+      'I iii IV I', 'IV I V I', 'I vi V IV', 'I IV vi V', 'I V IV V', 'vi IV I V', 'I bVII IV I', 'I ii IV I',
+    ],
+    '拉丁': ['ii7 V7 Imaj7 Imaj7', 'I IV V IV', 'Imaj7 vi7 ii7 V7', 'Imaj7 V/2 ii7 V7', 'I V V I', 'I IV V I', 'ii7 V7 iii7 vi7', 'Imaj7 bVII7 Imaj7 bVII7'],
+    '配乐': [
+      'I V vi IV', 'vi IV I V', 'I iii IV iv', 'IV V vi vi',
+      'I bVI bVII I', 'I IV bVI bVII', 'I V/6 vi IV', 'I bVII IV iv', 'vi IV V iii', 'IV vi V I', 'I iii vi IV', 'I bIII IV iv', 'I IV vi IV', 'I V IV iv',
+    ],
+    '国风': [
+      'I V vi iii', 'IV V iii vi', 'vi iii IV I', 'I vi ii V', 'IV V vi vi',
+      'vi IV V I', 'I iii vi V', 'IV V iii vi ii V I I', 'vi V IV V', 'I V vi V', 'IV iii ii I', 'vi ii V I', 'I ii vi V',
+    ],
+    '福音': [
+      'I IV I V', 'I iii IV V', 'IVmaj7 V7 iii7 vi7', 'I I7 IV iv',
+      'I V/6 vi IV', 'I iii7 IV V', 'IV V iii vi ii V I I', 'I IV iv I', 'ii7 V7 iii7 vi7', 'I V/2 ii V', 'IV iv iii vi',
+    ],
+    '雷鬼': ['I IV V IV', 'I V vi IV', 'I IV I V', 'I ii I ii', 'I IV I IV', 'vi IV I V', 'I V IV V'],
+    '氛围': ['I IV I IV', 'I vi IV I', 'IV I IV I', 'I iii vi IV', 'Imaj7 IVmaj7 Imaj7 IVmaj7', 'I V vi IV', 'IV vi I V', 'vi IV I I', 'I ii IV I'],
   },
   m: {
-    _: ['i bVI bIII bVII', 'i iv bVII bIII', 'i bVII bVI V', 'i iv V i', 'i bVI bVII i', 'i iv bVI V', 'i bVII bVI bVII'],
-    '摇滚': ['i bVII bVI bVII', 'i bIII bVII iv', 'i bVI bVII i', 'i iv bVII i'],
-    '爵士': ['iiø V7 i7 i7', 'i7 iv7 iiø V7', 'i7 bVImaj7 iiø V7'],
-    'R&B': ['i7 iv7 i7 iv7', 'i7 bVImaj7 bVII7 i7', 'i7 iv7 bVImaj7 V7'],
-    '放克': ['i7 i7 iv7 i7', 'i7 iv7 i7 iv7'],
-    'Lo-fi': ['i7 iv7 i7 iv7', 'i7 bVImaj7 bIIImaj7 bVII7', 'i7 iv7 bVImaj7 V7', 'iv7 bVII7 bIIImaj7 bVImaj7'],
-    '嘻哈': ['i7 iv7 i7 iv7', 'i bVI bIII bVII', 'i7 bVImaj7 iv7 V7'],
-    '古典': ['i iv V i', 'i bVI iv V', 'i iv bVII bIII bVI iiø V i', 'i iiø V i'],
-    '拉丁': ['i bVII bVI V', 'i iv V i', 'iiø V7 i7 i7'],
-    '金属': ['i bVI bVII i', 'i bVII bVI bVII', 'i iv bVI V', 'i bVI bIII bVII'],
-    '配乐': ['i bVI bIII bVII', 'i bVI bVII i', 'i iv bVI V', 'i bIII bVII iv'],
-    '国风': ['i bVII bIII i', 'i iv bVII bIII', 'i bVI bVII i'],
+    _: [
+      'i bVI bIII bVII', 'i iv bVII bIII', 'i bVII bVI V', 'i iv V i', 'i bVI bVII i', 'i iv bVI V', 'i bVII bVI bVII',
+      'i bVII iv i', 'i iv bVII i', 'i bIII bVII iv', 'i bVI iv V', 'i iv i V', 'i bVII bIII iv', 'bVI bVII i i',
+    ],
+    '流行': [
+      'i bVI bIII bVII', 'i bVII bVI bVII', 'i iv bVI bVII', 'i bVI bVII i', 'i bIII bVII iv', 'bVI bVII i i', 'i bVII iv bVI', 'i iv bVII bIII',
+      'bVI bIII bVII i', 'i bVI iv V', 'i bIII bVI bVII', 'iv bVI bVII i',
+    ],
+    '摇滚': ['i bVII bVI bVII', 'i bIII bVII iv', 'i bVI bVII i', 'i iv bVII i', 'i bIII iv bVI', 'i bVII bVI V', 'i iv i bVII', 'i bVI bIII bVII', 'i bIII bVII bVI'],
+    '爵士': ['iiø V7 i7 i7', 'i7 iv7 iiø V7', 'i7 bVImaj7 iiø V7', 'i7 iv7 bVII7 bIIImaj7', 'bVImaj7 iiø V7 i7', 'i7 i7 iv7 V7', 'iiø V7 i7 iv7'],
+    'R&B': ['i7 iv7 i7 iv7', 'i7 bVImaj7 bVII7 i7', 'i7 iv7 bVImaj7 V7', 'i7 bIIImaj7 iv7 bVII7', 'bVImaj7 bVII7 i7 i7', 'i7 iv7 bVII7 bIIImaj7', 'iv7 V7 i7 bVImaj7'],
+    '放克': ['i7 i7 iv7 i7', 'i7 iv7 i7 iv7', 'i7 bVII7 i7 bVII7', 'i7 i7 bVII7 iv7'],
+    'Lo-fi': [
+      'i7 iv7 i7 iv7', 'i7 bVImaj7 bIIImaj7 bVII7', 'i7 iv7 bVImaj7 V7', 'iv7 bVII7 bIIImaj7 bVImaj7',
+      'i7 bIIImaj7 iv7 V7', 'bVImaj7 V7 i7 i7', 'i7 iv7 bVII7 bIIImaj7', 'iv7 V7 i7 i7', 'i7 bVImaj7 iv7 V7', 'bVImaj7 bVII7 i7 iv7',
+    ],
+    '嘻哈': ['i7 iv7 i7 iv7', 'i bVI bIII bVII', 'i7 bVImaj7 iv7 V7', 'i bVI i bVI', 'i iv bVI V', 'i bVII bVI bVII', 'i7 i7 bVImaj7 V7'],
+    '电子': ['i bVI bIII bVII', 'i bVII bVI bVII', 'bVI bVII i i', 'i bIII bVII bVI', 'i iv bVI bVII', 'bVI bIII bVII i', 'i bVI bVII bIII', 'iv bVI bVII i'],
+    '古典': ['i iv V i', 'i bVI iv V', 'i iv bVII bIII bVI iiø V i', 'i iiø V i', 'i iv iiø V', 'i V i iv', 'i bVI iiø V', 'i iv V bVI', 'i bIII iv V', 'i bVII bIII bVI iv V i i'],
+    '民谣': ['i bVII bVI bVII', 'i bIII bVII i', 'i iv i bVII', 'i bVI bIII bVII', 'i bVII iv i'],
+    '拉丁': ['i bVII bVI V', 'i iv V i', 'iiø V7 i7 i7', 'i iv bVII bIII', 'i7 iv7 V7 i7', 'i bVII bVI V i iv V i'],
+    '金属': ['i bVI bVII i', 'i bVII bVI bVII', 'i iv bVI V', 'i bVI bIII bVII', 'i bIII bVI V', 'i bVI iv V', 'i iv bVII bVI', 'i bVII bVI iv'],
+    '配乐': ['i bVI bIII bVII', 'i bVI bVII i', 'i iv bVI V', 'i bIII bVII iv', 'i bVI iv bVII', 'bVI bIII bVII i', 'i iv bIII bVII', 'i bVII bVI iv', 'i bVI bVII bVII'],
+    '国风': ['i bVII bIII i', 'i iv bVII bIII', 'i bVI bVII i', 'i bIII bVII i', 'i iv bVII i', 'bVI bVII i i'],
+    '福音': ['i iv V i', 'i bVI bVII i', 'i7 iv7 i7 V7'],
+    '雷鬼': ['i iv i iv', 'i bVII i bVII', 'i iv bVII i'],
+    '氛围': ['i bVI i bVI', 'i bIII bVI bVII', 'i iv bVI i'],
   },
 };
-const LIB_KEYS = Object.keys(PROG_LIB.M).concat(Object.keys(PROG_LIB.m)).filter((k) => k !== '_');
-function libFor(style, ref) {
-  const lib = PROG_LIB[ref], key = LIB_KEYS.find((k) => style.genre.includes(k));
-  const own = key && lib[key] ? lib[key] : [];
-  // 风格自带模板（数字=调内级数）也加入，权重较低
-  const tpl = (style.tpl || []).filter((t) => !/^[A-Za-z]/.test(t) || ref === (/^i/.test(t) ? 'm' : 'M'));
-  if (style.ownTpl) { const ot = style.ownTpl.filter((t) => !/^[A-Za-z]/.test(t) || ref === (/^i/.test(t) ? 'm' : 'M')); if (ot.length) return { main: ot.concat(ot, own), extra: own.length ? own : lib._.slice(0, 3) }; } // 子风格自带的进行优先
-  return { main: own.length ? own : lib._, extra: own.length ? lib._.slice(0, 3).concat(tpl) : tpl };
-}
-const ctxRef = (ctx) => MODES[ctx.mode].ref;
-function tplChords(t, ctx) { return t.split(' ').map((x) => parseTok(x, ctx)); }
-function tplLegal(t, ctx, style) {
-  try { const cs = tplChords(t, ctx); return cs.every((c, i) => !chordIssues(c, cs[i + 1] || null, ctx, style, false).length); } catch (e) { return false; }
-}
-function pickTpl(ctx, style, rng, o = {}) {
-  const L = libFor(style, ctxRef(ctx));
-  const legal = (arr) => arr.filter((t) => tplLegal(t, ctx, style));
-  let pool = legal(rng() < 0.8 || !L.extra.length ? L.main : L.extra);
-  if (!pool.length) pool = legal(L.main.concat(L.extra, PROG_LIB[ctxRef(ctx)]._));
-  if (!pool.length) pool = [ctxRef(ctx) === 'm' ? 'i iv i i' : 'I IV I I'].filter((t) => tplLegal(t, ctx, style));
-  if (!pool.length) pool = ['1 4 1 1'];
-  if (o.avoid) { const p2 = pool.filter((t) => t !== o.avoid); if (p2.length) pool = p2; }
-  if (o.startFunc) {
-    const p2 = pool.filter((t) => parseTok(t.split(' ')[0], ctx).func === o.startFunc);
-    if (p2.length) pool = p2;
-    else { const t = pick(rng, pool).split(' '); const k = t.findIndex((x) => parseTok(x, ctx).func === o.startFunc); return k > 0 ? t.slice(k).concat(t.slice(0, k)).join(' ') : t.join(' '); }
-  }
-  return pick(rng, pool);
-}
 // 色彩：借用 / 副属 / 三全音替代 —— 按复杂度严格限量
 function colorize(chords, ctx, style, rng, o) {
   const cx = o.complexity === undefined ? 1 : o.complexity;
@@ -609,47 +657,290 @@ function legalize(chords, ctx, style) {
     }
   }
 }
-const FORMS = { 1: ['A'], 2: ['A', 'A'], 3: ['A', 'A', 'B'], 4: ['A', 'A', 'B', 'A'], 6: ['A', 'A', 'B', 'A', 'B', 'A'], 8: ['A', 'A', 'B', 'A', 'A', 'A', 'B', 'A'] };
+const PROG_LIB = CORPUS;
+const LIB_KEYS = Object.keys(PROG_LIB.M).concat(Object.keys(PROG_LIB.m)).filter((k, i, a) => k !== '_' && a.indexOf(k) === i);
+const styleKey = (style) => LIB_KEYS.find((k) => style.genre.includes(k)) || '';
+const ownFor = (style, ref) => (style.ownTpl || style.tpl || []).filter((t) => !/^[A-Za-z]/.test(t) || ref === (/^i/.test(t) ? 'm' : 'M'));
+function libFor(style, ref) {
+  const lib = PROG_LIB[ref], own = lib[styleKey(style)] || [];
+  return { main: own.length ? own : lib._, extra: lib._.concat(ownFor(style, ref)), own: ownFor(style, ref) };
+}
+const ctxRef = (ctx) => MODES[ctx.mode].ref;
+function tplChords(t, ctx) { return t.split(' ').map((x) => parseTok(x, ctx)); }
+function tplLegal(t, ctx, style) {
+  try { const cs = tplChords(t, ctx); return cs.every((c, i) => !chordIssues(c, cs[i + 1] || null, ctx, style, false).length); } catch (e) { return false; }
+}
+// 从语料中挑一条合规进行（扩展模式补全种子时使用）
+function pickTpl(ctx, style, rng, o = {}) {
+  const L = libFor(style, ctxRef(ctx));
+  let pool = L.main.concat(L.own).filter((t) => tplLegal(t, ctx, style));
+  if (!pool.length) pool = PROG_LIB[ctxRef(ctx)]._.filter((t) => tplLegal(t, ctx, style));
+  if (!pool.length) pool = ['1 4 1 1'];
+  if (o.avoid) { const p2 = pool.filter((t) => t !== o.avoid); if (p2.length) pool = p2; }
+  if (o.startFunc) { const p2 = pool.filter((t) => parseTok(t.split(' ')[0], ctx).func === o.startFunc); if (p2.length) pool = p2; }
+  return pick(rng, pool);
+}
+
+/* =====================================================================
+   和声规划器 v4：分层规划（曲式 → 乐句 → 终止目标）+ 候选生成 + 软约束打分采样（详见 docs/architecture.md）
+   ===================================================================== */
+const TOKRE = /^([b#]?)(VII|VI|IV|V|III|II|I|vii|vi|iv|v|iii|ii|i)(°|ø)?(maj7|7)?$/;
+const skelTok = (t) => { const m = String(t).match(TOKRE); return m ? m[1] + m[2] + (m[3] || '') : String(t); };
+const SEVENTH = { M: { I: 'maj7', ii: '7', iii: '7', IV: 'maj7', V: '7', vi: '7', bVII: '7', bIII: 'maj7', bVI: 'maj7', iv: '7' }, m: { i: '7', iv: '7', bIII: 'maj7', bVI: 'maj7', bVII: '7', V: '7', v: '7', ii: '7', IV: '7' } };
+const withSev = (sk, ref) => { const s = SEVENTH[ref][sk]; return s === undefined ? sk : sk + s; };
+const SUBS = { M: { I: ['vi', 'iii'], vi: ['I', 'IV'], IV: ['ii', 'vi'], ii: ['IV'], iii: ['I', 'vi'], V: ['iii'] }, m: { i: ['bIII', 'bVI'], bVI: ['iv', 'i'], iv: ['bVI', 'iiø'], bIII: ['i', 'bVI'], bVII: ['v'], V: ['bVII'] } };
+const LOOPY = /Lo-fi|嘻哈|电子|氛围|放克|雷鬼/;
+const MODEL = new Map();
+// 风格可变阶马尔可夫模型（3/2/1/0 阶插值回退），由该风格语料 + 子风格自带进行 + 通用语料训练，模板按循环处理
+function lmFor(style, ref) {
+  const key = styleKey(style) + '|' + ref + '|' + style.id;
+  if (MODEL.has(key)) return MODEL.get(key);
+  const L = libFor(style, ref), cnt = [new Map(), new Map(), new Map(), new Map()], starts = new Map();
+  const add = (t, w) => {
+    const s = t.split(' ').map(skelTok), n = s.length;
+    starts.set(s[0], (starts.get(s[0]) || 0) + w);
+    for (let i = 0; i < n; i++) for (let k = 0; k <= 3; k++) {
+      const ctxs = []; for (let j = k; j >= 1; j--) ctxs.push(s[(i - j + n * 4) % n]);
+      const m = cnt[k], c = ctxs.join(' ');
+      m.set(c + '>' + s[i], (m.get(c + '>' + s[i]) || 0) + w); m.set(c + '>*', (m.get(c + '>*') || 0) + w);
+    }
+  };
+  L.main.forEach((t) => add(t, 1)); L.own.forEach((t) => add(t, 1.5)); PROG_LIB[ref]._.forEach((t) => add(t, 0.3));
+  const sev = L.main.filter((t) => /7/.test(t)).length / Math.max(1, L.main.length);
+  const vocab = [...new Set([...cnt[0].keys()].map((k) => k.split('>')[1]).filter((x) => x !== '*'))];
+  const md = { cnt, starts, sev, vocab };
+  MODEL.set(key, md); return md;
+}
+function lmP(md, hist, t) {
+  let p = 0, wsum = 0; const W = [0.08, 0.32, 0.35, 0.25];
+  for (let k = 0; k <= 3 && k <= hist.length; k++) {
+    const c = hist.slice(hist.length - k).join(' '), tot = md.cnt[k].get(c + '>*');
+    if (!tot) continue;
+    p += W[k] * ((md.cnt[k].get(c + '>' + t) || 0) / tot); wsum += W[k];
+  }
+  return wsum ? p / wsum : 0;
+}
+function lmScore(md, sk) {
+  let s = 0; const n = sk.length;
+  for (let i = 0; i < n; i++) s += Math.log(lmP(md, i ? sk.slice(Math.max(0, i - 3), i) : sk.slice(-3), sk[i]) + 0.01);
+  return s / n;
+}
+function lmWalk(md, n, rng, temp) {
+  const out = [wpick(rng, Object.fromEntries(md.starts))];
+  while (out.length < n) {
+    const w = {}; for (const t of md.vocab) { const p = lmP(md, out.slice(-3), t); if (p > 0 && t !== out[out.length - 1]) w[t] = Math.pow(p, 1 / temp); }
+    if (!Object.keys(w).length) break;
+    out.push(wpick(rng, w));
+  }
+  return out;
+}
+// 情绪 → 进行特征偏好（软约束权重）
+const MOOD_FEAT = {
+  欢快: { bor: -0.8, minStart: -0.6, dom: 0.3, plagal: 0.2 }, 悲伤: { minStart: 0.9, bor: 0.2, dom: -0.2, minor: 0.5 }, 史诗: { flat67: 1.0, bor: 0.3, dom: 0.2 },
+  浪漫: { sec: 0.6, sev: 0.4, iiV: 0.5, minStart: 0.1 }, 紧张: { dom: 0.5, dim: 0.6, bor: 0.3, minor: 0.3 }, 治愈: { plagal: 0.7, sec: -0.4, bor: -0.3, IV: 0.4 },
+  梦幻: { IV: 0.6, sev: 0.4, plagal: 0.3, dom: -0.4 }, 黑暗: { bor: 0.7, minor: 0.6, flat67: 0.4, minStart: 0.4 }, 怀旧: { iv: 0.9, sec: 0.5, plagal: 0.2 },
+  神秘: { bor: 0.4, iii: 0.6, dom: -0.3 }, 激昂: { dom: 0.6, IV: 0.3, flat67: 0.3 }, 平静: { plagal: 0.5, IV: 0.3, dom: -0.4, moves: -0.3 },
+  忧郁: { minStart: 0.7, iv: 0.4, minor: 0.4, sev: 0.2 }, 慵懒: { sev: 0.6, iiV: 0.3, dom: -0.2 }, 中性: {},
+};
+// 拍号 → 偏好：三拍/复合拍更常用下属与变格，奇数拍偏好少量和弦的调式循环
+const METER_FEAT = { '3/4': { plagal: 0.6, IV: 0.4, sec: -0.3 }, '6/8': { plagal: 0.5, minStart: 0.3, IV: 0.3 }, '12/8': { plagal: 0.4, dom: 0.3, sev: 0.3 }, '5/4': { moves: -0.8, bor: 0.4 }, '7/8': { moves: -0.8, flat67: 0.5 }, '2/4': { dom: 0.5 } };
+function features(t, ref) {
+  const sk = t.map(skelTok), n = sk.length, f = {};
+  f.bor = sk.filter((x) => /^b|^V\//.test(x) || (ref === 'M' && x === 'iv')).length / n;
+  f.minStart = /^(vi|i|iii|ii)$/.test(sk[0]) ? 1 : 0;
+  f.dom = sk.filter((x) => x === 'V' || /^V\//.test(x)).length / n;
+  f.plagal = sk.some((x, i) => (x === 'IV' || x === 'iv') && /^(I|i)$/.test(sk[(i + 1) % n])) ? 1 : 0;
+  f.flat67 = sk.filter((x) => x === 'bVI' || x === 'bVII').length / n;
+  f.sec = sk.filter((x) => /^V\//.test(x)).length / n;
+  f.iiV = sk.some((x, i) => /^ii/.test(x) && sk[(i + 1) % n] === 'V') ? 1 : 0;
+  f.dim = sk.filter((x) => /[°ø]/.test(x)).length / n;
+  f.minor = sk.filter((x) => /^[b#]?[iv]+$/.test(x)).length / n;
+  f.IV = sk.filter((x) => x === 'IV').length / n;
+  f.iv = sk.includes('iv') && ref === 'M' ? 1 : 0;
+  f.iii = sk.includes('iii') ? 1 : 0;
+  f.sev = t.filter((x) => /7/.test(x)).length / n;
+  f.moves = new Set(sk).size / n;
+  return f;
+}
+const RECENT = new Map(); // styleId → 最近生成的乐句骨架（反重复记忆，只对“不指定 seed”的生成生效）
+function remember(song) {
+  const id = song.style.id, arr = RECENT.get(id) || [];
+  for (const p of song.phrases || []) arr.push(p);
+  RECENT.set(id, arr.slice(-48));
+}
+const FORM_W = {
+  1: { A: 1 }, 2: { AA: 0.6, "AA'": 1.2, AB: 1.4 }, 3: { AAB: 1, ABA: 1, "AA'B": 1, ABC: 0.6, "ABA'": 0.8 },
+  4: { AABA: 1.2, ABAB: 1, ABAC: 1, "AA'BA'": 1.2, "AA'BA": 1, ABCA: 0.6, AAAB: 0.4, ABCD: 0.5, "ABAB'": 0.8, "AABB'": 0.5 },
+};
+function pickForm(nP, style, rng) {
+  if (FORM_W[nP]) {
+    const w = Object.assign({}, FORM_W[nP]);
+    if (LOOPY.test(style.genre)) for (const k of Object.keys(w)) if (/C|D/.test(k)) w[k] *= 0.4; else if (/^AA/.test(k)) w[k] *= 1.8;
+    return wpick(rng, w).match(/[A-D]'?/g);
+  }
+  const a = pickForm(4, style, rng), b = pickForm(Math.min(4, nP - 4), style, rng);
+  const out = a.concat(b.map((x) => (rng() < 0.5 ? x : x[0] + "'")));
+  while (out.length < nP) out.push(...pickForm(Math.min(4, nP - out.length), style, rng).map((x) => x[0] + "'"));
+  return out.slice(0, nP);
+}
+// 乐句候选：长度 P（和弦格数）
+function phraseCands(ctx, style, P, rng, o) {
+  const ref = ctxRef(ctx), md = lmFor(style, ref), L = libFor(style, ref), out = [];
+  const sevOn = o.complexity !== 0 && md.sev > 0.5;
+  const fit = (toks, src, prior) => {
+    let t = toks.slice();
+    if (t.length > P) { const k = Math.floor(rng() * Math.floor(t.length / P)) * P; t = t.slice(k, k + P); }
+    if (t.length * 2 === P) { // 和声节奏变化：部分和弦延长两格，部分插入经过/辅助和弦（经过和弦须在语料中能衔接前后）
+      const r = [];
+      t.forEach((x, i) => {
+        r.push(x); const nx = t[(i + 1) % t.length];
+        if (rng() < 0.45) {
+          const w = {}; for (const c of md.vocab) { const p = lmP(md, [skelTok(x)], c) * lmP(md, [c], skelTok(nx)); if (p > 0 && c !== skelTok(x) && c !== skelTok(nx)) w[c] = p; }
+          r.push(Object.keys(w).length ? (sevOn ? withSev(wpick(rng, w), ref) : wpick(rng, w)) : x);
+        } else r.push(x);
+      });
+      t = r;
+    }
+    while (t.length < P) t = t.concat(t);
+    out.push({ t: t.slice(0, P), src, prior });
+  };
+  const legalLib = (arr) => arr.filter((t) => tplLegal(t, ctx, style));
+  const main = legalLib(L.main), own = legalLib(L.own), glob = legalLib(PROG_LIB[ref]._);
+  const pool = main.length ? main : glob;
+  const rot = (t) => { const a = t.split(' '); if (a.length !== 4 || rng() < 0.6) return a; const k = 1 + Math.floor(rng() * 3); return a.slice(k).concat(a.slice(0, k)); };
+  for (let i = 0; i < 9 && pool.length; i++) fit(rot(pick(rng, pool)), 'tpl', 0.5);
+  for (let i = 0; i < 4 && own.length; i++) fit(rot(pick(rng, own)), 'own', 0.9);
+  for (let i = 0; i < 3 && glob.length; i++) fit(rot(pick(rng, glob)), 'glob', 0.1);
+  for (let i = 0; i < 4 && pool.length > 1; i++) { // 拼接：A 前半 + B 后半，接缝须在风格语料中出现过
+    const a = pick(rng, pool).split(' '), b = pick(rng, pool).split(' '), h = Math.floor(a.length / 2);
+    if (a.length !== b.length || h < 1) continue;
+    if (lmP(md, [skelTok(a[h - 1])], skelTok(b[h])) > 0) fit(a.slice(0, h).concat(b.slice(h)), 'splice', 0.3);
+  }
+  for (let i = 0; i < 5 && pool.length; i++) { // 功能代理替换（同功能和弦互换）
+    const a = pick(rng, pool).split(' '), k = Math.floor(rng() * a.length), s = SUBS[ref][skelTok(a[k])];
+    if (s) { const ns = pick(rng, s); a[k] = /7/.test(a[k]) ? withSev(ns, ref) : ns; fit(a, 'sub', 0.3); }
+  }
+  for (let i = 0; i < 5; i++) { // 风格马尔可夫游走
+    const w = lmWalk(md, Math.min(P, 8), rng, 0.9 + rng() * 0.5).map((x) => (sevOn ? withSev(x, ref) : x));
+    if (w.length >= 2) fit(w, 'markov', 0);
+  }
+  return out.filter((c) => tplLegal(c.t.join(' '), ctx, style));
+}
+function scoreCand(c, ctx, style, o, others) {
+  const ref = ctxRef(ctx), md = lmFor(style, ref), sk = c.t.map(skelTok);
+  let s = 1.2 * lmScore(md, sk) + c.prior;
+  const f = features(c.t, ref);
+  for (const W of [MOOD_FEAT[o.mood] || {}, METER_FEAT[o.meter] || {}]) for (const k of Object.keys(W)) s += W[k] * (f[k] || 0) * 1.4;
+  const cx = o.complexity === undefined ? 1 : o.complexity;
+  s += cx === 0 ? -1.2 * f.sec - 0.6 * f.dim - 0.4 * f.bor : cx >= 2 ? 0.9 * f.sec + 0.4 * f.sev + 0.3 * f.bor : 0;
+  const reps = sk.filter((x, i) => i && x === sk[i - 1]).length;
+  if (!LOOPY.test(style.genre)) s -= 0.35 * reps;
+  if (new Set(sk).size < Math.min(3, sk.length)) s -= 0.6;
+  const key = sk.join(' ');
+  if (o.recent) s -= 2.2 * o.recent.filter((r) => r === key).length;
+  for (const x of others) if (x.join(' ') === key) s -= 1.5;
+  if (o.startFunc) { try { if (parseTok(c.t[0], ctx).func !== o.startFunc) s -= 1.5; } catch (e) { /* 忽略 */ } }
+  return s;
+}
+function choosePhrase(ctx, style, P, rng, o, others) {
+  const cands = phraseCands(ctx, style, P, rng, o);
+  if (!cands.length) return null;
+  const sc = cands.map((c) => scoreCand(c, ctx, style, o, others)), mx = Math.max(...sc), tau = 0.55;
+  const w = {}; sc.forEach((s, i) => (w[i] = Math.exp((s - mx) / tau)));
+  return cands[+wpick(rng, w)];
+}
+function variantOf(t, ctx, style, rng) { // A'：保留轮廓，替换 1 个和弦（多在句尾）
+  const ref = ctxRef(ctx);
+  for (let tries = 0; tries < 6; tries++) {
+    const a = t.slice(), k = rng() < 0.5 ? a.length - 1 - Math.floor(rng() * Math.min(2, a.length)) : Math.floor(rng() * a.length), s = SUBS[ref][skelTok(a[k])];
+    if (!s) continue;
+    const ns = pick(rng, s); a[k] = /7/.test(a[k]) ? withSev(ns, ref) : ns;
+    if (tplLegal(a.join(' '), ctx, style)) return a;
+  }
+  return t.slice();
+}
+// 终止式目标
+const CAD_TOK = {
+  M: { auth: ['V', 'I'], iiVI: ['ii', 'V', 'I'], IVVI: ['IV', 'V', 'I'], plagal: ['IV', 'I'], minplagal: ['iv', 'I'], backdoor: ['iv', 'bVII', 'I'], mario: ['bVI', 'bVII', 'I'], IIVI: ['V/5', 'V', 'I'] },
+  m: { auth: ['V', 'i'], iiVI: ['iiø', 'V', 'i'], plagal: ['iv', 'i'], aeol: ['bVII', 'i'], mario: ['bVI', 'bVII', 'i'], andal: ['bVII', 'bVI', 'V', 'i'], ivVi: ['iv', 'V', 'i'] },
+};
+const CAD_CN = { auth: '正格终止 V→I', iiVI: 'ii–V–I 终止', IVVI: 'IV–V–I 终止', plagal: '变格终止 IV→I', minplagal: '小调变格（借用 iv→I）', backdoor: '后门终止 iv–♭VII–I', mario: '♭VI–♭VII–I 终止', IIVI: '重属 II–V–I 终止', aeol: '♭VII→i 终止', andal: '安达卢西亚终止 ♭VII–♭VI–V–i', ivVi: 'iv–V–i 终止' };
+const CAD_W = { M: { auth: 3, iiVI: 1.4, IVVI: 1.2, plagal: 1, minplagal: 0.5, backdoor: 0.35, mario: 0.4, IIVI: 0.5 }, m: { auth: 2.4, iiVI: 0.8, plagal: 1, aeol: 1, mario: 0.8, andal: 0.5, ivVi: 1 } };
+const legalSeq = (arr, ctx, style, endSong) => arr.every((c, i) => !chordIssues(c, arr[i + 1] || null, ctx, style, endSong && i === arr.length - 1).length);
+function applyCadence(ph, ctx, style, rng, o) {
+  const ref = ctxRef(ctx), cx = o.complexity === undefined ? 1 : o.complexity;
+  if (MODAL.includes(ctx.mode) || style.penta) return endPhrase(ph, ctx, style, rng, 'cad');
+  const w = Object.assign({}, CAD_W[ref]);
+  if (/爵士|R&B|Lo-fi|福音/.test(style.genre)) { w.iiVI *= 2.5; if (w.backdoor) w.backdoor *= 2; }
+  if (/古典/.test(style.genre)) for (const k of ['mario', 'backdoor', 'aeol', 'minplagal']) if (w[k]) w[k] = 0;
+  if (cx === 0) { w.IIVI = 0; w.backdoor = 0; }
+  const mood = MOOD_FEAT[o.mood] || {};
+  if (mood.plagal > 0.3) { w.plagal *= 2; if (w.minplagal) w.minplagal *= 2; }
+  if (mood.flat67 > 0.3) { if (w.mario) w.mario *= 3; if (w.aeol) w.aeol *= 2; }
+  for (let tries = 0; tries < 6; tries++) {
+    if (!Object.values(w).some((x) => x > 0)) break;
+    const type = wpick(rng, w), toks = CAD_TOK[ref][type];
+    w[type] = 0;
+    if (toks.length > ph.length) continue;
+    let cs; try { cs = toks.map((x) => parseTok(x, ctx)); } catch (e) { continue; }
+    const k = cs.length, trial = ph.slice(0, ph.length - k).concat(cs);
+    if (!legalSeq(trial, ctx, style, true) || (trial.length > k && trial[trial.length - k - 1].rel === cs[0].rel)) continue;
+    for (let i = 0; i < k; i++) ph[ph.length - k + i] = Object.assign({}, cs[i]);
+    return { type, n: CAD_CN[type] };
+  }
+  return endPhrase(ph, ctx, style, rng, 'cad');
+}
+function interiorEnd(ph, ctx, style, rng) {
+  const r = rng();
+  if (r < 0.5) return endPhrase(ph, ctx, style, rng, 'half');
+  if (r < 0.7 && ph.length >= 2) { // 阻碍进行 V→vi / V→♭VI
+    const t = parseTok(ctxRef(ctx) === 'M' ? 'vi' : 'bVI', ctx), v = cadV(ctx), trial = ph.slice(0, -2).concat([v, t]);
+    if (legalSeq(trial, ctx, style, false)) { ph[ph.length - 2] = v; ph[ph.length - 1] = t; return { n: '阻碍进行' }; }
+  }
+  return null; // 开放结尾
+}
+const TRI = { maj7: '', m7: 'm', 7: '', m7b5: 'dim', dim7: 'dim' };
 function buildProg(ctx, style, n, rng, o = {}) {
   if (style.fixed && style.tpl.length && o.tplOK !== false) { // 12 小节布鲁斯等固定曲式
     const tplUsed = pick(rng, style.tpl), toks = tplUsed.split(' '), chords = [];
     for (let i = 0; i < n; i++) chords.push(parseTok(toks[i % toks.length], ctx));
     if (n >= 2) { chords[n - 2] = parseTok('V7', ctx); chords[n - 1] = parseTok(toks[0], ctx); }
-    return { chords, tplUsed, cad: { type: 'blues', n: '布鲁斯回转 V7→I7' }, form: '' };
+    return { chords, tplUsed, cad: { type: 'blues', n: '布鲁斯回转 V7→I7' }, form: '', phrases: [] };
   }
-  const P = clamp(o.phrase || 4, 2, 8); // 每个乐句的和弦数（4 小节）
-  const nP = Math.max(1, Math.ceil(n / P));
-  const form = (FORMS[nP] || Array.from({ length: nP }, (_, i) => (i % 4 === 2 ? 'B' : 'A'))).slice();
-  const ta = pickTpl(ctx, style, rng, { startFunc: o.startFunc });
-  let tb = null;
-  const TRI = { maj7: '', m7: 'm', 7: '', m7b5: 'dim', dim7: 'dim' };
-  const mk = (t) => { const base = tplChords(t, ctx).map((c) => (o.complexity === 0 && TRI[c.q] !== undefined && !style.fixed ? Object.assign(c, { q: TRI[c.q], fixedQ: false }) : c)), a = []; for (let i = 0; i < Math.max(P, base.length); i++) a.push(Object.assign({}, base[i % base.length])); colorize(a, ctx, style, rng, o); return a; };
-  let A = mk(ta), B = null, markovUsed = false;
-  if (form.includes('B')) {
-    if (rng() < 0.15) { // 低权重马尔可夫变奏：必须从下属开始、不含减和弦，否则回退模板
-      const m = markov(ctx, style, P, rng, 'S');
-      if (m.every((c) => Q[c.q].cls !== 'd') && m[0].func === 'S') { B = m; markovUsed = true; colorize(B, ctx, style, rng, o); }
+  const P = clamp(o.phrase || 4, 2, 8), nP = Math.max(1, Math.ceil(n / P));
+  const form = pickForm(nP, style, rng);
+  const lex = {}, used = [], desc = [];
+  const tokOf = (letter, k) => {
+    const base = letter[0];
+    if (!lex[base]) {
+      const ph = choosePhrase(ctx, style, P, rng, Object.assign({}, o, { startFunc: k === 0 ? o.startFunc : base !== 'A' && rng() < 0.6 ? 'S' : undefined }), used);
+      lex[base] = ph ? ph.t : (ctxRef(ctx) === 'm' ? 'i iv i i' : 'I IV I I').split(' ').slice(0, P);
+      used.push(lex[base].map(skelTok)); desc.push(base + '：' + lex[base].join(' '));
     }
-    if (!B) { tb = pickTpl(ctx, style, rng, { avoid: ta, startFunc: rng() < 0.6 ? 'S' : undefined }); B = mk(tb); }
-  }
+    if (letter.length > 1) { if (!lex[letter]) lex[letter] = variantOf(lex[base], ctx, style, rng); return lex[letter]; }
+    return lex[base];
+  };
   const chords = []; let cad = null, idx = 0;
   form.forEach((f, k) => {
-    const src = f === 'A' ? A : B, len = Math.min(P, n - idx), off = f === 'A' && A.length > P ? (form.slice(0, k).filter((x) => x === 'A').length % (A.length / P | 0 || 1)) * P : 0;
-    const ph = []; for (let i = 0; i < len; i++) ph.push(Object.assign({}, src[(off + i) % src.length]));
+    const toks = tokOf(f, k), len = Math.min(P, n - idx);
+    let ph = []; for (let i = 0; i < len; i++) ph.push(parseTok(toks[i % toks.length], ctx));
+    if (o.complexity === 0 && !style.fixed) ph = ph.map((c) => (TRI[c.q] !== undefined ? Object.assign(c, { q: TRI[c.q], fixedQ: false }) : c));
+    colorize(ph, ctx, style, rng, o);
     const last = idx + len >= n;
-    if (last && o.end !== 'none') cad = endPhrase(ph, ctx, style, rng, !o.end || o.end === 'cad' ? 'cad' : o.end);
-    else if (!last && f === 'B') endPhrase(ph, ctx, style, rng, 'half');
+    if (last && o.end === 'half') cad = endPhrase(ph, ctx, style, rng, 'half');
+    else if (last && o.end !== 'none') cad = applyCadence(ph, ctx, style, rng, o);
+    else if (!last && (f[0] !== 'A' || rng() < 0.3)) interiorEnd(ph, ctx, style, rng);
     chords.push(...ph); idx += len;
   });
   repairSecondary(chords, ctx);
   legalize(chords, ctx, style);
   if (n >= 2 && o.end !== 'none' && o.end !== 'half' && chords[n - 1].rel !== 0) chords[n - 1] = tonic(ctx);
-  if (A.some((c) => c.fixedQ)) { // 模板写明了七和弦：终止式替换进来的和弦也统一为七和弦
+  if (o.complexity === 0 && !style.fixed) for (const c of chords) if (TRI[c.q] !== undefined && c.tag !== '三全音替代') { c.q = TRI[c.q]; c.fixedQ = false; }
+  if (chords.some((c) => c.fixedQ) && o.complexity !== 0) { // 语料写明七和弦：其余和弦统一为调内七和弦
     const sc = MODES[ctx.mode].s;
     for (const c of chords) if (!c.fixedQ && !c.sec && !c.sub) { c.q = c.dom ? '7' : c.diat && sc[c.step] === c.rel ? diatonicQ(sc, c.step, true) : ({ '': 'maj7', m: 'm7', dim: 'm7b5' }[c.q] || c.q); c.fixedQ = true; }
   }
-  const nm = { A: 'A', B: 'B' };
-  return { chords, tplUsed: ta + (tb ? ' ／ ' + tb : ''), cad, form: form.map((f) => nm[f]).join(''), markovUsed };
+  return { chords, tplUsed: desc.join('；'), cad, form: form.join(''), markovUsed: false, phrases: used.map((x) => x.join(' ')) };
 }
 // 保证每个副属/三全音替代确实解决到下一个和弦（模板循环或终止式替换后可能失配）
 function repairSecondary(chords, ctx) {
@@ -939,14 +1230,14 @@ function generateRaw(o = {}) {
   const r = resolve(o, rng), st = r.style, md = MOODS[r.mood];
   const ctx = { tonic: r.tonic, mode: r.mode };
   const n = Math.max(2, Math.round(r.bars * r.hr));
-  const p = buildProg(ctx, st, n, rng, { borrowAdd: md.borrow, secAdd: md.sec, complexity: r.complexity, phrase: Math.max(2, Math.round(4 * r.hr)) });
+  const p = buildProg(ctx, st, n, rng, { borrowAdd: md.borrow, secAdd: md.sec, complexity: r.complexity, mood: r.mood, meter: r.meter, recent: o._recent ? o._recent.get(st.id) || null : null, phrase: Math.max(2, Math.round(4 * r.hr)) });
   applyComplexity(p.chords, ctx, st, r.complexity, rng, md.sus);
-  const song = { kind: 'random', seed, style: st, meter: r.meter, bpm: r.bpm, hr: r.hr, settings: settingsOut(r), sections: [{ name: '和弦进行', tonic: ctx.tonic, mode: ctx.mode, chords: p.chords }] };
+  const song = { kind: 'random', seed, phrases: p.phrases, style: st, meter: r.meter, bpm: r.bpm, hr: r.hr, settings: settingsOut(r), sections: [{ name: '和弦进行', tonic: ctx.tonic, mode: ctx.mode, chords: p.chords }] };
   finalize(song, rng);
   const ex = [];
   ex.push(`调性：${keyName(ctx.tonic, ctx.mode)} ${MODES[ctx.mode].n}；风格：${st.genre} › ${st.name}；情绪：${r.mood}（${md.d}）。`);
   if (st.desc) ex.push(st.desc);
-  ex.push(`以精选常用进行「${p.tplUsed}」为骨架${p.form ? `，按 4 小节乐句组织为 ${p.form} 曲式（重复建立记忆点，B 句对比并停在属和弦）` : ''}${p.markovUsed ? '；B 句用功能和声（T→S→D）做少量变奏' : ''}。借用/副属等色彩和弦按复杂度限量使用。`);
+  ex.push(`乐句骨架（由风格语料 + 可变阶马尔可夫 + 功能代理替换生成候选，按风格/情绪/新颖度打分采样）：${p.tplUsed}${p.form ? `；曲式 ${p.form}（' 表示变奏乐句：保留轮廓、改写一个和弦或句尾）` : ''}。借用/副属等色彩和弦按复杂度限量使用。`);
   if (p.cad) ex.push('结尾：' + p.cad.n + '。');
   ex.push(...describeChords(song.flat, ctx));
   ex.push(`复杂度：${COMPLEX[r.complexity]}；和声节奏：每小节 ${r.hr} 个和弦；拍号 ${r.meter}，${r.bpm} BPM（${r.feel}）；伴奏型：${PATTERNS[st.pat]}。`);
@@ -1058,7 +1349,7 @@ function expandRaw(o = {}) {
   const loop = (n) => { const a = []; for (let i = 0; i < n; i++) a.push(cp(seeds[i % seeds.length])); return a; };
   const minorish = MODES[mode].ref === 'm' && !['minor', 'harmonic', 'melodic'].includes(mode);
   const cadEnd = (arr, type) => { const cd = cadence(ctx, st, rng, type); const k = Math.min(cd.ch.length, arr.length); for (let i = 0; i < k; i++) arr[arr.length - k + i] = cp(cd.ch[cd.ch.length - k + i]); return cd; };
-  const gen = (n, oo) => { const p = buildProg(ctx, st, n, rng, Object.assign({ tplOK: false, borrowAdd: md.borrow, secAdd: md.sec, complexity: r.complexity, phrase: Math.max(2, Math.round(4 * hr)) }, oo)); applyComplexity(p.chords, ctx, st, r.complexity, rng, md.sus); return p; };
+  const gen = (n, oo) => { const p = buildProg(ctx, st, n, rng, Object.assign({ tplOK: false, borrowAdd: md.borrow, secAdd: md.sec, complexity: r.complexity, mood: r.mood, meter: r.meter, phrase: Math.max(2, Math.round(4 * hr)) }, oo)); applyComplexity(p.chords, ctx, st, r.complexity, rng, md.sus); return p; };
   const fill = (arr) => applyComplexity(arr, ctx, st, r.complexity, rng, md.sus);
   const subst = { 0: 5, 5: 0, 3: 1, 1: 3, 2: 0 };
   const sections = [];
@@ -1201,7 +1492,12 @@ function validated(raw, o) {
   song.validation = { ok: false, issues };
   return song;
 }
-function generate(o = {}) { return validated(generateRaw, o); }
+function generate(o = {}) {
+  const fresh = o.seed === undefined && o.memory !== false;
+  const song = validated(generateRaw, fresh ? Object.assign({}, o, { _recent: RECENT }) : o);
+  if (fresh) remember(song);
+  return song;
+}
 function expand(o = {}) { if (!parseSeeds(o.seeds || '').chords.length) throw new Error('无法识别输入的和弦：' + (o.seeds || '（空）')); return validated(expandRaw, o); }
 /* ---------- 节奏型与事件 ---------- */
 const PATTERNS = { block: '柱式和弦', pulse: '八分音符脉冲', arp: '分解和弦', pad: '长音铺底', swing: '摇摆走路贝斯', skank: '反拍 skank', shuffle: '布鲁斯 shuffle', drive: '八分音符强力推进', strum: '民谣扫弦', funk: '十六分切分', latin: '拉丁切分', bossa: '波萨诺瓦', boom: 'Boom-bap 律动', lofi: 'Lo-fi 慵懒摇摆', alberti: '阿尔贝蒂低音', waltz: '圆舞曲 嘭-嚓-嚓' };
