@@ -151,7 +151,7 @@ const GENRES = [
     ['经典摇滚 Classic Rock', {}],
     ['硬摇滚 Hard Rock', { tempo: [110, 150], modes: { minor: 2, mixolydian: 2 } }],
     ['朋克 Punk', { tempo: [150, 200], tpl: ['1 4 5', '1 5 6 4'], borrow: 0.1 }],
-    ['流行朋克 Pop Punk', { tempo: [150, 190], tpl: ['1 5 6 4', '6 4 1 5'], modes: { major: 4, minor: 1 } }],
+    ['流行朋克 Pop Punk', { tempo: [150, 190], tpl: ['1 5 6 4', '6 4 1 5', '1 4 5 4', '1 5 4 5', '4 1 5 6', '1 6 4 5', '4 5 6 1', '1 3 4 5', '6 5 4 1', '1 4 6 5', 'I bVII IV I', '1 5 4 1', '4 5 1 6', '1 4 1 5', '6 4 5 1', 'I bVI bVII I'], modes: { major: 4, minor: 1 } }],
     ['另类摇滚 Alternative', { modes: { minor: 2, major: 2, dorian: 1 }, ext: 1, tempo: [90, 140] }],
     ['独立摇滚 Indie Rock', { ext: 1, tempo: [100, 140], pat: 'strum' }],
     ['垃圾摇滚 Grunge', { modes: { minor: 3, phrygian: 1 }, tempo: [90, 130], tpl: ['i bIII IV IV', 'i bVI bVII i'] }],
@@ -196,7 +196,7 @@ const GENRES = [
   ]],
   ['放克 Funk', { modes: { dorian: 3, mixolydian: 2, minor: 1 }, tpl: ['i7 IV7', 'I7 IV7', '1 1 4 4', 'i7 i7 bVII7 IV7'], tplP: 0.6, ext: 2, tempo: [95, 120], pat: 'funk', borrow: 0.1, sec: 0.05, hr: { 1: 2, 0.5: 2 }, desc: '放克以单和弦或两和弦属七/小七 vamp 为主，重点在 16 分切分律动。' }, [
     ['经典放克 Classic Funk', {}],
-    ['P-Funk', { tempo: [95, 110] }],
+    ['P-Funk', { tempo: [95, 110], tpl: ['i7 IV7', 'I7 IV7', 'I7 bVII7 IV7 I7', 'i7 bVII7 i7 IV7', 'i7 iv7 bVII7 i7', 'I7 I7 IV7 IV7', 'i7 i7 IV7 bVII7', 'I7 IV7 I7 bVII7', 'ii7 V7 ii7 V7', 'i7 bVII7 bVI7 bVII7', 'I7 ii7 IV7 I7'] }],
     ['迪斯科 Disco', { modes: { major: 2, minor: 2, dorian: 1 }, tpl: ['2 5 1 6', '6 2 5 1', 'i7 iv7'], tempo: [112, 128], pat: 'pulse' }],
     ['放克摇滚 Funk Rock', { ext: 1, tempo: [100, 125] }],
     ['新迪斯科 Nu-Disco', { tempo: [115, 125], tpl: ['6 4 1 5', '2 5 1 6'], pat: 'pulse' }],
@@ -206,7 +206,7 @@ const GENRES = [
     ['中文说唱 Chinese Rap', { tpl: ['6 4 1 5', '1 6', 'i bVI bIII bVII'], tempo: [85, 100] }],
     ['陷阱 Trap', { tempo: [130, 160], modes: { minor: 3, harmonic: 2, phrygian: 1 }, ext: 0, pat: 'pad' }],
     ['钻头 Drill', { tempo: [138, 145], modes: { harmonic: 2, phrygian: 2, minor: 1 }, ext: 0, pat: 'pad' }],
-    ['爵士说唱 Jazz Rap', { ext: 3, sec: 0.2, tpl: ['2 5 1 6', '1 6 2 5'] }],
+    ['爵士说唱 Jazz Rap', { ext: 3, sec: 0.2, tpl: ['2 5 1 6', '1 6 2 5', '4 3 2 1', '4 3 6 6', '2 5 1 1', '1 4 3 6', '4 5 3 6', '6 2 5 1', 'i7 iv7 i7 iv7', 'i7 bVImaj7 iv7 V7', 'iv7 bVII7 bIIImaj7 bVImaj7', 'i7 bIIImaj7 iv7 bVII7'] }],
     ['云说唱 Cloud Rap', { tempo: [60, 80], pat: 'pad', modes: { minor: 2, lydian: 1, major: 1 } }],
   ]],
   ['低保真 Lo-fi', { modes: { major: 3, minor: 1.2, dorian: 1.5 }, tpl: ['2 5 1 1', '4 3 6 6', '1 6 2 5', '4 3 2 1', '4 5 3 6'], tplP: 0.75, ext: 2, tempo: [70, 90], pat: 'lofi', hr: { 1: 3, 0.5: 1 }, sec: 0.15, borrow: 0.08, slash: 0.05, sus: 0.03, desc: 'Lo-fi：取自爵士与灵魂乐采样的七/九和弦循环（ii7–V7–Imaj7、IVmaj7–iii7–vi7），配合慵懒摇摆的 boom-bap 鼓与 Rhodes 电钢琴，速度 70–90 BPM。' }, [
@@ -256,11 +256,11 @@ const GENRES = [
     ['美式乡土 Americana', { modes: { major: 3, mixolydian: 2 }, tempo: [80, 115] }],
   ]],
   ['拉丁 Latin', { modes: { minor: 2, major: 2, harmonic: 1 }, tpl: ['i iv V i', 'i bVII bVI V', '1 4 5 4', '1 5 5 1'], tplP: 0.55, ext: 1, tempo: [90, 130], pat: 'latin', sec: 0.15, desc: '拉丁音乐融合西班牙和声（安达卢西亚终止 i–♭VII–♭VI–V）与非洲节奏。' }, [
-    ['萨尔萨 Salsa', { tempo: [160, 200], tpl: ['1 4 5 4', 'i iv V i'] }],
+    ['萨尔萨 Salsa', { tempo: [160, 200], tpl: ['1 4 5 4', 'i iv V i', '1 5 5 1', '2 5 1 1', '1 4 1 5', 'i iv bVII bIII', 'i bVII bVI V', 'iv V i i', 'i V i iv', 'i iiø V i', '1 6 2 5', 'i bVI iv V'] }],
     ['巴恰塔 Bachata', { tempo: [125, 140], modes: { minor: 2, major: 2 } }],
-    ['雷鬼顿 Reggaeton', { tempo: [88, 100], tpl: ['i bVI bIII bVII', '6 4 1 5'], ext: 0, modes: { minor: 3 } }],
-    ['探戈 Tango', { modes: { harmonic: 3, minor: 1 }, meters: ['2/4', '4/4'], tempo: [110, 130], pat: 'block' }],
-    ['弗拉门戈 Flamenco', { modes: { phrygian: 3, harmonic: 1 }, tpl: ['i bVII bVI V', 'iv bIII bII I'], tplP: 0.8, meters: ['3/4', '12/8', '4/4'], ext: 0, desc: '弗拉门戈：弗里几亚调式与安达卢西亚终止，♭II–I 是标志性的终止。' }],
+    ['雷鬼顿 Reggaeton', { tempo: [88, 100], tpl: ['i bVI bIII bVII', '6 4 1 5', 'i bVII bVI bVII', 'i iv bVII bIII', 'i bVI bVII i', 'i iv bVI bVII', 'i bIII bVII iv', 'i v bVI bVII', 'i bVI iv bVII', 'i iv v bVI', 'i bVII bIII bVI', 'i bIII iv bVI', 'iv bVI bVII i', 'i bVI bIII iv'], ext: 0, modes: { minor: 3 } }],
+    ['探戈 Tango', { modes: { harmonic: 3, minor: 1 }, tpl: ['i iv V i', 'i V i iv', 'i iv iiø V', 'i bVI V i', 'i iv bVII bIII', 'i bIII iv V', 'i bII V i', 'iv V i i', 'i V iv V', 'i iiø V i', 'i bVI iv V', 'i iv i V', 'i bVII bVI V', 'i bVI bII V'], meters: ['2/4', '4/4'], tempo: [110, 130], pat: 'block' }],
+    ['弗拉门戈 Flamenco', { modes: { phrygian: 3, harmonic: 1 }, tpl: ['i bvii bVI V', 'i bII i bvii', 'i bvii bVI bvii', 'iv bVI V i', 'i iv bvii bVI', 'i bVI bII i', 'iv bIII bII i', 'i bII bvii i', 'i bIII bII i', 'i iv bIII bII', 'i bvii bII i', 'i bVI bvii bII', 'iv iii bII i', 'i bII bIII iv', 'iv bVI bII i', 'i bvii bVI bII', 'i bIII bvii bVI', 'bII i bII i'], tplP: 0.8, meters: ['3/4', '12/8', '4/4'], ext: 0, desc: '弗拉门戈：弗里几亚调式与安达卢西亚终止，♭II–I 是标志性的终止。' }],
     ['桑巴 Samba', { meters: ['2/4'], tempo: [95, 105], ext: 2, modes: { major: 3, minor: 1 } }],
     ['恰恰 Cha-cha-cha', { tempo: [110, 125] }],
     ['昆比亚 Cumbia', { meters: ['2/4', '4/4'], tempo: [85, 100], ext: 0, tpl: ['1 5 5 1', '1 4 5 1'] }],
@@ -268,7 +268,7 @@ const GENRES = [
   ['金属 Metal', { modes: { minor: 2, phrygian: 3, harmonic: 2, locrian: 0.5 }, tpl: ['i bII i i', 'i bVI bVII i', 'i bVII bVI bVII', 'i bVI bIII bVII'], tplP: 0.6, ext: 0, tempo: [100, 200], pat: 'drive', sus: 0, borrow: 0.2, sec: 0.05, desc: '金属多用小调、弗里几亚（♭II）与和声小调，强力和弦与半音移动制造压迫感。' }, [
     ['重金属 Heavy Metal', {}],
     ['鞭击金属 Thrash', { tempo: [160, 220] }],
-    ['死亡金属 Death Metal', { modes: { phrygian: 2, locrian: 2, harmonic: 1 }, tempo: [140, 220] }],
+    ['死亡金属 Death Metal', { modes: { phrygian: 2, locrian: 2, harmonic: 1 }, tempo: [140, 220], tpl: ['i bII i bII', 'i bVI bVII i', 'i bII bIII bII', 'i bVII bVI bII', 'i iv bII i', 'i bVI bII i', 'i bIII bII i', 'i ii° bII i', 'i bVI iv bII', 'i bII bVI V', 'i iv bVI V', 'i bIII iv bII', 'i bVII bII i', 'i bVI bIII bII', '1 2 1 2', '1 2 7 1', '1 6 7 1', '1 4 2 1', '1 6 2 1', '1 7 6 2', '1 3 2 1', '1 4 6 2', '1 6 4 2', '1 2 4 1', '1 5 2 1', '1 6 5 2', '1 3 4 2', '1 7 4 2'] }],
     ['黑金属 Black Metal', { tempo: [150, 220], modes: { minor: 3, harmonic: 1 }, pat: 'pad' }],
     ['力量金属 Power Metal', { modes: { harmonic: 2, minor: 2, major: 1 }, tempo: [150, 200], tpl: ['i bVI bVII i', 'i bVII bVI V'] }],
     ['前卫金属 Prog Metal', { meters: ['7/8', '5/4', '9/8', '4/4'], ext: 1, tplP: 0.3 }],
@@ -280,9 +280,9 @@ const GENRES = [
     ['史诗预告片 Epic Trailer', { modes: { minor: 3, harmonic: 1 }, tempo: [80, 140], tpl: ['i bVI bIII bVII', 'i bVI iv V'] }],
     ['RPG 冒险', { modes: { major: 2, mixolydian: 1, dorian: 1 }, tpl: ['I bVI bVII I', '1 4 5 6'] }],
     ['8-bit 芯片音乐 Chiptune', { tempo: [120, 160], pat: 'arp', ext: 0, tpl: ['I bVI bVII I', '1 5 6 4', '6 4 5 1'] }],
-    ['恐怖 Horror', { modes: { locrian: 2, phrygian: 2, harmonic: 1 }, tempo: [50, 80], tplP: 0.2 }],
+    ['恐怖 Horror', { modes: { locrian: 2, phrygian: 2, harmonic: 1 }, tempo: [50, 80], tplP: 0.2, tpl: ['i bII i bII', 'i bVI i bII', 'i iv bII i', 'i ii° V i', 'i bVI iv V', 'i bIII bVI V', 'i bII bVI V', 'i iv bVI bII', 'i bVI bII bVII', 'i iv ii° V', 'i bII iv i', 'i bVI bIII bII', 'iv bII i i', 'i bVII bII i', '1 2 1 2', '1 2 7 1', '1 6 7 1', '1 4 2 1', '1 6 2 1', '1 7 6 2', '1 3 2 1', '1 4 6 2', '1 6 4 2', '1 2 4 1', '1 5 2 1', '1 6 5 2', '1 3 4 2', '1 7 4 2'] }],
     ['动画配乐 Anime', { modes: { major: 3, minor: 2 }, tpl: ['4 5 3 6', '4 5 6 6', '6 4 5 1'], sec: 0.3 }],
-    ['奇幻 Fantasy', { modes: { lydian: 3, major: 1 }, tpl: ['I II iv I', '1 2 1 2'] }],
+    ['奇幻 Fantasy', { modes: { lydian: 3, major: 1 }, tpl: ['I II iv I', '1 2 1 2', '1 2 5 1', '1 2 6 5', '1 5 2 1', '1 2 3 2', '6 2 1 1', '1 3 2 1', '1 6 2 5', '1 2 6 1', '1 7 2 1', 'I bVI bVII I', 'I II IV I', '1 5 6 2', '6 5 2 1'] }],
     ['科幻 Sci-fi', { modes: { lydian: 2, dorian: 1, minor: 1 }, ext: 2, tempo: [70, 110] }],
     ['战斗 Battle', { modes: { harmonic: 3, minor: 2 }, tempo: [140, 180], pat: 'drive', tpl: ['i bVI bVII i', 'i bII i i'] }],
     ['音乐剧 Musical / Broadway', { modes: { major: 3, minor: 1 }, ext: 1, sec: 0.25, tempo: [80, 140], pat: 'block' }],
@@ -306,8 +306,8 @@ const GENRES = [
   ['雷鬼 Reggae', { modes: { major: 2, minor: 2, dorian: 1 }, tpl: ['1 4', '1 5 4 1', 'i iv', '1 4 5 4'], tplP: 0.65, ext: 0, tempo: [70, 90], pat: 'skank', hr: { 1: 3, 0.5: 1 }, desc: '雷鬼：两三个和弦的循环，吉他在反拍“skank”。' }, [
     ['根源雷鬼 Roots', {}],
     ['达布 Dub', { tempo: [65, 80], ext: 1, pat: 'pad' }],
-    ['斯卡 Ska', { tempo: [140, 180], modes: { major: 3 } }],
-    ['舞厅雷鬼 Dancehall', { tempo: [90, 100], modes: { minor: 3 } }],
+    ['斯卡 Ska', { tempo: [140, 180], modes: { major: 3 }, tpl: ['1 4 5 4', '1 6 2 5', '1 4 1 5', '2 5 1 6', '1 5 6 4', '1 4 5 1', '1 1 4 5', '4 5 1 1', '1 3 4 5', '2 5 1 1'] }],
+    ['舞厅雷鬼 Dancehall', { tempo: [90, 100], modes: { minor: 3 }, tpl: ['i bVI bVII i', 'i iv bVII i', 'i bVII bVI bVII', 'i bIII bVII iv', 'i iv i bVII', 'i bVI bIII bVII', 'i v iv i', 'i bVII i bVII', 'i iv bVI bVII', 'i bIII bVI bVII', 'iv bVII i i', 'i bVI iv bVII'] }],
     ['摇滚稳定 Rocksteady', { tempo: [75, 95], ext: 1 }],
   ]],
   ['氛围 Ambient', { modes: { lydian: 2, major: 2, dorian: 1, minor: 1 }, tpl: ['1 4', '1 2', '1 6 4 4'], tplP: 0.3, ext: 2, tempo: [50, 90], pat: 'pad', sus: 0.3, sec: 0, hr: { 0.5: 3, 1: 2 }, desc: '氛围音乐：长时值、慢变化的调式和弦，挂留与延伸音营造空间感。' }, [
@@ -847,7 +847,7 @@ function scoreCand(c, ctx, style, o, others) {
 function choosePhrase(ctx, style, P, rng, o, others) {
   const cands = phraseCands(ctx, style, P, rng, o);
   if (!cands.length) return null;
-  const sc = cands.map((c) => scoreCand(c, ctx, style, o, others)), mx = Math.max(...sc), tau = 0.55;
+  const sc = cands.map((c) => scoreCand(c, ctx, style, o, others)), mx = Math.max(...sc), tau = 0.7;
   const w = {}; sc.forEach((s, i) => (w[i] = Math.exp((s - mx) / tau)));
   return cands[+wpick(rng, w)];
 }
@@ -1935,7 +1935,7 @@ function regenerate(song, o = {}) {
     const n = sec.chords.length, ctx = { tonic: sec.tonic, mode: sec.mode };
     if (sec.chords.every((c) => c.lock)) return;
     const last = sec.chords[n - 1];
-    const p = buildProg(ctx, song.style, n, rng, { tplOK: song.kind === 'random', end: endTypeOf(last), borrowAdd: md.borrow, secAdd: md.sec, complexity: song.settings.complexity, phrase: Math.max(2, Math.round(4 * song.hr)), startFunc: sec.chords[0].lock ? undefined : (sec.key === 'Pre-chorus' || sec.key === 'Bridge' ? 'S' : undefined) });
+    const p = buildProg(ctx, song.style, n, rng, { tplOK: song.kind === 'random', end: endTypeOf(last), borrowAdd: md.borrow, secAdd: md.sec, complexity: song.settings.complexity, mood: song.settings.mood, meter: song.meter, recent: song.phrases || null, phrase: Math.max(2, Math.round(4 * song.hr)), startFunc: sec.chords[0].lock ? undefined : (sec.key === 'Pre-chorus' || sec.key === 'Bridge' ? 'S' : undefined) });
     applyComplexity(p.chords, ctx, song.style, song.settings.complexity || 0, rng, md.sus);
     if (last.tag === '转调属' && !last.lock) p.chords[n - 1] = cleanChord(last);
     sec.chords = sec.chords.map((c, k) => (c.lock ? c : p.chords[k]));

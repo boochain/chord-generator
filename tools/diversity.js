@@ -30,7 +30,7 @@ const perStyle = [];
 for (const st of E.STYLES) {
   if (st.fixed) continue; // 12 小节布鲁斯等固定曲式不计
   const seqs = [], voic = [], pats = [];
-  for (let i = 0; i < N; i++) { const s = gen({ style: st.id, seed: 1 + i * 7 + st.id * 100003 }); seqs.push(seqOf(s)); voic.push(voiceSig(s)); pats.push(s.pat || st.pat); }
+  for (let i = 0; i < N; i++) { const s = gen({ style: st.id, seed: 1 + i * 7 + st.id * 100003 }); seqs.push(seqOf(s)); voic.push(voiceSig(s)); pats.push((s.arr && s.arr.pat) || st.pat); }
   perStyle.push(Object.assign({ id: st.id, name: st.name, genre: st.genre }, stats(seqs, voic, pats)));
 }
 const avg = (k) => perStyle.reduce((a, x) => a + x[k], 0) / perStyle.length;
