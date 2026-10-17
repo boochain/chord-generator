@@ -1382,16 +1382,21 @@ function expandRaw(o = {}) {
   const lastChorus = plan.lastIndexOf('Chorus'), nChorus = plan.filter((x) => x === 'Chorus').length;
   let shifted = false, verseN = 0;
   // 段落变奏：保留前半句种子动机，后半句做功能代理替换或重新配和声（与已用乐句骨架去重）
-  const vary = (arr) => {
-    const h = Math.max(1, Math.floor(arr.length / 2));
+  const vary = (arr, keepLast) => {
+    const sig = (x) => x.map((c) => c.rel + Q[c.q].cls).join(), orig = sig(arr), base = arr.map(cp);
+    for (let t = 0; t < 4; t++) { const r = vary1(arr, keepLast); if (sig(arr) !== orig) return r; base.forEach((c, k) => (arr[k] = cp(c))); }
+    const k = arr.length - 2, c = arr[k], tt = subst[c.step] !== undefined ? subst[c.step] : c.step === 4 ? 1 : 3; arr[k] = dia(ctx, tt); fill([arr[k]]); return '后半句做功能代理替换';
+  };
+  const vary1 = (arr, keepLast) => {
+    const h = Math.max(1, Math.floor(arr.length / 2)), E = arr.length - (keepLast ? 1 : 0);
     if (rng() < 0.5) {
       let ch = 0;
-      for (let k = h; k < arr.length; k++) { const c = arr[k], t = subst[c.step]; if (c.diat && !c.seed && t !== undefined && rng() < 0.6 && arr[k - 1].step !== t && (!arr[k + 1] || arr[k + 1].step !== t)) { arr[k] = dia(ctx, t); ch++; } }
-      if (!ch) { const k = arr.length - 1, c = arr[k], t = subst[c.step]; if (t !== undefined && arr[k - 1].step !== t) arr[k] = dia(ctx, t); }
+      for (let k = h; k < E; k++) { const c = arr[k], t = subst[c.step]; if (c.diat && t !== undefined && rng() < 0.6 && arr[k - 1].step !== t && (!arr[k + 1] || arr[k + 1].step !== t)) { arr[k] = dia(ctx, t); ch++; } }
+      if (!ch) { const k = E - 1, c = arr[k], t = subst[c.step]; if (t !== undefined && arr[k - 1].step !== t) arr[k] = dia(ctx, t); }
       fill(arr); return '后半句做功能代理替换（I↔vi、IV↔ii）';
     }
-    const p = gen(arr.length - h, { end: 'none' });
-    for (let k = h; k < arr.length; k++) arr[k] = p.chords[k - h];
+    const p = gen(E - h, { end: 'none' });
+    for (let k = h; k < E; k++) arr[k] = p.chords[k - h];
     return '后半句用风格语料重新配和声';
   };
   plan.forEach((name, pi) => {
@@ -1402,8 +1407,9 @@ function expandRaw(o = {}) {
       if (rng() < 0.5) { sec.chords[n - 1] = cp(cadV(ctx)); fill([sec.chords[n - 1]]); sec.note = '呈示种子和弦动机，末尾用属和弦（半终止）引入下一段。'; } else sec.note = '直接呈示种子和弦动机。';
     } else if (name === 'Verse') {
       sec.chords = loop(n); verseN++;
-      const vn = n >= 4 && (verseN > 1 || (n >= 8 && rng() < 0.35)) ? vary(sec.chords) : '';
-      if (n >= 4 && rng() < 0.5) { sec.chords[n - 1] = cp(cadV(ctx)); fill([sec.chords[n - 1]]); sec.note = vn ? `主歌变奏：前半句保留种子动机，${vn}，句尾半终止（V）。` : '主歌循环种子和弦，句尾半终止（V）。'; } else sec.note = vn ? `主歌变奏：前半句保留种子动机，${vn}。` : '主歌原样循环种子和弦，确立动机。';
+      const half = n >= 4 && rng() < 0.5;
+      const vn = n >= 4 && (verseN > 1 || (n >= 8 && rng() < 0.35)) ? vary(sec.chords, half) : '';
+      if (half) { sec.chords[n - 1] = cp(cadV(ctx)); fill([sec.chords[n - 1]]); sec.note = vn ? `主歌变奏：前半句保留种子动机，${vn}，句尾半终止（V）。` : '主歌循环种子和弦，句尾半终止（V）。'; } else sec.note = vn ? `主歌变奏：前半句保留种子动机，${vn}。` : '主歌原样循环种子和弦，确立动机。';
     } else if (name === 'Pre-chorus') {
       sec.chords = gen(n, { startFunc: 'S', end: 'half' }).chords; sec.note = '导歌从下属功能开始累积张力，停在属和弦（半终止）推向副歌。';
     } else if (name === 'Chorus') {
