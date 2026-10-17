@@ -1588,7 +1588,7 @@ function chordEvents(c, start, dur, meter, pat, out) {
     case 'lofi': for (let b = start; b < end; b += 4) { add(b + 0.04, 2.6, U, 0.42, 'chord'); add(b + 2 + 2 / 3, 1.2, U, 0.32, 'chord'); add(b, 1.4, [B], 0.62, 'bass'); add(b + 1 + 2 / 3, 0.6, [B], 0.45, 'bass'); add(b + 2.5 + 1 / 6, 1.2, [B], 0.5, 'bass'); }
       break;
     case 'boom': for (let b = start; b < end; b += 4) { add(b, 2.4, U, 0.5, 'chord'); add(b + 2.5, 1, U, 0.4, 'chord'); add(b, 1.5, [B], 0.7, 'bass'); add(b + 1.75, 0.5, [B], 0.55, 'bass'); add(b + 2.5, 1, [B], 0.6, 'bass'); } break;
-    case 'waltz': add(start, 1, [B], 0.7, 'bass'); for (let t = start + 1; t < end; t += 1) add(t, 0.9, U, mod(t, 3) === 0 ? 0.5 : 0.42, 'chord'); break;
+    case 'waltz': add(start, 1, [B], 0.7, 'bass'); if (dur < 1.5) add(start, dur, U, 0.45, 'chord'); for (let t = start + 1; t < end; t += 1) add(t, 0.9, U, mod(t, 3) === 0 ? 0.5 : 0.42, 'chord'); break;
     default: {
       const groups = []; let pos = 0; for (const g of M.g) { groups.push(pos); pos += g; }
       for (let t = start; t < end; t += M.d === 4 ? 1 : 1) { const ib = mod(t, M.n); if (M.d === 4 || groups.some((g) => Math.abs(g - ib) < 1e-6)) add(t, M.d === 4 ? 0.9 : 2.7, U, Math.abs(ib) < 1e-6 ? 0.6 : 0.45, 'chord'); }
