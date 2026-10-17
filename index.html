@@ -990,7 +990,7 @@ const GENRES = [
     ['古典主义 Classical era', { pat: 'alberti', tpl: ['1 4 5 1', '1 2 5 1', '1 6 4 5'] }],
     ['浪漫主义 Romantic', { ext: 1, borrow: 0.3, sec: 0.4, tempo: [50, 100], modes: { major: 2, minor: 2, harmonic: 2 }, desc: '浪漫主义：频繁的借用和弦、副属和弦与半音化，情感色彩浓烈。' }],
     ['印象派 Impressionist', { ext: 2, modes: { lydian: 2, dorian: 1, major: 1, mixolydian: 1 }, borrow: 0.3, sec: 0.05, pat: 'pad', tplP: 0.15, slash: 0.2, tempo: [50, 90], desc: '印象派（德彪西、拉威尔）：调式色彩、平行九和弦、弱化功能进行。' }],
-    ['卡农 Canon', { tpl: ['1 5 6 3 4 1 4 5'], tplP: 0.9 }],
+    ['卡农 Canon', { tpl: ['1 5 6 3 4 1 4 5'], tplP: 0.9, startI: true }],
     ['圣咏 Chorale', { pat: 'block', tempo: [60, 80], slash: 0.7, sec: 0.3 }],
     ['极简主义 Minimalism', { tplP: 0.3, tempo: [100, 140], hr: { 0.5: 2, 1: 2 }, modes: { minor: 2, major: 2, dorian: 1 } }],
     ['歌剧 Opera', { modes: { harmonic: 2, major: 2, minor: 1 }, sec: 0.35, borrow: 0.2, ext: 1 }],
@@ -1590,6 +1590,7 @@ function scoreCand(c, ctx, style, o, others) {
   const key = sk.join(' ');
   if (o.recent) s -= 2.2 * o.recent.filter((r) => r === key).length;
   for (const x of others) if (x.join(' ') === key) s -= 1.5;
+  if (o.startI && !/^(I|i)$/.test(sk[0])) s -= 6; // 卡农等：首句必须从主和弦开始
   if (o.startFunc) { try { if (parseTok(c.t[0], ctx).func !== o.startFunc) s -= 1.5; } catch (e) { /* 忽略 */ } }
   return s;
 }
@@ -1664,7 +1665,7 @@ function buildProg(ctx, style, n, rng, o = {}) {
   const tokOf = (letter, k) => {
     const base = letter[0];
     if (!lex[base]) {
-      const ph = choosePhrase(ctx, style, P, rng, Object.assign({}, o, { startFunc: k === 0 ? o.startFunc : base !== 'A' && rng() < 0.6 ? 'S' : undefined }), used);
+      const ph = choosePhrase(ctx, style, P, rng, Object.assign({}, o, { startI: k === 0 && style.startI && !o.startFunc, startFunc: k === 0 ? o.startFunc : base !== 'A' && rng() < 0.6 ? 'S' : undefined }), used);
       lex[base] = ph ? ph.t : (ctxRef(ctx) === 'm' ? 'i iv i i' : 'I IV I I').split(' ').slice(0, P);
       used.push(lex[base].map((x) => skelR(x, ctxRef(ctx)))); desc.push(base + '：' + lex[base].join(' '));
     }
