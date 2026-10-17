@@ -325,7 +325,7 @@ ok(/lang="zh-CN"/.test(html), 'Chinese UI');
   ok(diat / chords >= 0.85, '默认参数调内和弦比例 ≥ 85%：' + ((100 * diat) / chords).toFixed(1) + '%');
   ok(meter44 / songs >= 0.9, '默认拍号以 4/4 为主：' + meter44);
   ok(cadOK === songs, '每首都以主和弦终止');
-  ok(rep / repN >= 0.7, '乐句重复率 ≥ 70%：' + ((100 * rep) / repN).toFixed(1) + '%');
+  ok(rep / repN >= 0.3, '乐句重复率 ≥ 30%（v4 起乐句结构多样化，AABA/ABAC/ABAB 并存）：' + ((100 * rep) / repN).toFixed(1) + '%');
   ok(cx / songs >= 0.75, '默认复杂度以三和弦/七和弦为主：' + cx);
   // 种子扩展也保持调内
   let ed = 0, et = 0;
@@ -459,7 +459,10 @@ function Q_TONES(c) { return E.Q[c.q].t.map((x) => (c.pc + x[0]) % 12); }
     ok(E.defaultPrograms(st).chord === 4 || E.defaultPrograms(st).chord === 5, 'Lo-fi 默认 Rhodes / 电钢琴音色');
     if (!/House|Vaporwave/.test(st.name)) ok(st.pat === 'lofi', 'Lo-fi 伴奏型');
   }
-  const ev = E.buildEvents(E.generate({ style: lofi[0].id, seed: 3 }), { drums: true });
+  let lofiSong = null; // v4 起每首随机选伴奏型，找一首用 lofi 伴奏型的来检查摇摆鼓
+  for (let sd = 1; sd < 400 && !lofiSong; sd++) { const g = E.generate({ style: lofi[0].id, seed: sd }); if (((g.arr && g.arr.pat) || g.style.pat) === 'lofi') lofiSong = g; }
+  ok(!!lofiSong, 'Lo-fi 风格能选到 lofi 伴奏型');
+  const ev = E.buildEvents(lofiSong, { drums: true });
   ok(ev.events.some((e) => e.part === 'drum' && Math.abs((e.t % 1) - 2 / 3) < 0.01), 'Lo-fi 鼓组摇摆（三连音位置的踩镲）');
   for (const st of E.STYLES) ok(Array.isArray(st.aliases) && st.searchKeys.length >= 2, '每个风格有搜索索引 ' + st.name);
 }

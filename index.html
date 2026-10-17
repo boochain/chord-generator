@@ -2133,12 +2133,15 @@ function expandRaw(o = {}) {
   let shifted = false, verseN = 0;
   // 段落变奏：保留前半句种子动机，后半句做功能代理替换或重新配和声（与已用乐句骨架去重）
   const vary = (arr, keepLast) => {
+    const h = Math.max(Math.floor(arr.length / 2), seeds.length), E = arr.length - (keepLast ? 1 : 0);
+    if (h >= E) return ''; // 句子太短：保留完整种子动机，不做变奏
     const sig = (x) => x.map((c) => c.rel + Q[c.q].cls).join(), orig = sig(arr), base = arr.map(cp);
-    for (let t = 0; t < 4; t++) { const r = vary1(arr, keepLast); if (sig(arr) !== orig) return r; base.forEach((c, k) => (arr[k] = cp(c))); }
-    const k = arr.length - 2, c = arr[k], tt = subst[c.step] !== undefined ? subst[c.step] : c.step === 4 ? 1 : 3; arr[k] = dia(ctx, tt); fill([arr[k]]); return '后半句做功能代理替换';
+    for (let t = 0; t < 4; t++) { const r = vary1(arr, h, E); if (sig(arr) !== orig) return r; base.forEach((c, k) => (arr[k] = cp(c))); }
+    const k = E - 1, c = arr[k], tt = subst[c.step] !== undefined ? subst[c.step] : c.step === 4 ? 1 : 3;
+    if (k >= h && arr[k - 1].step !== tt) { arr[k] = dia(ctx, tt); fill([arr[k]]); return '后半句做功能代理替换'; }
+    return '';
   };
-  const vary1 = (arr, keepLast) => {
-    const h = Math.max(1, Math.floor(arr.length / 2)), E = arr.length - (keepLast ? 1 : 0);
+  const vary1 = (arr, h, E) => {
     if (rng() < 0.5) {
       let ch = 0;
       for (let k = h; k < E; k++) { const c = arr[k], t = subst[c.step]; if (c.diat && t !== undefined && rng() < 0.6 && arr[k - 1].step !== t && (!arr[k + 1] || arr[k + 1].step !== t)) { arr[k] = dia(ctx, t); ch++; } }
