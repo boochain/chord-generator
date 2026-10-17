@@ -686,6 +686,8 @@ function pickTpl(ctx, style, rng, o = {}) {
    ===================================================================== */
 const TOKRE = /^([b#]?)(VII|VI|IV|V|III|II|I|vii|vi|iv|v|iii|ii|i)(°|ø)?(maj7|7)?$/;
 const skelTok = (t) => { const m = String(t).match(TOKRE); return m ? m[1] + m[2] + (m[3] || '') : String(t); };
+const DIG = { M: [0, 'I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'], m: [0, 'i', 'ii°', 'bIII', 'iv', 'v', 'bVI', 'bVII'] };
+const skelR = (t, ref) => (/^[1-7]$/.test(t) ? DIG[ref][+t] : skelTok(t));
 const SEVENTH = { M: { I: 'maj7', ii: '7', iii: '7', IV: 'maj7', V: '7', vi: '7', bVII: '7', bIII: 'maj7', bVI: 'maj7', iv: '7' }, m: { i: '7', iv: '7', bIII: 'maj7', bVI: 'maj7', bVII: '7', V: '7', v: '7', ii: '7', IV: '7' } };
 const withSev = (sk, ref) => { const s = SEVENTH[ref][sk]; return s === undefined ? sk : sk + s; };
 const SUBS = { M: { I: ['vi', 'iii'], vi: ['I', 'IV'], IV: ['ii', 'vi'], ii: ['IV'], iii: ['I', 'vi'], V: ['iii'] }, m: { i: ['bIII', 'bVI'], bVI: ['iv', 'i'], iv: ['bVI', 'iiø'], bIII: ['i', 'bVI'], bVII: ['v'], V: ['bVII'] } };
@@ -697,7 +699,7 @@ function lmFor(style, ref) {
   if (MODEL.has(key)) return MODEL.get(key);
   const L = libFor(style, ref), cnt = [new Map(), new Map(), new Map(), new Map()], starts = new Map();
   const add = (t, w) => {
-    const s = t.split(' ').map(skelTok), n = s.length;
+    const s = t.split(' ').map((x) => skelR(x, ref)), n = s.length;
     starts.set(s[0], (starts.get(s[0]) || 0) + w);
     for (let i = 0; i < n; i++) for (let k = 0; k <= 3; k++) {
       const ctxs = []; for (let j = k; j >= 1; j--) ctxs.push(s[(i - j + n * 4) % n]);
@@ -745,7 +747,7 @@ const MOOD_FEAT = {
 // 拍号 → 偏好：三拍/复合拍更常用下属与变格，奇数拍偏好少量和弦的调式循环
 const METER_FEAT = { '3/4': { plagal: 0.6, IV: 0.4, sec: -0.3 }, '6/8': { plagal: 0.5, minStart: 0.3, IV: 0.3 }, '12/8': { plagal: 0.4, dom: 0.3, sev: 0.3 }, '5/4': { moves: -0.8, bor: 0.4 }, '7/8': { moves: -0.8, flat67: 0.5 }, '2/4': { dom: 0.5 } };
 function features(t, ref) {
-  const sk = t.map(skelTok), n = sk.length, f = {};
+  const sk = t.map((x) => skelR(x, ref)), n = sk.length, f = {};
   f.bor = sk.filter((x) => /^b|^V\//.test(x) || (ref === 'M' && x === 'iv')).length / n;
   f.minStart = /^(vi|i|iii|ii)$/.test(sk[0]) ? 1 : 0;
   f.dom = sk.filter((x) => x === 'V' || /^V\//.test(x)).length / n;
@@ -795,7 +797,7 @@ function phraseCands(ctx, style, P, rng, o) {
       t.forEach((x, i) => {
         r.push(x); const nx = t[(i + 1) % t.length];
         if (rng() < 0.45) {
-          const w = {}; for (const c of md.vocab) { const p = lmP(md, [skelTok(x)], c) * lmP(md, [c], skelTok(nx)); if (p > 0 && c !== skelTok(x) && c !== skelTok(nx)) w[c] = p; }
+          const w = {}; for (const c of md.vocab) { const p = lmP(md, [skelR(x, ref)], c) * lmP(md, [c], skelR(nx, ref)); if (p > 0 && c !== skelR(x, ref) && c !== skelR(nx, ref)) w[c] = p; }
           r.push(Object.keys(w).length ? (sevOn ? withSev(wpick(rng, w), ref) : wpick(rng, w)) : x);
         } else r.push(x);
       });
@@ -814,10 +816,10 @@ function phraseCands(ctx, style, P, rng, o) {
   for (let i = 0; i < 4 && pool.length > 1; i++) { // 拼接：A 前半 + B 后半，接缝须在风格语料中出现过
     const a = pick(rng, pool).split(' '), b = pick(rng, pool).split(' '), h = Math.floor(a.length / 2);
     if (a.length !== b.length || h < 1) continue;
-    if (lmP(md, [skelTok(a[h - 1])], skelTok(b[h])) > 0) fit(a.slice(0, h).concat(b.slice(h)), 'splice', 0.3);
+    if (lmP(md, [skelR(a[h - 1], ref)], skelR(b[h], ref)) > 0) fit(a.slice(0, h).concat(b.slice(h)), 'splice', 0.3);
   }
   for (let i = 0; i < 5 && pool.length; i++) { // 功能代理替换（同功能和弦互换）
-    const a = pick(rng, pool).split(' '), k = Math.floor(rng() * a.length), s = SUBS[ref][skelTok(a[k])];
+    const a = pick(rng, pool).split(' '), k = Math.floor(rng() * a.length), s = SUBS[ref][skelR(a[k], ref)];
     if (s) { const ns = pick(rng, s); a[k] = /7/.test(a[k]) ? withSev(ns, ref) : ns; fit(a, 'sub', 0.3); }
   }
   for (let i = 0; i < 5; i++) { // 风格马尔可夫游走
@@ -827,7 +829,7 @@ function phraseCands(ctx, style, P, rng, o) {
   return out.filter((c) => tplLegal(c.t.join(' '), ctx, style));
 }
 function scoreCand(c, ctx, style, o, others) {
-  const ref = ctxRef(ctx), md = lmFor(style, ref), sk = c.t.map(skelTok);
+  const ref = ctxRef(ctx), md = lmFor(style, ref), sk = c.t.map((x) => skelR(x, ref));
   let s = 1.2 * lmScore(md, sk) + c.prior;
   const f = features(c.t, ref);
   for (const W of [MOOD_FEAT[o.mood] || {}, METER_FEAT[o.meter] || {}]) for (const k of Object.keys(W)) s += W[k] * (f[k] || 0) * 1.4;
@@ -852,7 +854,7 @@ function choosePhrase(ctx, style, P, rng, o, others) {
 function variantOf(t, ctx, style, rng) { // A'：保留轮廓，替换 1 个和弦（多在句尾）
   const ref = ctxRef(ctx);
   for (let tries = 0; tries < 6; tries++) {
-    const a = t.slice(), k = rng() < 0.5 ? a.length - 1 - Math.floor(rng() * Math.min(2, a.length)) : Math.floor(rng() * a.length), s = SUBS[ref][skelTok(a[k])];
+    const a = t.slice(), k = rng() < 0.5 ? a.length - 1 - Math.floor(rng() * Math.min(2, a.length)) : Math.floor(rng() * a.length), s = SUBS[ref][skelR(a[k], ref)];
     if (!s) continue;
     const ns = pick(rng, s); a[k] = /7/.test(a[k]) ? withSev(ns, ref) : ns;
     if (tplLegal(a.join(' '), ctx, style)) return a;
@@ -915,7 +917,7 @@ function buildProg(ctx, style, n, rng, o = {}) {
     if (!lex[base]) {
       const ph = choosePhrase(ctx, style, P, rng, Object.assign({}, o, { startFunc: k === 0 ? o.startFunc : base !== 'A' && rng() < 0.6 ? 'S' : undefined }), used);
       lex[base] = ph ? ph.t : (ctxRef(ctx) === 'm' ? 'i iv i i' : 'I IV I I').split(' ').slice(0, P);
-      used.push(lex[base].map(skelTok)); desc.push(base + '：' + lex[base].join(' '));
+      used.push(lex[base].map((x) => skelR(x, ctxRef(ctx)))); desc.push(base + '：' + lex[base].join(' '));
     }
     if (letter.length > 1) { if (!lex[letter]) lex[letter] = variantOf(lex[base], ctx, style, rng); return lex[letter]; }
     return lex[base];
