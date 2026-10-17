@@ -306,7 +306,7 @@ ok(/lang="zh-CN"/.test(html), 'Chinese UI');
       if (c.diat || c.tag === '和声小调属' || c.tag === '调式特征') diat++;
       ok(Math.min(...c.upper) >= 52 && Math.max(...c.upper) <= 79, `music#${i} 上方声部在 E3–G5 内 ${c.name} ${c.upper}`);
       ok(c.bassNote >= 40 && c.bassNote <= 52, `music#${i} 低音在 E2–E3 ${c.bassNote}`);
-      ok(Math.max(...c.upper) - Math.min(...c.upper) <= 12, `music#${i} 密集排列 ${c.name} ${c.upper}`);
+      { const up = c.upper.slice().sort((x, y) => x - y); ok(up[up.length - 1] - up[0] <= 19 && up.every((x, k) => !k || x - up[k - 1] <= 12), `music#${i} 排列间距（相邻 ≤ 八度、总跨度 ≤ 19） ${c.name} ${c.upper}`); }
       if (prev && prev.upper.length === c.upper.length) {
         const mv = Math.max(...c.upper.map((n, k) => Math.abs(n - prev.upper[k])));
         ok(mv <= 7, `music#${i} 单声部最大移动 ≤ 7 半音 ${prev.name}→${c.name} ${mv}`);

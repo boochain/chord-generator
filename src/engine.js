@@ -1074,12 +1074,31 @@ function closeVoicings(pcs0) {
   }
   return out;
 }
+// 开放/展开排列：每个音级一个音，相邻上方声部 ≤ 八度、总跨度 ≤ 19 半音（SATB 习惯），仍在 E3–G5 内
+function openVoicings(pcs0) {
+  const pcs = [...new Set(pcs0)], out = [];
+  const opts = pcs.map((pc) => { const a = []; for (let n = UP_LO; n <= UP_HI; n++) if (mod(n, 12) === pc) a.push(n); return a; });
+  const rec = (k, acc) => {
+    if (k === opts.length) { const v = acc.slice().sort((x, y) => x - y); if (v[v.length - 1] - v[0] > 12 && v[v.length - 1] - v[0] <= 19 && v.every((x, i) => !i || (x - v[i - 1] <= 12 && x > v[i - 1]))) out.push(v); return; }
+    for (const n of opts[k]) { acc.push(n); rec(k + 1, acc); acc.pop(); }
+  };
+  rec(0, []);
+  return out;
+}
+const VOICING_CN = { close: '密集排列', open: '开放排列（drop-2 / 展开）', mixed: '密集与开放混合' };
+function voicingW(style) {
+  const g = style.genre + style.name;
+  if (/爵士|R&B|灵魂|Lo-fi|City Pop|Bossa|波萨|新灵魂|福音|Vaporwave|蒸汽波/.test(g)) return { open: 2.2, mixed: 1.2, close: 0.8 };
+  if (/古典|圣咏|Chorale|配乐|Score|氛围|Ambient|后摇|抒情/.test(g)) return { open: 1.6, mixed: 1.2, close: 1 };
+  if (/金属|朋克|Punk|垃圾|硬摇滚|Hard|EDM|电子|陷阱|Trap|Drill|钻头|Dubstep/.test(g)) return { close: 3, mixed: 0.8, open: 0.4 };
+  return { close: 2, mixed: 1.2, open: 0.9 };
+}
 function moveCost(a, b) {
   let tot = 0, mx = 0;
   for (const [p, n] of voiceMap(a, b)) { const d = Math.abs(p - n); tot += d; mx = Math.max(mx, d); }
   return { tot, mx };
 }
-function voiceAll(list, style, rng, strict) {
+function voiceAll(list, style, rng, strict, vtype) {
   // 1) 低音：原位为主，转位仅在带来级进时使用
   let prevB = null;
   const nearOct = (pc) => BASS_LO + mod(pc - BASS_LO, 12);
@@ -1105,10 +1124,12 @@ function voiceAll(list, style, rng, strict) {
   const C = list.map((c) => {
     let v = closeVoicings(upperPcs(c)).filter((x) => x[0] > c.bassNote + 4);
     if (!v.length) v = closeVoicings(upperPcs(c)).map((x) => (x[0] > c.bassNote + 4 ? x : x.map((y) => y + 12)));
+    if (vtype === 'open' || vtype === 'mixed') v = v.concat(openVoicings(upperPcs(c)).filter((x) => x[0] > c.bassNote + 4 && x[0] - c.bassNote <= 24));
     return v;
   });
   const pen = strict ? 1000 : 80;
-  let dp = C[0].map((v) => ({ cost: Math.abs((v[0] + v[v.length - 1]) / 2 - 62) * 0.8 + rng() * 0.2, back: -1 }));
+  const vpen = (v) => { const wide = v[v.length - 1] - v[0] > 12; return vtype === 'open' ? (wide ? 0 : 3) : vtype === 'mixed' ? (wide ? 0.6 : 0) : 0; };
+  let dp = C[0].map((v) => ({ cost: Math.abs((v[0] + v[v.length - 1]) / 2 - 62) * 0.8 + vpen(v) + rng() * 0.2, back: -1 }));
   const backs = [dp];
   for (let i = 1; i < list.length; i++) {
     const p = list[i - 1], c = list[i], cur = [];
@@ -1123,7 +1144,7 @@ function voiceAll(list, style, rng, strict) {
         }
         if (t < bc) { bc = t; bj = j; }
       });
-      cur.push({ cost: bc + Math.abs(mid - 63) * 0.12 + rng() * 0.2, back: bj });
+      cur.push({ cost: bc + Math.abs(mid - 63) * 0.12 + vpen(v) + rng() * 0.2, back: bj });
     }
     dp = cur; backs.push(dp);
   }
@@ -1155,7 +1176,7 @@ function resolve(o, rng) {
     r.mode = wpick(rng, w);
   }
   r.tonic = isSet(o.key) ? mod(+o.key, 12) : Math.floor(rng() * 12);
-  r.meter = isSet(o.meter) ? o.meter : st.meters.includes('4/4') ? '4/4' : st.meters[0];
+  r.meter = isSet(o.meter) ? o.meter : st.meters.includes('4/4') ? (st.meters.length > 1 && rng() < 0.06 ? pick(rng, st.meters.filter((m) => m !== '4/4')) : '4/4') : st.meters[0];
   if (isSet(o.bpm)) r.bpm = clamp(+o.bpm, 20, 300);
   else {
     let lo = st.tempo[0] * md.tempo, hi = st.tempo[1] * md.tempo;
@@ -1165,7 +1186,7 @@ function resolve(o, rng) {
     r.bpm = clamp(r.bpm, st.tempo[0], st.tempo[1]); // 情绪只在风格速度范围内调整（如 Lo-fi 始终 70–90）
   }
   r.feel = r.bpm < 80 ? '慢' : r.bpm < 125 ? '中' : '快';
-  r.bars = isSet(o.bars) ? clamp(+o.bars, 1, 64) : (st.fixed ? 12 : pick(rng, [8, 8, 8, 16]));
+  r.bars = isSet(o.bars) ? clamp(+o.bars, 1, 64) : (st.fixed ? 12 : pick(rng, [8, 8, 8, 12, 16, 16]));
   // 默认复杂度保守：大多数风格三和弦/七和弦；只有爵士类默认九和弦，变化和弦需手动开启
   r.complexity = isSet(o.complexity) ? clamp(+o.complexity, 0, 3) : st.ext >= 2 ? (rng() < 0.6 ? 2 : 1) : st.ext === 1 ? (rng() < 0.5 ? 1 : 0) : 0;
   if (isSet(o.hr)) r.hr = +o.hr;
@@ -1197,7 +1218,7 @@ function layout(nCh, cpb, meter, firstIdx) {
 function finalize(song, rng) {
   const all = [];
   song.sections.forEach((sec, si) => sec.chords.forEach((c) => { c.section = si; realize(c, sec); all.push(c); }));
-  voiceAll(all, song.style, rng);
+  voiceAll(all, song.style, rng, false, song.arr && song.arr.voicing);
   let idx = 0;
   song.sections.forEach((sec) => {
     sec.keyLabel = keyName(sec.tonic, sec.mode) + ' ' + MODES[sec.mode].n;
@@ -1235,6 +1256,7 @@ function generateRaw(o = {}) {
   const p = buildProg(ctx, st, n, rng, { borrowAdd: md.borrow, secAdd: md.sec, complexity: r.complexity, mood: r.mood, meter: r.meter, recent: o._recent ? o._recent.get(st.id) || null : null, phrase: Math.max(2, Math.round(4 * r.hr)) });
   applyComplexity(p.chords, ctx, st, r.complexity, rng, md.sus);
   const song = { kind: 'random', seed, phrases: p.phrases, style: st, meter: r.meter, bpm: r.bpm, hr: r.hr, settings: settingsOut(r), sections: [{ name: '和弦进行', tonic: ctx.tonic, mode: ctx.mode, chords: p.chords }] };
+  song.arr = pickArr(st, mkRng(seed ^ 0x51ed27)); song.settings.pattern = PATTERNS[song.arr.pat]; song.settings.voicing = VOICING_CN[song.arr.voicing];
   finalize(song, rng);
   const ex = [];
   ex.push(`调性：${keyName(ctx.tonic, ctx.mode)} ${MODES[ctx.mode].n}；风格：${st.genre} › ${st.name}；情绪：${r.mood}（${md.d}）。`);
@@ -1242,7 +1264,7 @@ function generateRaw(o = {}) {
   ex.push(`乐句骨架（由风格语料 + 可变阶马尔可夫 + 功能代理替换生成候选，按风格/情绪/新颖度打分采样）：${p.tplUsed}${p.form ? `；曲式 ${p.form}（' 表示变奏乐句：保留轮廓、改写一个和弦或句尾）` : ''}。借用/副属等色彩和弦按复杂度限量使用。`);
   if (p.cad) ex.push('结尾：' + p.cad.n + '。');
   ex.push(...describeChords(song.flat, ctx));
-  ex.push(`复杂度：${COMPLEX[r.complexity]}；和声节奏：每小节 ${r.hr} 个和弦；拍号 ${r.meter}，${r.bpm} BPM（${r.feel}）；伴奏型：${PATTERNS[st.pat]}。`);
+  ex.push(`复杂度：${COMPLEX[r.complexity]}；和声节奏：每小节 ${r.hr} 个和弦；拍号 ${r.meter}，${r.bpm} BPM（${r.feel}）；伴奏型：${PATTERNS[song.arr.pat]}；排列：${VOICING_CN[song.arr.voicing]}；旋律轮廓：${CONTOURS[song.arr.contour]}。`);
   song.explanation = ex;
   return song;
 }
@@ -1351,13 +1373,27 @@ function expandRaw(o = {}) {
   const loop = (n) => { const a = []; for (let i = 0; i < n; i++) a.push(cp(seeds[i % seeds.length])); return a; };
   const minorish = MODES[mode].ref === 'm' && !['minor', 'harmonic', 'melodic'].includes(mode);
   const cadEnd = (arr, type) => { const cd = cadence(ctx, st, rng, type); const k = Math.min(cd.ch.length, arr.length); for (let i = 0; i < k; i++) arr[arr.length - k + i] = cp(cd.ch[cd.ch.length - k + i]); return cd; };
-  const gen = (n, oo) => { const p = buildProg(ctx, st, n, rng, Object.assign({ tplOK: false, borrowAdd: md.borrow, secAdd: md.sec, complexity: r.complexity, mood: r.mood, meter: r.meter, phrase: Math.max(2, Math.round(4 * hr)) }, oo)); applyComplexity(p.chords, ctx, st, r.complexity, rng, md.sus); return p; };
+  const usedSk = [];
+  const gen = (n, oo) => { const p = buildProg(ctx, st, n, rng, Object.assign({ tplOK: false, recent: usedSk, borrowAdd: md.borrow, secAdd: md.sec, complexity: r.complexity, mood: r.mood, meter: r.meter, phrase: Math.max(2, Math.round(4 * hr)) }, oo)); applyComplexity(p.chords, ctx, st, r.complexity, rng, md.sus); usedSk.push(...p.phrases); return p; };
   const fill = (arr) => applyComplexity(arr, ctx, st, r.complexity, rng, md.sus);
   const subst = { 0: 5, 5: 0, 3: 1, 1: 3, 2: 0 };
   const sections = [];
   let chorusBase = null, chorusNote = '';
   const lastChorus = plan.lastIndexOf('Chorus'), nChorus = plan.filter((x) => x === 'Chorus').length;
-  let shifted = false;
+  let shifted = false, verseN = 0;
+  // 段落变奏：保留前半句种子动机，后半句做功能代理替换或重新配和声（与已用乐句骨架去重）
+  const vary = (arr) => {
+    const h = Math.max(1, Math.floor(arr.length / 2));
+    if (rng() < 0.5) {
+      let ch = 0;
+      for (let k = h; k < arr.length; k++) { const c = arr[k], t = subst[c.step]; if (c.diat && !c.seed && t !== undefined && rng() < 0.6 && arr[k - 1].step !== t && (!arr[k + 1] || arr[k + 1].step !== t)) { arr[k] = dia(ctx, t); ch++; } }
+      if (!ch) { const k = arr.length - 1, c = arr[k], t = subst[c.step]; if (t !== undefined && arr[k - 1].step !== t) arr[k] = dia(ctx, t); }
+      fill(arr); return '后半句做功能代理替换（I↔vi、IV↔ii）';
+    }
+    const p = gen(arr.length - h, { end: 'none' });
+    for (let k = h; k < arr.length; k++) arr[k] = p.chords[k - h];
+    return '后半句用风格语料重新配和声';
+  };
   plan.forEach((name, pi) => {
     const sec = { name: SECTION_CN[name], key: name, tonic: shifted ? mod(tonicPc + 2, 12) : tonicPc, mode, chords: [] };
     const n = name === 'Intro' || name === 'Outro' || name === 'Interlude' ? slots(Math.min(4, B)) : name === 'Pre-chorus' || name === 'Bridge' ? slots(Math.max(2, Math.round(B / 2))) : slots(B);
@@ -1365,8 +1401,9 @@ function expandRaw(o = {}) {
       sec.chords = loop(n);
       if (rng() < 0.5) { sec.chords[n - 1] = cp(cadV(ctx)); fill([sec.chords[n - 1]]); sec.note = '呈示种子和弦动机，末尾用属和弦（半终止）引入下一段。'; } else sec.note = '直接呈示种子和弦动机。';
     } else if (name === 'Verse') {
-      sec.chords = loop(n);
-      if (n >= 4 && rng() < 0.5) { sec.chords[n - 1] = cp(cadV(ctx)); fill([sec.chords[n - 1]]); sec.note = '主歌循环种子和弦，句尾半终止（V）。'; } else sec.note = '主歌原样循环种子和弦，确立动机。';
+      sec.chords = loop(n); verseN++;
+      const vn = n >= 4 && (verseN > 1 || (n >= 8 && rng() < 0.35)) ? vary(sec.chords) : '';
+      if (n >= 4 && rng() < 0.5) { sec.chords[n - 1] = cp(cadV(ctx)); fill([sec.chords[n - 1]]); sec.note = vn ? `主歌变奏：前半句保留种子动机，${vn}，句尾半终止（V）。` : '主歌循环种子和弦，句尾半终止（V）。'; } else sec.note = vn ? `主歌变奏：前半句保留种子动机，${vn}。` : '主歌原样循环种子和弦，确立动机。';
     } else if (name === 'Pre-chorus') {
       sec.chords = gen(n, { startFunc: 'S', end: 'half' }).chords; sec.note = '导歌从下属功能开始累积张力，停在属和弦（半终止）推向副歌。';
     } else if (name === 'Chorus') {
@@ -1414,6 +1451,7 @@ function expandRaw(o = {}) {
     applyComplexity(sec.chords, sctx, st, r.complexity, rng, md.sus);
   });
   const song = { kind: 'expand', seed, style: st, meter: r.meter, bpm: r.bpm, hr, settings: settingsOut(Object.assign(r, { tonic: tonicPc, mode })), sections, inference: inf.slice(0, 6), autoKey: auto, seedsParsed: parsed };
+  song.arr = pickArr(st, mkRng(seed ^ 0x51ed27)); song.settings.pattern = PATTERNS[song.arr.pat]; song.settings.voicing = VOICING_CN[song.arr.voicing];
   finalize(song, rng);
   const ex = [];
   ex.push(`输入种子：${parsed.chords.map((c) => c.text).join(' ')}${parsed.bad.length ? '（无法识别，已忽略：' + parsed.bad.join(' ') + '）' : ''}。`);
@@ -1475,7 +1513,9 @@ function validate(song) {
   for (let i = 0; i < flat.length; i++) {
     const c = flat[i];
     if (Math.min(...c.upper) < UP_LO || Math.max(...c.upper) > UP_HI + 12) issues.push(`音域越界 ${c.name}`);
-    if (Math.max(...c.upper) - Math.min(...c.upper) > 12) issues.push(`上方声部间距超过八度 ${c.name}`);
+    const up = c.upper.slice().sort((a, b) => a - b);
+    if (up[up.length - 1] - up[0] > 19) issues.push(`上方声部总跨度超过 19 半音 ${c.name}`);
+    if (up.some((x, k) => k && x - up[k - 1] > 12)) issues.push(`相邻上方声部间距超过八度 ${c.name}`);
     if (c.bassNote < BASS_LO || c.bassNote >= BASS_LO + 12 || Math.min(...c.upper) - c.bassNote < 5 || Math.min(...c.upper) - c.bassNote > 24) issues.push(`低音位置/间距不当 ${c.name}`);
     if (i && flat[i - 1].section === c.section) for (const x of vlIssues(flat[i - 1], c, flat[i - 1].upper, flat[i - 1].bassNote, c.upper, c.bassNote)) issues.push(`${flat[i - 1].name}→${c.name} ${x}`);
   }
@@ -1488,7 +1528,8 @@ function validated(raw, o) {
   for (let k = 0; k < 40; k++) {
     song = raw(Object.assign({}, o, { seed: (base + k * 7919) >>> 0 }));
     issues = validate(song);
-    if (issues.length) { voiceAll(song.flat, song.style, mkRng(song.seed ^ 0x9e3779b9), true); issues = validate(song); }
+    if (issues.length) { voiceAll(song.flat, song.style, mkRng(song.seed ^ 0x9e3779b9), true, song.arr && song.arr.voicing); issues = validate(song); }
+    if (issues.length && song.arr && song.arr.voicing !== 'close') { voiceAll(song.flat, song.style, mkRng(song.seed ^ 0x9e3779b9), true, 'close'); issues = validate(song); if (!issues.length) song.arr.voicing = 'close'; }
     if (!issues.length) { song.validation = { ok: true, tries: k + 1 }; return song; }
   }
   song.validation = { ok: false, issues };
@@ -1538,7 +1579,8 @@ function chordEvents(c, start, dur, meter, pat, out) {
       for (let b = start; b < end; b += 4) { for (const x of h) add(b + x, 0.45, U, 0.5, 'chord'); add(b, 1.4, [B], 0.65, 'bass'); add(b + 1.5, 0.5, [B + 7], 0.5, 'bass'); add(b + 2, 1.4, [B], 0.6, 'bass'); add(b + 3.5, 0.5, [B + 7], 0.5, 'bass'); }
       break;
     }
-    case 'lofi': for (let b = start; b < end; b += 4) { add(b + 0.04, 2.6, U, 0.42, 'chord'); add(b + 2 + 2 / 3, 1.2, U, 0.32, 'chord'); add(b, 1.4, [B], 0.62, 'bass'); add(b + 1 + 2 / 3, 0.6, [B], 0.45, 'bass'); add(b + 2.5 + 1 / 6, 1.2, [B], 0.5, 'bass'); } break;
+    case 'lofi': for (let b = start; b < end; b += 4) { add(b + 0.04, 2.6, U, 0.42, 'chord'); add(b + 2 + 2 / 3, 1.2, U, 0.32, 'chord'); add(b, 1.4, [B], 0.62, 'bass'); add(b + 1 + 2 / 3, 0.6, [B], 0.45, 'bass'); add(b + 2.5 + 1 / 6, 1.2, [B], 0.5, 'bass'); }
+      break;
     case 'boom': for (let b = start; b < end; b += 4) { add(b, 2.4, U, 0.5, 'chord'); add(b + 2.5, 1, U, 0.4, 'chord'); add(b, 1.5, [B], 0.7, 'bass'); add(b + 1.75, 0.5, [B], 0.55, 'bass'); add(b + 2.5, 1, [B], 0.6, 'bass'); } break;
     case 'waltz': add(start, 1, [B], 0.7, 'bass'); for (let t = start + 1; t < end; t += 1) add(t, 0.9, U, mod(t, 3) === 0 ? 0.5 : 0.42, 'chord'); break;
     default: {
@@ -1548,6 +1590,13 @@ function chordEvents(c, start, dur, meter, pat, out) {
       add(start, dur, [B], 0.65, 'bass');
     }
   }
+}
+// 每首歌的编配（伴奏型 / 排列 / 旋律轮廓）：在风格允许的范围内按权重抽取，避免“每次都一样”
+const PAT_ALT = { pulse: ['strum', 'arp', 'block'], drive: ['pulse', 'block'], pad: ['arp', 'pulse'], arp: ['pad', 'alberti', 'block'], strum: ['arp', 'pulse', 'block'], funk: ['pulse', 'skank'], swing: ['block', 'arp'], lofi: ['arp', 'pad', 'boom'], boom: ['pad', 'lofi'], latin: ['bossa', 'pulse'], bossa: ['latin', 'arp'], block: ['arp', 'strum', 'pad'], alberti: ['arp', 'block'], skank: ['pulse', 'funk'], shuffle: [], waltz: ['arp'] };
+const CONTOURS = { arch: '拱形（先升后降）', valley: '倒拱形（先降后升）', asc: '上行', desc: '下行', wave: '波浪', free: '自由' };
+function pickArr(style, rng) {
+  const alt = PAT_ALT[style.pat] || [], pw = { [style.pat]: 3 }; for (const a of alt) pw[a] = (pw[a] || 0) + 1;
+  return { pat: wpick(rng, pw), voicing: wpick(rng, voicingW(style)), contour: wpick(rng, { arch: 3, valley: 1.5, asc: 1, desc: 1.5, wave: 2, free: 1 }) };
 }
 const DRUM = { kick: 36, snare: 38, clap: 39, rim: 37, hat: 42, ohat: 46, ride: 51 };
 function grooveOf(pat) {
@@ -1583,6 +1632,8 @@ function melodyFor(song, seed) {
   const rng = mkRng((seed || song.seed || 1) ^ 0x5bd1e995), M = METERS[song.meter], beat = M.d === 4 ? 1 : 1.5;
   const LO = 64, HI = 79, out = [];
   let prev = 71, dir = 1, motif = null;
+  const contour = (song.arr && song.arr.contour) || 'free', phLen = 4 * M.n;
+  const cdir = (t) => { const ph = mod(t, phLen) / phLen; return contour === 'arch' ? (ph < 0.55 ? 1 : -1) : contour === 'valley' ? (ph < 0.55 ? -1 : 1) : contour === 'asc' ? 1 : contour === 'desc' ? -1 : contour === 'wave' ? (Math.sin(ph * 4 * Math.PI) >= 0 ? 1 : -1) : 0; };
   const inRange = (pcs) => { const a = []; for (let n = LO; n <= HI; n++) if (pcs.includes(mod(n, 12))) a.push(n); return a; };
   return {
     span(c, sec, t0, dur) {
@@ -1590,7 +1641,8 @@ function melodyFor(song, seed) {
       const ct = inRange(Q[c.q].t.slice(0, 3).map((x) => mod(c.pc + x[0], 12)).concat(c.q.includes('7') ? [mod(c.pc + Q[c.q].t[3][0], 12)] : []));
       // 和弦音：选离上一个音最近的（≤ 4 半音优先），偶尔反向保持轮廓
       const near = (list, around) => list.reduce((b, n) => (Math.abs(n - around) < Math.abs(b - around) ? n : b), list[0]);
-      if (prev >= HI - 2) dir = -1; else if (prev <= LO + 2) dir = 1; else if (rng() < 0.25) dir = -dir;
+      const cd = cdir(t0);
+      if (prev >= HI - 2) dir = -1; else if (prev <= LO + 2) dir = 1; else if (cd) dir = rng() < 0.85 ? cd : -cd; else if (rng() < 0.25) dir = -dir;
       let target = near(ct, prev + dir * 2);
       const beats = Math.max(1, Math.round(dur / beat));
       const rhythm = motif && motif.length === beats && rng() < 0.7 ? motif : Array.from({ length: beats }, (_, k) => (k === 0 ? 1 : rng() < 0.75 ? 1 : 0));
@@ -1618,7 +1670,7 @@ function melodyFor(song, seed) {
 function buildEvents(song, opts = {}) {
   const M = METERS[song.meter], ev = [], timeline = [];
   let bar0 = 0;
-  let pat = opts.pattern && opts.pattern !== 'style' ? opts.pattern : song.style.pat;
+  let pat = opts.pattern && opts.pattern !== 'style' ? opts.pattern : (song.arr && song.arr.pat) || song.style.pat;
   if (pat === 'block' && M.n === 3 && M.d === 4) pat = 'waltz';
   const mel = opts.melody ? melodyFor(song, opts.seed) : null;
   const groove = grooveOf(pat);
@@ -1806,13 +1858,13 @@ function toText(song) {
 const KEEP = ['rel', 'step', 'q', 'func', 'tag', 'sec', 'sub', 'dom', 'diat', 'seed', 'seedBass', 'fixedQ', 'xb', 'lock', 'done', 'lb'];
 function cleanChord(c) { const o = {}; for (const k of KEEP) if (c[k] !== undefined && c[k] !== false && c[k] !== '') o[k] = c[k]; o.q = c.q; if (o.tag === undefined) o.tag = ''; return o; }
 function serialize(song) {
-  return { v: 2, k: song.kind, s: song.seed, st: song.style.id, meter: song.meter, bpm: song.bpm, hr: song.hr, set: song.settings, ex: song.explanation, inf: song.inference, sp: song.seedsParsed,
+  return { v: 2, k: song.kind, s: song.seed, st: song.style.id, meter: song.meter, bpm: song.bpm, hr: song.hr, arr: song.arr, set: song.settings, ex: song.explanation, inf: song.inference, sp: song.seedsParsed,
     secs: song.sections.map((x) => ({ n: x.name, key: x.key, t: x.tonic, m: x.mode, mod: !!x.modulated, note: x.note || '', c: x.chords.map(cleanChord) })) };
 }
 function deserialize(d) {
   if (!d || !d.secs || !STYLES[d.st] || !METERS[d.meter]) throw new Error('无效的进行数据');
   const st = d.k === 'expand' ? Object.assign({}, STYLES[d.st], { fixed: false }) : STYLES[d.st];
-  const song = { kind: d.k, seed: d.s, style: st, meter: d.meter, bpm: clamp(+d.bpm, 40, 220), hr: d.hr, settings: Object.assign({}, d.set, { bpm: clamp(+d.bpm, 40, 220) }), explanation: d.ex || [], inference: d.inf, seedsParsed: d.sp,
+  const song = { kind: d.k, seed: d.s, style: st, meter: d.meter, bpm: clamp(+d.bpm, 40, 220), hr: d.hr, arr: d.arr && typeof d.arr === 'object' ? { pat: PATTERNS[d.arr.pat] ? d.arr.pat : undefined, voicing: VOICING_CN[d.arr.voicing] ? d.arr.voicing : 'close', contour: CONTOURS[d.arr.contour] ? d.arr.contour : 'free' } : undefined, settings: Object.assign({}, d.set, { bpm: clamp(+d.bpm, 40, 220) }), explanation: d.ex || [], inference: d.inf, seedsParsed: d.sp,
     sections: d.secs.map((x) => {
       if (!MODES[x.m]) throw new Error('无效调式');
       return { name: x.n, key: x.key, tonic: mod(+x.t, 12), mode: x.m, modulated: x.mod, note: x.note, chords: x.c.map((c) => { if (!Q[c.q] || !(c.step >= 0 && c.step < 7)) throw new Error('无效和弦'); return Object.assign({ tag: '' }, c); }) };
@@ -1892,8 +1944,8 @@ function regenerate(song, o = {}) {
   refresh(song);
   if (!o._noRetry) {
     let issues = validate(song);
-    if (issues.length) { voiceAll(song.flat, song.style, mkRng(seed ^ 0x9e3779b9), true); issues = validate(song); }
-    for (let k = 1; issues.length && k < 40; k++) { song.sections = before.map((sec) => sec.map(cleanChord)).map((chs, i) => Object.assign(song.sections[i], { chords: chs })); regenerate(song, Object.assign({}, o, { seed: (seed + k * 7919) >>> 0, _noRetry: true })); issues = validate(song); if (issues.length) { voiceAll(song.flat, song.style, mkRng(song.seed ^ 0x9e3779b9), true); issues = validate(song); } }
+    if (issues.length) { voiceAll(song.flat, song.style, mkRng(seed ^ 0x9e3779b9), true, song.arr && song.arr.voicing); issues = validate(song); }
+    for (let k = 1; issues.length && k < 40; k++) { song.sections = before.map((sec) => sec.map(cleanChord)).map((chs, i) => Object.assign(song.sections[i], { chords: chs })); regenerate(song, Object.assign({}, o, { seed: (seed + k * 7919) >>> 0, _noRetry: true })); issues = validate(song); if (issues.length) { voiceAll(song.flat, song.style, mkRng(song.seed ^ 0x9e3779b9), true, song.arr && song.arr.voicing); issues = validate(song); } }
     song.validation = { ok: !issues.length, issues };
   }
   return song;
